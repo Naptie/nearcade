@@ -118,10 +118,6 @@
     return (ranking as MetroStationRanking).rankings.find((r) => r.radius === radius);
   };
 
-  // Global tied rank for the current (sortBy, radius); the API resolves it
-  // per item, network filters keep the global value (with gaps).
-  const getRank = (ranking: RankingsTableItem) => (ranking as MetroRankingItem).rank;
-
   const locale = getLocale();
   // openmetro's names contract is {zh, en}; fall back en → primary name.
   const stationName = (station: MetroStationRanking) =>
@@ -203,7 +199,6 @@
       {isLoadingMore}
       {hasMore}
       getMetrics={getMetricsForRadius}
-      {getRank}
       nameHeader={m.metro_station()}
     >
       {#snippet nameColumn(ranking: RankingsTableItem)}

@@ -246,7 +246,13 @@ const shopStatsSchema = z
           '当前在勤人数缓存。Redis 是实时数据源；此副本由签到接口在每次签到变更后刷新，供排序使用，其余统计字段重算时必须原样保留。',
           'Cached live attendance count. Redis is the source of truth; this copy is refreshed by the check-in endpoints after every attendance change and exists for sorting. Every wholesale stats recompute must carry it over.'
         )
+      ),
+    currentAttendanceExpiresAt: dateTimeSchema(
+      bilingual(
+        '在勤人数缓存的过期时间。超过该时刻后 Redis 中不可能再有该店本时段的 key，后台对账器据此把缓存归零；与 currentAttendance 同时写入或清除。',
+        'Expiry of the attendance cache. Past this moment no Redis key of the current session can survive, and the background reconciler zeroes the cache; written and cleared together with currentAttendance.'
       )
+    ).optional()
   })
   .describe(bilingual('统计缓存。', 'Aggregated stats cache.'));
 

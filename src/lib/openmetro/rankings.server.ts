@@ -9,6 +9,7 @@ import type { MongoClient } from 'mongodb';
 import { GAME_TITLES, METRO_RANKING_RADIUS_OPTIONS, metroRankingSortKey } from '$lib/constants';
 import type { MetroStationRanking, ShopMetro } from '$lib/schemas/metro';
 import type { RankingMetrics } from '$lib/schemas/rankings';
+import { competitionRanks } from '$lib/utils/rankings';
 import { calculateDistanceKm, snapShopLocation } from './graph.server';
 import type { MetroLineDoc, MetroNetworkDoc, MetroStationDoc } from './schemas';
 
@@ -42,26 +43,6 @@ export interface RebuildMetroRankingsResult {
   unassignedCount: number;
   networkCount: number;
 }
-
-/**
- * Standard competition ranking over a best-first sorted list: entries whose
- * metric equals the previous entry's share its rank ("1224"), null metrics
- * included. Stored under `ranks` for display, while `rankOrder` keeps the
- * unique ordinal that cursor pagination (`$gt after rankOrder`) relies on.
- */
-export const competitionRanks = (metrics: Array<number | null>): number[] => {
-  const ranks: number[] = [];
-  let previousMetric: number | null | undefined;
-  let previousRank = 0;
-  metrics.forEach((metric, index) => {
-    const rank =
-      previousMetric !== undefined && metric === previousMetric ? previousRank : index + 1;
-    ranks.push(rank);
-    previousMetric = metric;
-    previousRank = rank;
-  });
-  return ranks;
-};
 
 const getShopsWithinRadius = (
   shops: RankableShop[],

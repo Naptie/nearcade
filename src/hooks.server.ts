@@ -420,6 +420,9 @@ export const init: ServerInit = async () => {
     if (!dev) {
       const { startUgcBackgroundJobs } = await import('$lib/ugc/jobs.server');
       startUgcBackgroundJobs();
+      const { startAttendanceStatsReconciler } =
+        await import('$lib/endpoints/attendance-stats.server');
+      startAttendanceStatsReconciler();
       const { triggerDueDataUpdatesOnBoot } = await import('$lib/admin/data-updates.server');
       triggerDueDataUpdatesOnBoot({
         source: 'startup',

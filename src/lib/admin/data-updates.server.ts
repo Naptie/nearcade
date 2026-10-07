@@ -16,11 +16,12 @@ import type {
 } from '$lib/types';
 import { calculateAreaDensity, calculateDistance } from '$lib/utils';
 import { getOrigin } from '$lib/utils/index.server';
+import { competitionRanks } from '$lib/utils/rankings';
 import { getOpenMetroApiBase } from '$lib/openmetro/client.server';
 import { runOpenMetroSync } from '$lib/openmetro/sync.server';
 import { computeHomeStats, writeHomeStatsCache } from '$lib/utils/home-stats.server';
 import { captureAdminStatsSnapshot, DIFF_METRICS } from '$lib/admin/stats-snapshots.server';
-import { competitionRanks, rebuildMetroRankings } from '$lib/openmetro/rankings.server';
+import { rebuildMetroRankings } from '$lib/openmetro/rankings.server';
 
 export const DATA_UPDATE_TASK_IDS = [
   'university_stats',

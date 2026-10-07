@@ -2,6 +2,7 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import { m } from '$lib/paraglide/messages';
   import { formatDistance, getGameName } from '$lib/utils';
+  import { competitionRanks } from '$lib/utils/rankings';
   import InlineAlert from '$lib/components/InlineAlert.svelte';
   import { RANKING_RADIUS_OPTIONS, RANKING_FIXED_GAMES } from '$lib/constants';
   import type { RankingMetrics, SortCriteria, RankingsTableItem } from '$lib/types';
@@ -18,8 +19,6 @@
     isLoadingMore: boolean;
     hasMore: boolean;
     getMetrics: (ranking: RankingsTableItem, radius: number) => RankingMetrics | undefined;
-    /** Tied display rank for the current sort; rows fall back to their position. */
-    getRank?: (ranking: RankingsTableItem, index: number) => number | null | undefined;
     nameColumn: Snippet<[RankingsTableItem, number]>;
     nameHoverDetails: Snippet<[RankingsTableItem, number]>;
     actionColumn: Snippet<[RankingsTableItem]>;
@@ -36,13 +35,33 @@
     isLoadingMore,
     hasMore,
     getMetrics,
-    getRank,
     nameColumn,
     nameHoverDetails,
     actionColumn,
     nameHeader,
     allLoadedMessage = m.all_results_loaded()
   }: Props = $props();
+
+  const metricValueOf = (metrics: RankingMetrics | undefined): number | null => {
+    if (!metrics) return null;
+    switch (sortBy) {
+      case 'shops':
+        return metrics.shopCount;
+      case 'machines':
+        return metrics.totalMachines;
+      case 'density':
+        return metrics.areaDensity;
+      default:
+        return metrics.gameSpecificMachines.find((entry) => entry.name === sortBy)?.quantity ?? 0;
+    }
+  };
+
+  // Sub-board display rank: rows arrive in the board's metric order (whatever
+  // scope the server-side filter defines), so the tied rank is computable from
+  // the accumulated prefix — strictly better rows always precede tied ones.
+  const displayRanks = $derived.by(() =>
+    competitionRanks(rankings.map((ranking) => metricValueOf(getMetrics(ranking, radiusFilter))))
+  );
 
   let hoveredRowId = $state<number | null>(null);
   let showHoverDetails = $state<number | null>(null);
@@ -168,12 +187,14 @@
 </script>
 
 {#if rankings && rankings.length > 0}
-  <div class="overflow-x-auto overflow-y-hidden">
-    <table class="bg-base-200/30 dark:bg-base-200/60 table w-full overflow-hidden">
+  <div class="overflow-x-auto overflow-y-hidden rounded-2xl">
+    <!-- overflow-hidden on the table would become the scroll container the
+         sticky cells resolve against; the wrapper already clips corners. -->
+    <table class="bg-base-200/30 dark:bg-base-200/60 table w-full">
       <thead>
         <tr>
-          <th class="text-center">{m.ranking()}</th>
-          <th class="text-left">{nameHeader}</th>
+          <th class="sticky-col left-0 min-w-20 text-center whitespace-normal">{m.ranking()}</th>
+          <th class="sticky-col border-base-content/10 left-20 border-r text-left">{nameHeader}</th>
           {#each visibleRadiusOptions as option (option)}
             <th
               class="cursor-pointer text-center transition {radiusFilter == option
@@ -198,14 +219,19 @@
             onmouseleave={handleMouseLeave}
           >
             <td
-              class="text-center font-bold transition-opacity duration-200"
+              class="sticky-col left-0 min-w-20 text-center font-bold transition-opacity duration-200"
+              class:sticky-hover={hoveredRowId === index}
               class:opacity-50={isLoading}
             >
               <div class="flex items-center justify-center">
-                <span class="text-lg">{getRank?.(ranking, index) ?? index + 1}</span>
+                <span class="text-lg">{displayRanks[index] ?? index + 1}</span>
               </div>
             </td>
-            <td class="transition-opacity duration-200" class:opacity-50={isLoading}>
+            <td
+              class="sticky-col border-base-content/10 left-20 border-r transition-opacity duration-200"
+              class:sticky-hover={hoveredRowId === index}
+              class:opacity-50={isLoading}
+            >
               <div class="flex flex-col gap-1">
                 {@render nameColumn(ranking, index)}
                 <div
@@ -367,5 +393,56 @@
     position: sticky;
     top: 0;
     z-index: 10;
+  }
+
+  /* Pinned rank/name cells must be opaque or scrolled columns would show
+     through; stacking the table's translucent tint over base-100 (the page
+     background) reproduces the table background exactly. Header cells pin
+     above the sticky header, body cells above unpinned positioned content. */
+  .table .sticky-col {
+    position: sticky;
+    z-index: 20;
+    background-color: var(--color-base-100);
+    background-image: linear-gradient(
+      color-mix(in oklab, var(--color-base-200) 30%, transparent),
+      color-mix(in oklab, var(--color-base-200) 30%, transparent)
+    );
+  }
+
+  .table td.sticky-col {
+    z-index: 1;
+  }
+
+  :global([data-theme='forest']) .table .sticky-col {
+    background-image: linear-gradient(
+      color-mix(in oklab, var(--color-base-200) 60%, transparent),
+      color-mix(in oklab, var(--color-base-200) 60%, transparent)
+    );
+  }
+
+  /* Hovered rows tint their cells via bg-base-300/30; pinned cells are opaque,
+     so the same tint is layered on top of their own background. */
+  .table td.sticky-hover {
+    background-image:
+      linear-gradient(
+        color-mix(in oklab, var(--color-base-300) 30%, transparent),
+        color-mix(in oklab, var(--color-base-300) 30%, transparent)
+      ),
+      linear-gradient(
+        color-mix(in oklab, var(--color-base-200) 30%, transparent),
+        color-mix(in oklab, var(--color-base-200) 30%, transparent)
+      );
+  }
+
+  :global([data-theme='forest']) .table td.sticky-hover {
+    background-image:
+      linear-gradient(
+        color-mix(in oklab, var(--color-base-300) 30%, transparent),
+        color-mix(in oklab, var(--color-base-300) 30%, transparent)
+      ),
+      linear-gradient(
+        color-mix(in oklab, var(--color-base-200) 60%, transparent),
+        color-mix(in oklab, var(--color-base-200) 60%, transparent)
+      );
   }
 </style>

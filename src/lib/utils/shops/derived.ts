@@ -337,22 +337,29 @@ type ShopDerivedFields = ReturnType<typeof computeShopDerivedFields>;
  * The persistence-ready shape of {@link ShopDerivedFields}.
  *
  * `stats` is replaced wholesale by every Mongo `$set` and every Meilisearch
- * snapshot, but one of its keys is not derivable from the document:
- * `currentAttendance` is the live-attendance cache that only the attendance
- * endpoints maintain (from Redis, the source of truth). It must be carried
- * over from the existing document on every unrelated write, or an edit would
- * silently zero the shop's attendance sort. Absent stays absent — a shop that
- * never had the cache gains it at its first attendance event.
+ * snapshot, but two of its keys are not derivable from the document:
+ * `currentAttendance` is the live-attendance cache and
+ * `currentAttendanceExpiresAt` its expiry marker; only the attendance
+ * endpoints (and the attendance-stats reconciler) maintain them (from Redis,
+ * the source of truth). They must be carried over from the existing document
+ * on every unrelated write, or an edit would silently zero the shop's
+ * attendance sort. Absent stays absent — a shop that never had the cache
+ * gains it at its first attendance event.
  */
 export const withLiveAttendance = (
   derived: ShopDerivedFields,
-  existing?: { stats?: { currentAttendance?: number } } | null
+  existing?: { stats?: { currentAttendance?: number; currentAttendanceExpiresAt?: Date } | null }
 ): Omit<ShopDerivedFields, 'stats'> & {
-  stats: ShopStats & { currentAttendance?: number };
+  stats: ShopStats & { currentAttendance?: number; currentAttendanceExpiresAt?: Date };
 } => ({
   ...derived,
-  stats:
-    existing?.stats?.currentAttendance === undefined
-      ? derived.stats
-      : { ...derived.stats, currentAttendance: existing.stats.currentAttendance }
+  stats: {
+    ...derived.stats,
+    ...(existing?.stats?.currentAttendance === undefined
+      ? {}
+      : { currentAttendance: existing.stats.currentAttendance }),
+    ...(existing?.stats?.currentAttendanceExpiresAt === undefined
+      ? {}
+      : { currentAttendanceExpiresAt: existing.stats.currentAttendanceExpiresAt })
+  }
 });

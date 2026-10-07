@@ -126,68 +126,57 @@ const onQbindKeyWritten = (
   void completeQbindBinding(commandClient, token);
 };
 
-// --- attendance expiration --------------------------------------------------
+// --- attendance expiration ---------------------------------------------------
 
+/**
+ * Archive abandoned check-ins. The app writes an attendance record only on the
+ * explicit leave path, so a check-in key that survives to its TTL (which equals
+ * the planned leave time) means the user never left — record it here as left
+ * at expiry. The key's value is already gone when the expired event fires, so
+ * everything is parsed from the key parts themselves.
+ */
 const handleAttendanceExpiration = async (expiredKey: string) => {
   try {
     console.log('[Attendance] Processing key:', expiredKey);
 
-    // Parse the key to extract shop and user information
-    // Key format: nearcade:attend:${source}-${id}:${userId}:${attendedAt}:${gameId},...
+    // Key format: nearcade:attend:${shopId}:${userId}:${attendedAt}:${gameId},...
+    // attendedAt is encodeURIComponent'd ISO, so splitting on ':' is safe.
     const keyParts = expiredKey.split(':');
     if (keyParts.length !== 6) {
       console.error('[Attendance] Invalid key format:', expiredKey);
       return;
     }
 
-    const shopPart = keyParts[2]; // source-id
+    const shopId = parseInt(keyParts[2], 10);
     const userId = keyParts[3];
     const attendedAt = decodeURIComponent(keyParts[4]);
-    const games = keyParts[5].split(',').map((g) => parseInt(g)); // gameId
+    const gameIds = keyParts[5]
+      .split(',')
+      .map((g) => parseInt(g, 10))
+      .filter((g) => !isNaN(g));
+    const attendedDate = new Date(attendedAt);
 
-    const shopInfo = shopPart.split('-');
-    if (shopInfo.length < 2) {
-      console.error('[Attendance] Invalid shop info in key:', expiredKey);
-      return;
-    }
-
-    const source = shopInfo[0];
-    const id = parseInt(shopInfo.slice(1).join('-')); // Handle sources with dashes
-
-    if (isNaN(id)) {
-      console.error('[Attendance] Invalid shop ID in key:', expiredKey);
+    if (isNaN(shopId) || isNaN(attendedDate.getTime())) {
+      console.error('[Attendance] Invalid shop or attendedAt in key:', expiredKey);
       return;
     }
 
     const db = mongo.db();
-    const shopsCollection = db.collection('shops');
-    const shop = await shopsCollection.findOne({ id, source });
+    const shop = await db.collection('shops').findOne({ id: shopId });
 
-    const attendanceData = {
-      games: games.map((gameId) => {
+    await db.collection('attendances').insertOne({
+      userId,
+      games: gameIds.map((gameId) => {
         const game = shop?.games.find((g: { gameId: number }) => g.gameId === gameId);
         return {
           gameId,
-          name: game.name,
-          version: game.version
+          name: game?.name ?? 'Unknown Game',
+          version: game?.version ?? ''
         };
       }),
-      attendedAt: new Date(attendedAt).toISOString(),
-      plannedLeaveAt: new Date().toISOString() // Now
-    };
-
-    // Add to MongoDB attendances collection
-    const attendancesCollection = db.collection('attendances');
-
-    await attendancesCollection.insertOne({
-      userId,
-      games: attendanceData.games || [],
-      shop: {
-        id,
-        source
-      },
-      attendedAt: new Date(attendanceData.attendedAt),
-      leftAt: new Date(attendanceData.plannedLeaveAt)
+      shopId,
+      attendedAt: attendedDate,
+      leftAt: new Date() // Key expiry ≈ planned leave time
     });
 
     console.log(`[Attendance] Record created for key: ${expiredKey}`);

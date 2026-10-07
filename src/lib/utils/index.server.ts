@@ -97,6 +97,16 @@ export const initDatabase = async (mongo: MongoClient) => {
         partialFilterExpression: { 'transit.metro.stationId': { $exists: true } }
       }
     ),
+    // stats.currentAttendanceExpiresAt — serves the attendance-stats
+    // reconciler's "caches past their expiry marker" query; only shops with a
+    // live attendance cache participate.
+    db.collection('shops').createIndex(
+      { 'stats.currentAttendanceExpiresAt': 1 },
+      {
+        name: 'stats_currentAttendanceExpiresAt_1',
+        partialFilterExpression: { 'stats.currentAttendanceExpiresAt': { $exists: true } }
+      }
+    ),
 
     // machines
     db.collection('machines').createIndex({ id: 1 }, { name: 'id_1', unique: true }),

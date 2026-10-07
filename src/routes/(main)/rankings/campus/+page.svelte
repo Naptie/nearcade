@@ -136,7 +136,6 @@
       {isLoadingMore}
       {hasMore}
       getMetrics={getMetricsForRadius}
-      getRank={(ranking) => (ranking as UniversityRankingData).rank}
       nameHeader={m.university()}
     >
       {#snippet nameColumn(ranking: RankingsTableItem)}

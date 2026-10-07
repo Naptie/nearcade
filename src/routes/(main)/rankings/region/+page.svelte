@@ -15,6 +15,7 @@
     RegionRankingResponse
   } from '$lib/types';
   import { PAGINATION, REGION_LEVELS, GAME_TITLES } from '$lib/constants';
+  import { competitionRanks } from '$lib/utils/rankings';
   import { emptyShopFilterState } from '$lib/schemas/shop-filter';
   import { serializeShopFilterState } from '$lib/utils/shops/filter';
   import { regionNameForLocale } from '$lib/regions/labels';
@@ -174,6 +175,26 @@
   const visibleGameTitles = $derived.by(() => {
     return GAME_TITLES;
   });
+
+  const regionMetricOf = (ranking: RegionRankingData): number | null => {
+    switch (sortBy) {
+      case 'shops':
+        return ranking.shopCount;
+      case 'machines':
+        return ranking.totalMachines;
+      case 'density':
+        return ranking.areaDensity;
+      case 'per_capita':
+        return ranking.machinesPerCapita;
+      default:
+        return ranking.gameSpecificMachines.find((entry) => entry.name === sortBy)?.quantity ?? 0;
+    }
+  };
+
+  // Sub-board display rank within the current level tab: rows arrive in the
+  // tab's metric order, so the tied rank is computable from the accumulated
+  // prefix (strictly better rows always precede tied ones).
+  const displayRanks = $derived(competitionRanks(displayedRankings.map(regionMetricOf)));
 </script>
 
 <div class="mx-auto pt-20 pb-8 sm:container sm:px-4">
@@ -206,11 +227,16 @@
 
     {#if displayedRankings && displayedRankings.length > 0}
       <div class="overflow-x-auto overflow-y-hidden rounded-2xl">
-        <table class="bg-base-200/30 dark:bg-base-200/60 table w-full overflow-hidden">
+        <!-- overflow-hidden on the table would become the scroll container the
+             sticky cells resolve against; the wrapper already clips corners. -->
+        <table class="bg-base-200/30 dark:bg-base-200/60 table w-full">
           <thead>
             <tr>
-              <th class="text-center">{m.ranking()}</th>
-              <th class="min-w-36 text-left">{m.region()}</th>
+              <th class="sticky-col left-0 min-w-20 text-center whitespace-normal">{m.ranking()}</th
+              >
+              <th class="sticky-col border-base-content/10 left-20 min-w-36 border-r text-left"
+                >{m.region()}</th
+              >
               <th
                 class="cursor-pointer text-center transition {sortBy === 'shops'
                   ? 'text-accent'
@@ -262,10 +288,10 @@
                 : ranking.name}
               {@const parentChain = buildParentChain(ranking)}
               <tr class="h-12 transition-opacity duration-200" class:opacity-50={isLoading}>
-                <td class="text-center font-bold">
-                  <span class="text-lg">{ranking.rank ?? index + 1}</span>
+                <td class="sticky-col left-0 min-w-20 text-center font-bold">
+                  <span class="text-lg tabular-nums">{displayRanks[index] ?? index + 1}</span>
                 </td>
-                <td class="min-w-39">
+                <td class="sticky-col border-base-content/10 left-20 min-w-39 border-r">
                   <a
                     href={getGlobeUrl(ranking)}
                     target="_blank"
@@ -355,5 +381,30 @@
     position: sticky;
     top: 0;
     z-index: 10;
+  }
+
+  /* Pinned rank/region cells must be opaque or scrolled columns would show
+     through; stacking the table's translucent tint over base-100 (the page
+     background) reproduces the table background exactly. Header cells pin
+     above the sticky header, body cells above unpinned positioned content. */
+  .table .sticky-col {
+    position: sticky;
+    z-index: 20;
+    background-color: var(--color-base-100);
+    background-image: linear-gradient(
+      color-mix(in oklab, var(--color-base-200) 30%, transparent),
+      color-mix(in oklab, var(--color-base-200) 30%, transparent)
+    );
+  }
+
+  .table td.sticky-col {
+    z-index: 1;
+  }
+
+  :global([data-theme='forest']) .table .sticky-col {
+    background-image: linear-gradient(
+      color-mix(in oklab, var(--color-base-200) 60%, transparent),
+      color-mix(in oklab, var(--color-base-200) 60%, transparent)
+    );
   }
 </style>
