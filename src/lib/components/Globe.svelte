@@ -37,7 +37,6 @@
   import { FpsMonitor, runGlobeBenchmark, type BenchmarkResult } from '$lib/utils/globe/benchmark';
   import { type ThemeMode } from '$lib/utils/theme';
   import {
-    applyBingDarkMode,
     bingTransformRequest,
     fixBingStyleUrls,
     getBingStyleUrl,
@@ -1123,16 +1122,50 @@
     return layerNames;
   };
 
-  const getBingBoundaryAnchor = (instance: maplibregl.Map) =>
+  const getBingTextureOverlayAnchor = (instance: maplibregl.Map) => {
+    const layers = instance.getStyle().layers;
+    const lastFillIndex = layers.reduce(
+      (lastIndex, layer, index) => (layer.type === 'fill' ? index : lastIndex),
+      -1
+    );
+    const overlayLayers = layers.slice(lastFillIndex + 1);
+
+    // Bing's JK raster is a transparent label overlay. It follows the late
+    // fill layers in both bundled styles, so it is a stable place to put the
+    // globe textures above every Bing fill while keeping labels on top.
+    return (
+      overlayLayers.find((layer) => layer.type === 'raster' && layer.source === 'jk')?.id ??
+      overlayLayers.find((layer) => layer.type === 'symbol')?.id
+    );
+  };
+
+  const getBingBoundaryLayers = (instance: maplibregl.Map) =>
     instance
       .getStyle()
-      .layers.find(
+      .layers.filter(
         (layer) =>
           layer.type === 'line' &&
           'source-layer' in layer &&
-          (layer['source-layer'] === 'country_region' ||
-            layer['source-layer'] === 'admin_division1')
-      )?.id;
+          typeof layer['source-layer'] === 'string' &&
+          ['country_region', 'tcountry_region', 'admin_division1'].includes(layer['source-layer'])
+      );
+
+  const syncGlobeTextureLayerOrder = (instance: maplibregl.Map) => {
+    // MapLibre omits custom layers from getStyle().layers, so their positions
+    // cannot be checked there. Reorder them directly after setStyle; then put
+    // administrative boundaries back above the textures and below Bing labels.
+    const beforeId = getBingTextureOverlayAnchor(instance);
+    if (!beforeId) return;
+
+    for (const layerId of ['globe-daymap', 'globe-visuals']) {
+      if (!instance.getLayer(layerId)) continue;
+      instance.moveLayer(layerId, beforeId);
+    }
+
+    for (const layer of getBingBoundaryLayers(instance)) {
+      instance.moveLayer(layer.id, beforeId);
+    }
+  };
 
   const ensureVisualsLayer = (instance: maplibregl.Map, forceRebuild = false) => {
     if (forceRebuild) {
@@ -1149,12 +1182,13 @@
     const enabledLayerNames = getEnabledVisualLayerNames();
     const dayMapEnabled = enabledLayerNames.includes('dayMap');
     const enhancementNames = enabledLayerNames.filter((n) => n !== 'dayMap');
+    let didAddTextureLayer = false;
 
     // Place custom surfaces above Bing's land and ocean fills, but below its
     // administrative boundaries and labels. The Bing style emits water fills
     // after some unrelated vector lines, so a generic first-line anchor would
     // leave the low-zoom ocean covering the day map.
-    const bingBoundaryAnchor = getBingBoundaryAnchor(instance);
+    const textureOverlayAnchor = getBingTextureOverlayAnchor(instance);
 
     if (dayMapEnabled && !instance.getLayer('globe-daymap')) {
       dayMapLayer = new GlobeVisualsLayer(VISUAL_TEXTURE_URLS.low, {
@@ -1169,7 +1203,8 @@
       dayMapLayer.setSun(a, p);
       dayMapLayer.setMeshVisible('dayMap', true);
       dayMapLayer.setTextureDetail(instance.getZoom(), mode === 'fullscreen');
-      instance.addLayer(dayMapLayer, bingBoundaryAnchor);
+      instance.addLayer(dayMapLayer, textureOverlayAnchor);
+      didAddTextureLayer = true;
     } else if (!dayMapEnabled && instance.getLayer('globe-daymap')) {
       instance.removeLayer('globe-daymap');
       dayMapLayer = null;
@@ -1182,6 +1217,7 @@
         instance.removeLayer('globe-visuals');
         visualsLayer = null;
       }
+      if (didAddTextureLayer) syncGlobeTextureLayerOrder(instance);
       return;
     }
 
@@ -1196,14 +1232,14 @@
       });
       applyVisualsDevSettings(visualsLayer);
       syncVisualTextureDetail(instance);
-      instance.addLayer(visualsLayer, bingBoundaryAnchor);
-      return;
-    }
-
-    if (visualsLayer) {
+      instance.addLayer(visualsLayer, textureOverlayAnchor);
+      didAddTextureLayer = true;
+    } else if (visualsLayer) {
       applyVisualsDevSettings(visualsLayer);
       syncVisualTextureDetail(instance);
     }
+
+    if (didAddTextureLayer) syncGlobeTextureLayerOrder(instance);
   };
 
   const applyFeatureVisibility = (instance: maplibregl.Map) => {
@@ -1527,14 +1563,13 @@
 
     isMapStyleLoading = true;
     try {
-      const styleUrl = getBingStyleUrl(locale);
+      const styleUrl = getBingStyleUrl(locale, theme);
       const response = await fetch(styleUrl);
       if (!response.ok) {
         console.warn(`Failed to load Bing style ${styleUrl}: ${response.status}`);
         return;
       }
-      let style = fixBingStyleUrls((await response.json()) as maplibregl.StyleSpecification);
-      if (theme === 'dark') style = applyBingDarkMode(style);
+      const style = fixBingStyleUrls((await response.json()) as maplibregl.StyleSpecification);
       // style.glyphs = `${base}/fonts/{fontstack}/{range}.pbf`;
       const center = instance.getCenter();
       const zoom = instance.getZoom();
@@ -1626,13 +1661,12 @@
       if (destroyed || !mapContainer || featureSettingsKey !== globeFeatureSettingsKey) return;
 
       isMapStyleLoading = true;
-      const styleUrl = getBingStyleUrl(currentLocale);
+      const styleUrl = getBingStyleUrl(currentLocale, currentTheme);
       const response = await fetch(styleUrl);
       if (!response.ok) {
         throw new Error(`Failed to load Bing style ${styleUrl}: ${response.status}`);
       }
-      let style = fixBingStyleUrls((await response.json()) as maplibregl.StyleSpecification);
-      if (currentTheme === 'dark') style = applyBingDarkMode(style);
+      const style = fixBingStyleUrls((await response.json()) as maplibregl.StyleSpecification);
       // style.glyphs = `${base}/fonts/{fontstack}/{range}.pbf`;
       isMapStyleLoading = false;
       lastAppliedStyle = { locale: currentLocale, theme: currentTheme };
@@ -1659,11 +1693,12 @@
       // style object, MapLibre may fire style.load synchronously during the
       // constructor, so the listener must be registered before any other code.
       const syncStyle = () => {
-        visualsLayer = null;
-        dayMapLayer = null;
+        if (!instance.getLayer('globe-visuals')) visualsLayer = null;
+        if (!instance.getLayer('globe-daymap')) dayMapLayer = null;
         syncScene(instance);
 
         ensureMapLayers(instance, { deferVisuals: true });
+        syncGlobeTextureLayerOrder(instance);
         applyModeLayers(instance, mode);
         const markersData = markers;
         const highlightedIds = highlightedMarkerIds;
