@@ -10,19 +10,19 @@
  * (`rawText` — line breaks / whitespace intact, so restoring a removed field
  * can put back the author's exact formatting) once.
  *
- * Rows are only inserted when missing (re-run after dropping `ugc_entries`
- * to rebuild); rows whose live content drifted are refreshed (resetting
- * audit state so the new text is re-judged); identical rows only get their
- * `rawText` backfilled. Registration ONLY: no audits are dispatched, no
- * translations queued, no live content touched.
+ * Missing rows are inserted; rows whose live content drifted are refreshed
+ * (resetting audit state so the new text is re-judged); identical rows only
+ * get their `rawText` backfilled. No audits are dispatched, no translations
+ * queued, and no live content is touched.
+ *
+ * After a complete successful scan, absent non-moderation occurrences and
+ * audit-cache rows without a live occurrence are purged. Moderation-removed
+ * rows are retained for review and restoration.
  *
  * Also reports the removed-but-persisting anomaly: rows marked `removed`
  * whose registered text STILL lives on the entity (enforcement missed them —
  * e.g. text re-submitted before the hash-unchanged re-enforcement fix, or a
  * shop changelog rollback). The run archives their verbatim text.
- *
- * The type resolution below mirrors `resolveUgcOccurrence` in
- * `src/lib/ugc/entries.server.ts` — keep them in sync.
  *
  * Usage:
  *   pnpm register-ugc
@@ -30,6 +30,18 @@
  *   pnpm register-ugc -- --dry-run    # count/report only, no writes
  */
 import { MongoClient, ObjectId, type Db } from 'mongodb';
+import { normalizeUgcText, ugcTextHash } from '../src/lib/ugc/hash';
+import {
+  purgeUgcAuditHashesWithoutLiveOccurrences,
+  purgeUgcOccurrenceRows
+} from '../src/lib/ugc/registry-purge';
+import {
+  MAX_AUDITED_TEXT_LENGTH,
+  MAX_RAW_TEXT_LENGTH,
+  resolveUgcOccurrence,
+  ugcEntryId
+} from '../src/lib/ugc/registry.shared';
+import type { UgcAuditRecord, UgcEntryRecord, UgcKind } from '../src/lib/ugc/types';
 
 if (!('MONGODB_URI' in process.env)) {
   const dotenv = await import('dotenv');
@@ -40,46 +52,10 @@ const MONGODB_URI = process.env.MONGODB_URI ?? 'mongodb://mongo:27017/?dbName=ne
 const DRY_RUN = process.argv.includes('--dry-run');
 const BATCH_SIZE = Number(process.env.BATCH_SIZE || 500);
 
-const MAX_TEXT_LENGTH = 8000;
-/** Mirrors MAX_RAW_TEXT_LENGTH in src/lib/ugc/entries.server.ts — keep in sync. */
-const MAX_RAW_TEXT_LENGTH = 20000;
 const ANOMALY_PRINT_LIMIT = 50;
 
-/** NFC + whitespace-collapsed normalization (identical to src/lib/ugc/hash.ts). */
-const normalizeUgcText = (text: string): string =>
-  text.normalize('NFC').replace(/\s+/g, ' ').trim();
-
-const encoder = new TextEncoder();
-const sha256Hex = async (input: string): Promise<string> => {
-  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(input));
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
-};
-const ugcTextHash = (text: string) => sha256Hex(normalizeUgcText(text));
-
-type Kind =
-  'shop' | 'comment' | 'post' | 'delete_request' | 'attendance_report' | 'organization' | 'user';
-
-type ContentType =
-  | 'shop_name'
-  | 'shop_address'
-  | 'shop_description'
-  | 'game_name'
-  | 'game_version'
-  | 'game_cost'
-  | 'game_description'
-  | 'organization_description'
-  | 'post'
-  | 'comment'
-  | 'delete_request'
-  | 'attendance_report'
-  | 'user_name'
-  | 'user_display_name'
-  | 'bio';
-
 interface Registration {
-  kind: Kind;
+  kind: UgcKind;
   refId: string;
   createdBy: string | null;
   authorName: string | null;
@@ -96,44 +72,6 @@ interface KindSpec {
   /** Optional filter to limit the scan. */
   filter?: Record<string, unknown>;
 }
-
-/** Resolve a write-path (kind, fieldKey) to the precise content type. */
-const resolveType = (kind: Kind, fieldKey: string): { type: ContentType; key?: string } | null => {
-  switch (kind) {
-    case 'shop': {
-      if (
-        fieldKey === 'shop_name' ||
-        fieldKey === 'shop_description' ||
-        fieldKey === 'shop_address'
-      ) {
-        return { type: fieldKey };
-      }
-      const game = /^game_(name|version|cost|description)(?::(.+))?$/.exec(fieldKey);
-      return game?.[2] ? { type: `game_${game[1]}` as ContentType, key: game[2] } : null;
-    }
-    case 'organization':
-      return { type: 'organization_description' };
-    case 'comment':
-      return { type: 'comment' };
-    case 'post':
-      return fieldKey === 'title' || fieldKey === 'content'
-        ? { type: 'post', key: fieldKey }
-        : null;
-    case 'delete_request':
-      return { type: 'delete_request' };
-    case 'attendance_report':
-      return { type: 'attendance_report' };
-    case 'user':
-      if (fieldKey === 'bio') return { type: 'bio' };
-      if (fieldKey === 'name' || fieldKey === 'user_name') return { type: 'user_name' };
-      if (fieldKey === 'displayName' || fieldKey === 'user_display_name') {
-        return { type: 'user_display_name' };
-      }
-      return null;
-    default:
-      return null;
-  }
-};
 
 const text = (value: unknown): string => (typeof value === 'string' ? value : '');
 
@@ -308,15 +246,13 @@ const SPECS: KindSpec[] = [
 const buildOccurrenceDocs = async (registration: Registration) => {
   const docs: Record<string, unknown>[] = [];
   for (const [fieldKey, raw] of Object.entries(registration.fields)) {
-    const spec = resolveType(registration.kind, fieldKey);
+    const spec = resolveUgcOccurrence(registration.kind, fieldKey);
     if (!spec) continue;
     const text = raw ? normalizeUgcText(raw) : '';
-    if (!text || text.length > MAX_TEXT_LENGTH) continue;
+    if (!text || text.length > MAX_AUDITED_TEXT_LENGTH) continue;
     const hash = await ugcTextHash(text);
     const doc: Record<string, unknown> = {
-      _id: spec.key
-        ? `${spec.type}:${registration.refId}:${spec.key}`
-        : `${spec.type}:${registration.refId}`,
+      _id: ugcEntryId(spec.type, registration.refId, spec.key),
       type: spec.type,
       refId: registration.refId,
       hash,
@@ -387,6 +323,11 @@ const backfill = async (db: Db): Promise<void> => {
   let totalUnchanged = 0;
   let totalRawTextWrites = 0;
   const anomalies: Record<string, unknown>[] = [];
+  const liveOccurrenceIds = new Set<string>();
+  const liveHashes = new Set<string>();
+  const replacedHashes = new Set<string>();
+  const entryCollection = db.collection<UgcEntryRecord>('ugc_entries');
+  const auditCollection = db.collection<UgcAuditRecord>('ugc_audits');
 
   for (const spec of SPECS) {
     const collection = db.collection(spec.collection);
@@ -408,15 +349,17 @@ const backfill = async (db: Db): Promise<void> => {
         await Promise.all(registrations.map((registration) => buildOccurrenceDocs(registration)))
       ).flat();
       if (entries.length === 0) return;
+      for (const entry of entries) {
+        liveOccurrenceIds.add(String(entry._id));
+        liveHashes.add(String(entry.hash));
+      }
 
       // Classify against the live registry so counts are truthful in both
       // modes and removed-but-persisting rows can be spotted. Registry `_id`
       // is a string (`${type}:${refId}[:${key}]`), not ObjectId.
       const ids = entries.map((e) => String(e._id));
       const existing = await db
-        .collection<{ _id: string; hash?: string; auditStatus?: string; rawText?: string }>(
-          'ugc_entries'
-        )
+        .collection<UgcEntryRecord>('ugc_entries')
         .find(
           { _id: { $in: ids } },
           { projection: { _id: 1, hash: 1, auditStatus: 1, rawText: 1 } }
@@ -426,8 +369,10 @@ const backfill = async (db: Db): Promise<void> => {
       for (const entry of entries) {
         const prev = byId.get(String(entry._id));
         if (prev === undefined) inserted++;
-        else if (prev.hash !== entry.hash) updated++;
-        else unchanged++;
+        else if (prev.hash !== entry.hash) {
+          updated++;
+          replacedHashes.add(prev.hash);
+        } else unchanged++;
         if (prev && prev.rawText !== entry.rawText) rawTextWrites++;
         // The row is `removed` yet its registered text is still live on the
         // entity — enforcement missed it (text re-submitted before the
@@ -439,14 +384,10 @@ const backfill = async (db: Db): Promise<void> => {
       }
       if (DRY_RUN) return;
 
-      try {
-        await db.collection('ugc_entries').bulkWrite(
-          entries.map((doc) => upsertOccurrence(doc) as never),
-          { ordered: false }
-        );
-      } catch (err) {
-        console.error(`  bulk upsert failed (${spec.collection}):`, err);
-      }
+      await entryCollection.bulkWrite(
+        entries.map((doc) => upsertOccurrence(doc) as never),
+        { ordered: false }
+      );
     };
 
     for await (const doc of cursor) {
@@ -466,12 +407,50 @@ const backfill = async (db: Db): Promise<void> => {
     totalRawTextWrites += rawTextWrites;
   }
 
+  const staleRows: Array<Pick<UgcEntryRecord, '_id' | 'hash'>> = [];
+  const staleCursor = entryCollection.find(
+    { auditStatus: { $ne: 'removed' } },
+    { projection: { _id: 1, hash: 1 }, batchSize: BATCH_SIZE }
+  );
+  for await (const row of staleCursor) {
+    if (!liveOccurrenceIds.has(row._id)) staleRows.push({ _id: row._id, hash: row.hash });
+  }
+
+  let purgedOccurrences = 0;
+  for (let offset = 0; offset < staleRows.length; offset += BATCH_SIZE) {
+    const result = await purgeUgcOccurrenceRows(
+      entryCollection,
+      auditCollection,
+      staleRows.slice(offset, offset + BATCH_SIZE),
+      {
+        dryRun: DRY_RUN,
+        purgeAuditRecords: false,
+        protectModerationRemoved: true
+      }
+    );
+    purgedOccurrences += result.occurrences;
+  }
+
+  const candidateHashes = new Set([...replacedHashes, ...staleRows.map((row) => row.hash)]);
+  const auditCursor = auditCollection.find({}, { projection: { _id: 1 }, batchSize: BATCH_SIZE });
+  for await (const audit of auditCursor) {
+    if (!liveHashes.has(audit._id)) candidateHashes.add(audit._id);
+  }
+  const auditRecords = await purgeUgcAuditHashesWithoutLiveOccurrences(
+    entryCollection,
+    auditCollection,
+    candidateHashes,
+    { dryRun: DRY_RUN, ...(DRY_RUN ? { liveHashes } : {}) }
+  );
+
   console.log(
     `\nDone.${DRY_RUN ? ' (dry run)' : ''} ` +
       `${DRY_RUN ? 'Would insert' : 'Inserted'} ${totalInserted}, ` +
       `${DRY_RUN ? 'would update' : 'updated'} ${totalUpdated}, ` +
       `unchanged ${totalUnchanged}, ` +
-      `${DRY_RUN ? 'would backfill rawText on' : 'backfilled rawText on'} ${totalRawTextWrites}.`
+      `${DRY_RUN ? 'would backfill rawText on' : 'backfilled rawText on'} ${totalRawTextWrites}, ` +
+      `${DRY_RUN ? 'would purge' : 'purged'} ${purgedOccurrences} stale occurrence(s), ` +
+      `${DRY_RUN ? 'would clear' : 'cleared'} ${auditRecords} unreferenced audit record(s).`
   );
 
   if (anomalies.length > 0) {

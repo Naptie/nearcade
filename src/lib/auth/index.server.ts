@@ -20,6 +20,7 @@ import { syncUserAvatarToOSSIfNeeded } from '$lib/images/avatar-sync.server';
 import { getCachedOAuthProfile } from './profile-cache';
 import { registerOAuthProviders, getTrustedOAuthProviders } from './providers';
 import { OAUTH_SCOPES } from './oauth/scopes';
+import { purgeUgcEntities } from '$lib/ugc/entries.server';
 
 const lastActiveUpdates = new Map<string, number>();
 const LAST_ACTIVE_DEBOUNCE_MS = 60_000;
@@ -160,6 +161,8 @@ function createAuth() {
 
           // Delete join requests
           await joinRequestsCollection.deleteMany({ userId: user.id });
+
+          await purgeUgcEntities('user', [user.id]);
         }
       }
     },

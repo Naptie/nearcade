@@ -15,7 +15,7 @@ import {
 import { successResponseSchema } from '$lib/schemas/common';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 import { auditUgc, blockedUgcMessage } from '$lib/ugc/audit.server';
-import { submitUgc } from '$lib/ugc/entries.server';
+import { purgeUgcEntities, submitUgc } from '$lib/ugc/entries.server';
 
 const commentUpdateRequestWithExistingImagesSchema = withExistingImages(commentUpdateRequestSchema);
 
@@ -189,6 +189,8 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
         }
       );
     }
+
+    await purgeUgcEntities('comment', commentIdsToDelete);
 
     return json(successResponseSchema.parse({ success: true }));
   } catch (err) {

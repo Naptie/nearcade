@@ -1,6 +1,15 @@
 import mongo from '$lib/db/index.server';
-import type { Collection } from 'mongodb';
+import type { Collection, Filter } from 'mongodb';
 import { normalizeUgcText, ugcTextHash } from './hash';
+import { purgeUgcOccurrences as purgeOccurrenceRows } from './registry-purge';
+import {
+  MAX_AUDITED_TEXT_LENGTH,
+  MAX_RAW_TEXT_LENGTH,
+  resolveUgcOccurrence,
+  ugcEntryId,
+  type UgcOccurrenceSpec,
+  ugcOccurrenceFilter
+} from './registry.shared';
 import {
   UGC_TYPES_BY_KIND,
   type UgcAuditOutcome,
@@ -11,6 +20,15 @@ import {
   type UgcEntryRecord,
   type UgcKind
 } from './types';
+import { purgeUgcAuditHashesWithoutLiveOccurrences } from './registry-purge';
+
+export {
+  MAX_AUDITED_TEXT_LENGTH,
+  MAX_RAW_TEXT_LENGTH,
+  resolveUgcOccurrence,
+  ugcEntryId,
+  type UgcOccurrenceSpec
+} from './registry.shared';
 
 /**
  * Registry hub for content occurrences (`ugc_entries`). Each document is ONE
@@ -25,14 +43,6 @@ import {
 export const ENTRIES_COLLECTION = 'ugc_entries';
 export const AUDITS_COLLECTION = 'ugc_audits';
 
-/** Text cap mirrors the audit pipeline's MAX_AUDITED_TEXT_LENGTH. */
-export const MAX_AUDITED_TEXT_LENGTH = 8000;
-
-/** Storage cap for the verbatim source text (`rawText`) — whitespace-heavy
- * submissions normalize far below it, so pathological inputs fall back to
- * the normalized text instead of bloating registry rows. */
-export const MAX_RAW_TEXT_LENGTH = 20000;
-
 export const ugcEntriesCollection = (): Collection<UgcEntryRecord> =>
   mongo.db().collection<UgcEntryRecord>(ENTRIES_COLLECTION);
 
@@ -40,61 +50,24 @@ export const ugcEntriesCollection = (): Collection<UgcEntryRecord> =>
 export const ugcAuditsCollection = (): Collection<UgcAuditRecord> =>
   mongo.db().collection<UgcAuditRecord>(AUDITS_COLLECTION);
 
-export const ugcEntryId = (type: UgcContentType, refId: string | number, key?: string): string =>
-  key ? `${type}:${String(refId)}:${key}` : `${type}:${String(refId)}`;
-
-/** Single-field shop keys that map 1:1 onto a content type. */
-const SHOP_TOP_LEVEL_TYPES = new Set<UgcContentType>([
-  'shop_name',
-  'shop_description',
-  'shop_address'
-]);
-
-export interface UgcOccurrenceSpec {
-  type: UgcContentType;
-  /** Disambiguator when an entity can carry several occurrences of a type. */
-  key?: string;
-}
-
-/**
- * Resolve a write-path `(kind, fieldKey)` to the precise content type (and
- * optional key) of the occurrence. This is the single place that knows how
- * each kind's live fields are named; the standalone backfill script mirrors
- * the mapping.
- */
-export const resolveUgcOccurrence = (kind: UgcKind, fieldKey: string): UgcOccurrenceSpec | null => {
-  switch (kind) {
-    case 'shop': {
-      if (SHOP_TOP_LEVEL_TYPES.has(fieldKey as UgcContentType)) {
-        return { type: fieldKey as UgcContentType };
-      }
-      const game = /^game_(name|version|cost|description)(?::(.+))?$/.exec(fieldKey);
-      if (game?.[2]) return { type: `game_${game[1]}` as UgcContentType, key: game[2] };
-      return null;
-    }
-    case 'organization':
-      return { type: 'organization_description' };
-    case 'comment':
-      return { type: 'comment' };
-    case 'post':
-      return fieldKey === 'title' || fieldKey === 'content'
-        ? { type: 'post', key: fieldKey }
-        : null;
-    case 'delete_request':
-      return { type: 'delete_request' };
-    case 'attendance_report':
-      return { type: 'attendance_report' };
-    case 'user':
-      // Live user fields: `name` (handle), `displayName`, `bio`.
-      if (fieldKey === 'bio') return { type: 'bio' };
-      if (fieldKey === 'name' || fieldKey === 'user_name') return { type: 'user_name' };
-      if (fieldKey === 'displayName' || fieldKey === 'user_display_name') {
-        return { type: 'user_display_name' };
-      }
-      return null;
-    default:
-      return null;
+export const purgeUgcOccurrences = async (
+  filter: Filter<UgcEntryRecord>,
+  context: string
+): Promise<void> => {
+  try {
+    await purgeOccurrenceRows(ugcEntriesCollection(), ugcAuditsCollection(), filter);
+  } catch (err) {
+    console.error(`[UGCEntries] Failed to purge ${context}:`, err);
   }
+};
+
+export const purgeUgcEntities = async (
+  kind: UgcKind,
+  refIds: Array<string | number>
+): Promise<void> => {
+  const ids = [...new Set(refIds.map(String))];
+  if (ids.length === 0) return;
+  await purgeUgcOccurrences(ugcOccurrenceFilter(kind, ids), `${kind}/${ids.join(',')}`);
 };
 
 /** Occurrence identity within its entity — `type` alone, or `type:key`. */
@@ -250,11 +223,15 @@ export const registerUgcEntry = async (registration: UgcEntryRegistration): Prom
       (row) => !desiredIdentities.has(occurrenceIdentity(row.type, row.key))
     );
     if (stale.length > 0) {
-      await collection.deleteMany({ _id: { $in: stale.map((row) => row._id) } });
+      await purgeUgcOccurrences(
+        { _id: { $in: stale.map((row) => row._id) } },
+        `${kind}/${entityId} stale fields`
+      );
     }
 
     const now = new Date();
     const newHashes = new Set<string>();
+    const replacedHashes = new Set<string>();
     for (const d of desired) {
       const identity = occurrenceIdentity(d.type, d.key);
       const prev = existingByIdentity.get(identity);
@@ -279,6 +256,7 @@ export const registerUgcEntry = async (registration: UgcEntryRegistration): Prom
         continue; // content unchanged — keep status/timestamp
       }
 
+      if (prev) replacedHashes.add(prev.hash);
       const keyed: { key?: string } = d.key ? { key: d.key } : {};
       await collection.updateOne(
         { _id: ugcEntryId(d.type, entityId, d.key) },
@@ -336,6 +314,14 @@ export const registerUgcEntry = async (registration: UgcEntryRegistration): Prom
           );
         }
       }
+    }
+
+    if (replacedHashes.size > 0) {
+      await purgeUgcAuditHashesWithoutLiveOccurrences(
+        ugcEntriesCollection(),
+        ugcAuditsCollection(),
+        replacedHashes
+      );
     }
   } catch (err) {
     console.error(`[UGCEntries] Registration failed (${kind}/${entityId}):`, err);

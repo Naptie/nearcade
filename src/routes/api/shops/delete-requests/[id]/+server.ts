@@ -24,6 +24,7 @@ import {
   attachDeleteRequestUsers,
   getShopDeleteRequestVoteSummary
 } from '$lib/utils/shops/delete-request.server';
+import { purgeUgcEntities } from '$lib/ugc/entries.server';
 
 type ShopDeleteRequestEntry = z.infer<typeof shopDeleteRequestSchema>;
 type ShopPhotoEntry = z.infer<typeof shopPhotoSchema>;
@@ -102,6 +103,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
   );
 
   await db.collection('shop_delete_requests').deleteOne({ id });
+  await purgeUgcEntities('delete_request', [id]);
 
   // Notify the requester when an admin deletes their request
   if (isAdmin && !isRequester && deleteRequest.requestedBy) {
@@ -216,6 +218,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
         // If the shop is in neither collection, there is nothing to move —
         // the request is still marked approved below.
       }
+      await purgeUgcEntities('shop', [deleteRequest.shopId]);
     }
   }
 

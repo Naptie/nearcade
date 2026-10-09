@@ -38,7 +38,7 @@ import {
 } from '$lib/schemas/posts';
 import { parseJsonOrError, parseParamsOrError } from '$lib/utils/validation.server';
 import { auditUgc, blockedUgcMessage } from '$lib/ugc/audit.server';
-import { submitUgc } from '$lib/ugc/entries.server';
+import { purgeUgcEntities, submitUgc } from '$lib/ugc/entries.server';
 
 const postUpdateRequestWithExistingImagesSchema = withExistingImages(postUpdateRequestSchema);
 
@@ -441,6 +441,11 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
 
     // Delete the post
     await postsCollection.deleteOne({ id: postId });
+
+    await Promise.all([
+      purgeUgcEntities('post', [postId]),
+      purgeUgcEntities('comment', commentIds)
+    ]);
 
     return json(postDeleteResponseSchema.parse({ success: true }));
   } catch (err) {

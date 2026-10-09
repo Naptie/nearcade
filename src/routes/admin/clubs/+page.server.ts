@@ -7,6 +7,7 @@ import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import meili from '$lib/db/meili.server';
 import { parsePageParam } from '$lib/admin/list-state';
+import { purgeUgcEntities } from '$lib/ugc/entries.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = locals.session;
@@ -184,6 +185,8 @@ export const actions: Actions = {
         inviteLinksCollection.deleteMany({ type: 'club', targetId: clubId }),
         meili.index<Club>('clubs').deleteDocument(clubId)
       ]);
+
+      await purgeUgcEntities('organization', [clubId]);
 
       return { success: true };
     } catch (err) {

@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
 import { USER_TYPES } from '$lib/constants';
 import { m } from '$lib/paraglide/messages';
+import { purgeUgcEntities } from '$lib/ugc/entries.server';
 
 export const load: PageServerLoad = async ({ locals }) => {
   const session = locals.session;
@@ -324,6 +325,8 @@ export const actions: Actions = {
         // Delete join requests
         db.collection('join_requests').deleteMany({ userId })
       ]);
+
+      await purgeUgcEntities('user', [userId]);
 
       return { success: true };
     } catch (error) {

@@ -5,6 +5,7 @@ import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { parsePageParam, readParam } from '$lib/admin/list-state';
+import { purgeUgcEntities } from '$lib/ugc/entries.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const session = locals.session;
@@ -166,6 +167,11 @@ export const actions: Actions = {
 
       // Finally delete the university itself
       await db.collection('universities').deleteOne({ id: universityId });
+
+      await purgeUgcEntities('organization', [
+        universityId,
+        ...clubsToDelete.map((clubId) => String(clubId))
+      ]);
 
       return { success: true };
     } catch (error) {
