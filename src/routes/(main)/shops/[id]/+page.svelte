@@ -69,6 +69,7 @@
   import { maybeShowUgcTranslationPrompt } from '$lib/ugc/client';
   import T from '$lib/ugc/components/T.svelte';
   import InlineAlert from '$lib/components/InlineAlert.svelte';
+  import { adaptiveIcon } from '$lib/actions/adaptive-icon';
 
   let { data }: { data: PageData } = $props();
 
@@ -1854,7 +1855,10 @@
                   </div>
 
                   <div class="space-y-2 text-sm">
-                    <div class="group-hover:text-accent flex items-center gap-2 transition-colors">
+                    <div
+                      class="group-hover:text-accent flex items-center gap-2 transition-colors"
+                      use:adaptiveIcon
+                    >
                       <i class="fa-solid fa-gamepad"></i>
                       {#if game.version}
                         <span>
@@ -1872,14 +1876,15 @@
                     {#if costs[game.gameId]}
                       <div
                         class="group-hover:text-warning flex items-center gap-2 transition-colors"
+                        use:adaptiveIcon
                       >
                         <i class="fa-solid fa-coins"></i>
                         {@html costs[game.gameId]}
                       </div>
                     {/if}
                     {#if gameComments[game.gameId]}
-                      <div class="flex items-start gap-2 whitespace-pre-line">
-                        <i class="fa-solid fa-circle-info mt-1"></i>
+                      <div class="flex items-center gap-2 whitespace-pre-line" use:adaptiveIcon>
+                        <i class="fa-solid fa-circle-info"></i>
                         <div
                           class="prose prose-sm flex h-auto flex-1 flex-col gap-2 overflow-auto *:my-0"
                         >
