@@ -8,7 +8,6 @@
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
   import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
   import SiteTitle from '$lib/components/SiteTitle.svelte';
-  import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
   import { m } from '$lib/paraglide/messages';
   import type { AMapContext, Campus, University } from '$lib/types';
@@ -904,11 +903,11 @@
               <i class="fa-brands fa-github fa-lg"></i>
               <span class="hidden lg:inline">GitHub</span>
             </a>
-            <SocialMediaModal
-              name="QQ"
+            <FancyButton
               class="fa-brands fa-qq fa-lg"
-              description={m.qq_description()}
-              image="{base}/group-chat-qq.webp"
+              text="QQ"
+              href="?modal=qq"
+              stayExpandedOnWideScreens
             />
             <ThemeSwitch />
           </div>

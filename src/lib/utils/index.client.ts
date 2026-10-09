@@ -1,3 +1,7 @@
+import { browser } from '$app/environment';
+import { goto } from '$app/navigation';
+import { page } from '$app/state';
+
 export const IS_IOS = (() => {
   const iosQuirkPresent = () => {
     const audio = new Audio();
@@ -55,3 +59,28 @@ export const HAS_DISCRETE_GPU = (() => {
   }
   return false;
 })();
+
+export type ModalQueryValue = 'qq' | 'donate';
+
+export const MODAL_QUERY_PARAM = 'modal';
+
+export const clearModalQuery = async (modal: ModalQueryValue): Promise<void> => {
+  if (!browser) return;
+
+  const url = new URL(page.url);
+  if (url.searchParams.get(MODAL_QUERY_PARAM) !== modal) return;
+
+  url.searchParams.delete(MODAL_QUERY_PARAM);
+
+  try {
+    // Keep the current dynamic route; resolving it statically would lose route parameters.
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    await goto(url, {
+      replaceState: true,
+      keepFocus: true,
+      noScroll: true
+    });
+  } catch (error) {
+    console.error(`Failed to clear the "${modal}" modal query:`, error);
+  }
+};

@@ -5,6 +5,7 @@
   import DonationModal from './DonationModal.svelte';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
+  import { clearModalQuery, MODAL_QUERY_PARAM } from '$lib/utils/index.client';
 
   // Configuration constants
   const STORAGE_KEY = 'nearcade-navigation-count';
@@ -74,6 +75,7 @@
 
   const closeDonationModal = (): void => {
     showDonationModal = false;
+    void clearModalQuery('donate');
   };
 
   const openDonationModal = (): void => {
@@ -83,7 +85,7 @@
   const dismiss = (days: number): void => {
     const dismissUntil = Date.now() + days * 24 * 60 * 60 * 1000;
     setDismissedUntil(dismissUntil);
-    showDonationModal = false;
+    closeDonationModal();
   };
 
   onMount(() => {
@@ -96,8 +98,26 @@
     };
   });
 
+  $effect(() => {
+    if (page.url.searchParams.get(MODAL_QUERY_PARAM) === 'donate') {
+      openDonationModal();
+    }
+  });
+
   // Track SPA navigation
-  afterNavigate(() => {
+  afterNavigate((navigation) => {
+    const fromUrl = navigation.from?.url;
+    const toUrl = navigation.to?.url;
+
+    if (
+      fromUrl &&
+      toUrl &&
+      fromUrl.pathname === toUrl.pathname &&
+      fromUrl.searchParams.get(MODAL_QUERY_PARAM) !== toUrl.searchParams.get(MODAL_QUERY_PARAM)
+    ) {
+      return;
+    }
+
     incrementVisitCount();
   });
 </script>

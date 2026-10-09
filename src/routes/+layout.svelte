@@ -18,8 +18,10 @@
   import type { AMapContext, WindowMessage } from '$lib/types';
   import '@amap/amap-jsapi-types';
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
+  import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { fromPath, isDarkMode } from '$lib/utils/scoped';
   import { getDisplayName } from '$lib/utils';
+  import { m } from '$lib/paraglide/messages';
   import { page } from '$app/state';
   import { goto, invalidateAll, afterNavigate } from '$app/navigation';
   import { resolve, base } from '$app/paths';
@@ -267,6 +269,14 @@
 {@render children()}
 
 <NavigationTracker />
+<SocialMediaModal
+  name="QQ"
+  class=""
+  description={m.qq_description()}
+  image="{base}/group-chat-qq.webp"
+  modalId="qq"
+  showTrigger={false}
+/>
 
 <ToastRegion />
 <BannerRegion />
