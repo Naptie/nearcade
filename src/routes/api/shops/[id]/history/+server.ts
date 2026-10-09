@@ -9,9 +9,8 @@ import {
 } from '$lib/schemas/shops';
 import { parseParamsOrError, parseQueryOrError } from '$lib/utils/validation.server';
 import { isAdminOrModerator, toPlainArray } from '$lib/utils';
+import { ATTENDANCE_REPORT_HISTORY_VISIBILITY_DAYS } from '$lib/constants';
 import type { Shop } from '$lib/types';
-
-const HISTORY_VISIBILITY_DAYS = 7;
 
 export const GET: RequestHandler = async ({ params, url, locals }) => {
   try {
@@ -36,7 +35,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
     const filter: Record<string, unknown> = { shopId: id };
     if (!isAdmin) {
       filter.reportedAt = {
-        $gte: new Date(Date.now() - HISTORY_VISIBILITY_DAYS * 24 * 60 * 60 * 1000)
+        $gte: new Date(Date.now() - ATTENDANCE_REPORT_HISTORY_VISIBILITY_DAYS * 24 * 60 * 60 * 1000)
       };
     }
 

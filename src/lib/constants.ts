@@ -281,6 +281,8 @@ export const ROUTE_INDEX = 10000;
 
 export const QR_SESSION_TTL = 120;
 
+export const ATTENDANCE_REPORT_HISTORY_VISIBILITY_DAYS = 7;
+
 export const SHOP_ID_OFFSET_BEMANICN = 10000;
 export const SHOP_ID_OFFSET_ZIV = 20000;
 

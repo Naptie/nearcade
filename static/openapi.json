@@ -16202,6 +16202,7 @@
                               "university_join",
                               "club_join",
                               "club_create",
+                              "attendance_report",
                               "shop_attendance"
                             ],
                             "description": "活动类型。\n\nActivity type."
@@ -16655,6 +16656,39 @@
                             "type": "string",
                             "enum": ["favor", "against"],
                             "description": "删除申请投票类型；`favor` 为支持删除，`against` 为反对删除。\n\nDelete request vote type. `favor` supports deletion and `against` opposes it."
+                          },
+                          "attendanceReportTotal": {
+                            "description": "上报的总在勤人数。\n\nTotal reported attendance across games.",
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "attendanceReportGames": {
+                            "description": "各游戏的上报人数。\n\nPer-game reported attendance.",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "gameId": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991,
+                                  "description": "游戏 ID。\n\nGame ID."
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "description": "游戏名称。\n\nGame name."
+                                },
+                                "currentAttendances": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "该游戏的上报在勤人数。\n\nReported attendance for this game."
+                                }
+                              },
+                              "required": ["gameId", "name", "currentAttendances"],
+                              "additionalProperties": false
+                            }
                           }
                         },
                         "required": ["id", "type", "createdAt", "userId"],

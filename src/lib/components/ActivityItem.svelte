@@ -9,7 +9,8 @@
   import type { Activity } from '$lib/types';
   import { strip } from '$lib/utils/markdown';
   import { onMount } from 'svelte';
-  import { formatTime, getDisplayName, getFnsLocale } from '$lib/utils';
+  import { GAME_TITLES } from '$lib/constants';
+  import { formatTime, getDisplayName, getFnsLocale, getGameName } from '$lib/utils';
 
   const getShopDeleteRequestTargetName = (activity: Activity) => {
     if (activity.shopDeleteRequestType === 'photo') {
@@ -26,6 +27,21 @@
   let { activity }: Props = $props();
 
   let content = $derived(activity.commentContent || '');
+  let attendanceSummary = $derived.by(() => {
+    if (activity.type !== 'attendance_report' || !activity.attendanceReportGames) return '';
+
+    const games = activity.attendanceReportGames
+      .map((game) => {
+        const title = GAME_TITLES.find((candidate) => candidate.id === game.gameId);
+        return `${getGameName(title?.key) || game.name} (${game.currentAttendances})`;
+      })
+      .join(' · ');
+
+    return m.activity_attendance_summary({
+      total: activity.attendanceReportTotal ?? 0,
+      games
+    });
+  });
 
   let icon = $derived.by(() => {
     switch (activity.type) {
@@ -64,6 +80,8 @@
         return 'fa-solid fa-user-plus text-success';
       case 'club_create':
         return 'fa-solid fa-users text-primary';
+      case 'attendance_report':
+        return 'fa-solid fa-chart-column text-info';
       case 'shop_attendance':
         return 'fa-solid fa-gamepad text-info';
       default:
@@ -129,6 +147,8 @@
         return m.activity_joined_club({ targetName });
       case 'club_create':
         return m.activity_created_club({ targetName });
+      case 'attendance_report':
+        return m.activity_reported_attendance({ targetName });
       case 'shop_attendance':
         return activity.isLive
           ? m.activity_currently_visiting_shop({ targetName })
@@ -276,6 +296,7 @@
         return '#';
 
       case 'shop_attendance':
+      case 'attendance_report':
         if (activity.shopId) {
           return resolve('/(main)/shops/[id]', {
             id: activity.shopId.toString()
@@ -324,6 +345,7 @@
       case 'club_create':
         return activity.createdClubName || '';
       case 'shop_attendance':
+      case 'attendance_report':
         return activity.shopName || '';
       default:
         return '';
@@ -331,6 +353,7 @@
   });
 
   let context = $derived.by(() => {
+    if (activity.type === 'attendance_report') return null;
     if (activity.universityName) {
       return activity.universityName;
     } else if (activity.clubName) {
@@ -347,6 +370,7 @@
         activity.type === 'reply' ||
         activity.type === 'shop_comment' ||
         activity.type === 'shop_reply' ||
+        activity.type === 'attendance_report' ||
         activity.type === 'shop_delete_request_comment' ||
         activity.type === 'shop_delete_request_reply') &&
       content
@@ -377,8 +401,14 @@
         {@html text}
       </div>
 
+      {#if attendanceSummary}
+        <div class="text-base-content/60 truncate text-xs" title={attendanceSummary}>
+          {attendanceSummary}
+        </div>
+      {/if}
+
       <!-- Activity Preview for Comments and Replies -->
-      {#if (activity.type === 'comment' || activity.type === 'reply' || activity.type === 'shop_comment' || activity.type === 'shop_reply' || activity.type === 'shop_delete_request_comment' || activity.type === 'shop_delete_request_reply') && content}
+      {#if (activity.type === 'comment' || activity.type === 'reply' || activity.type === 'shop_comment' || activity.type === 'shop_reply' || activity.type === 'attendance_report' || activity.type === 'shop_delete_request_comment' || activity.type === 'shop_delete_request_reply') && content}
         <div class="text-base-content/60 truncate text-xs italic">
           "{content}"
         </div>

@@ -15,28 +15,28 @@ import {
   type ShopDeleteRequestVote,
   PostReadability,
   type AttendanceRecord,
+  type AttendanceReportRecord,
   type ShopChangelogEntry
 } from '$lib/types';
 import type { User } from '$lib/auth/types';
+import { ATTENDANCE_REPORT_HISTORY_VISIBILITY_DAYS } from '$lib/constants';
 import { getDisplayName, protect } from '.';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 
 /**
  * User Activity Server Module
  *
- * This module provides functionality to fetch and aggregate user activities from various
- * collections in the MongoDB database. It combines posts, comments, votes, and changelog
- * entries into a unified activity feed for display on user profiles.
+ * This module fetches and aggregates user activities from their source collections into
+ * a unified feed for display on user profiles.
  *
  * Supported activity types:
- * - Posts created by the user
- * - Comments made by the user
- * - Post votes (upvotes/downvotes) by the user
- * - Comment votes by the user
- * - Changelog entries created by the user when editing university/club information
+ * - Post creation, post comments/replies, and post/comment votes
+ * - Shop and shop-deletion-request comments/replies and votes
+ * - University/club joins, club creation, and university/club/shop changelog entries
+ * - Shop check-ins and attendance reports (older report comments are hidden)
  *
- * All activities are sorted by creation time in descending order and include
- * navigation links to the relevant content with proper highlighting support.
+ * Activities are sorted by creation time in descending order and include navigation
+ * details for the relevant content.
  */
 
 /**
@@ -51,6 +51,9 @@ export async function getUserActivities(
 ): Promise<Activity[]> {
   const db = client.db();
   const activities: Activity[] = [];
+  // Fetch enough rows from every source to cover this page after the sources
+  // are merged and globally paginated.
+  const sourceLimit = offset + limit;
 
   // Get user data to check privacy settings
   const user = await db.collection<User>('users').findOne({ id: userId });
@@ -96,7 +99,7 @@ export async function getUserActivities(
         }
       },
       { $sort: { createdAt: -1 } },
-      { $limit: limit }
+      { $limit: sourceLimit }
     ])
     .toArray()) as (Post & { university?: University[]; club?: Club[] })[];
 
@@ -164,7 +167,7 @@ export async function getUserActivities(
         }
       },
       { $sort: { createdAt: -1 } },
-      { $limit: limit }
+      { $limit: sourceLimit }
     ])
     .toArray()) as (Comment & {
     post?: Post[];
@@ -233,7 +236,7 @@ export async function getUserActivities(
       },
       { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
       { $sort: { createdAt: -1 } },
-      { $limit: limit }
+      { $limit: sourceLimit }
     ])
     .toArray()) as (Comment & {
     shop: Shop;
@@ -290,7 +293,7 @@ export async function getUserActivities(
       },
       { $unwind: { path: '$deleteRequest', preserveNullAndEmptyArrays: false } },
       { $sort: { createdAt: -1 } },
-      { $limit: limit }
+      { $limit: sourceLimit }
     ])
     .toArray()) as (Comment & {
     deleteRequest: ShopDeleteRequest;
@@ -348,7 +351,7 @@ export async function getUserActivities(
         }
       },
       { $sort: { createdAt: -1 } },
-      { $limit: limit }
+      { $limit: sourceLimit }
     ])
     .toArray()) as (PostVote & { post?: Post[]; university?: University[]; club?: Club[] })[];
 
@@ -421,7 +424,7 @@ export async function getUserActivities(
         }
       },
       { $sort: { createdAt: -1 } },
-      { $limit: limit }
+      { $limit: sourceLimit }
     ])
     .toArray()) as (CommentVote & {
     comment?: Comment[];
@@ -494,7 +497,7 @@ export async function getUserActivities(
       },
       { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
       { $sort: { createdAt: -1 } },
-      { $limit: limit }
+      { $limit: sourceLimit }
     ])
     .toArray()) as (CommentVote & { comment: Comment; shop: Shop; commentAuthor?: User[] })[];
 
@@ -551,7 +554,7 @@ export async function getUserActivities(
       },
       { $unwind: { path: '$deleteRequest', preserveNullAndEmptyArrays: false } },
       { $sort: { createdAt: -1 } },
-      { $limit: limit }
+      { $limit: sourceLimit }
     ])
     .toArray()) as (CommentVote & {
     comment: Comment;
@@ -596,7 +599,7 @@ export async function getUserActivities(
       },
       { $unwind: { path: '$deleteRequest', preserveNullAndEmptyArrays: false } },
       { $sort: { createdAt: -1 } },
-      { $limit: limit }
+      { $limit: sourceLimit }
     ])
     .toArray()) as (ShopDeleteRequestVote & { deleteRequest: ShopDeleteRequest })[];
 
@@ -631,7 +634,7 @@ export async function getUserActivities(
         },
         { $unwind: { path: '$university', preserveNullAndEmptyArrays: false } },
         { $sort: { joinedAt: -1 } },
-        { $limit: limit }
+        { $limit: sourceLimit }
       ])
       .toArray()) as (UniversityMember & { university: University })[];
 
@@ -672,7 +675,7 @@ export async function getUserActivities(
         { $unwind: { path: '$club', preserveNullAndEmptyArrays: false } },
         { $unwind: { path: '$university', preserveNullAndEmptyArrays: false } },
         { $sort: { joinedAt: -1 } },
-        { $limit: limit }
+        { $limit: sourceLimit }
       ])
       .toArray()) as (ClubMember & { club: Club; university: University })[];
 
@@ -706,7 +709,7 @@ export async function getUserActivities(
         },
         { $unwind: { path: '$university', preserveNullAndEmptyArrays: false } },
         { $sort: { createdAt: -1 } },
-        { $limit: limit }
+        { $limit: sourceLimit }
       ])
       .toArray()) as (Club & { university: University })[];
 
@@ -749,7 +752,7 @@ export async function getUserActivities(
         { $unwind: { path: '$university', preserveNullAndEmptyArrays: true } },
         { $unwind: { path: '$club', preserveNullAndEmptyArrays: true } },
         { $sort: { createdAt: -1 } },
-        { $limit: limit }
+        { $limit: sourceLimit }
       ])
       .toArray()) as (ChangelogEntry & { university?: University; club?: Club })[];
 
@@ -770,7 +773,11 @@ export async function getUserActivities(
   // Fetch shop changelog entries
   const shopChangelogEntries = (await db
     .collection<ShopChangelogEntry>('shop_changelog')
-    .aggregate([{ $match: { userId: userId } }, { $sort: { createdAt: -1 } }, { $limit: limit }])
+    .aggregate([
+      { $match: { userId: userId } },
+      { $sort: { createdAt: -1 } },
+      { $limit: sourceLimit }
+    ])
     .toArray()) as ShopChangelogEntry[];
 
   shopChangelogEntries.forEach((entry) => {
@@ -782,6 +789,51 @@ export async function getUserActivities(
       shopChangelogEntry: entry,
       shopId: entry.shopId,
       shopName: entry.shopName
+    });
+  });
+
+  // Fetch attendance reports authored by the user. Older report notes are
+  // intentionally omitted from the feed response, while counts remain visible.
+  const attendanceReportCommentCutoff =
+    Date.now() - ATTENDANCE_REPORT_HISTORY_VISIBILITY_DAYS * 24 * 60 * 60 * 1000;
+  const attendanceReports = (await db
+    .collection<AttendanceReportRecord>('attendance_reports')
+    .aggregate([
+      { $match: { reportedBy: userId } },
+      { $sort: { reportedAt: -1 } },
+      {
+        $lookup: {
+          from: 'shops',
+          localField: 'shopId',
+          foreignField: 'id',
+          as: 'shop'
+        }
+      },
+      { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
+      { $limit: sourceLimit }
+    ])
+    .toArray()) as (AttendanceReportRecord & { shop: Shop })[];
+
+  attendanceReports.forEach((report) => {
+    const reportedAt = new Date(report.reportedAt);
+    const games = report.games.map((game) => ({
+      gameId: game.gameId,
+      name: game.name,
+      currentAttendances: game.currentAttendances
+    }));
+
+    activities.push({
+      id: `attendance-report-${report._id?.toString() ?? `${report.shopId}-${reportedAt.getTime()}`}`,
+      type: 'attendance_report',
+      createdAt: reportedAt,
+      userId: report.reportedBy,
+      shopId: report.shop.id,
+      shopName: report.shop.name,
+      attendanceReportTotal: games.reduce((total, game) => total + game.currentAttendances, 0),
+      attendanceReportGames: games,
+      ...(reportedAt.getTime() > attendanceReportCommentCutoff && report.comment
+        ? { commentContent: report.comment }
+        : {})
     });
   });
 
@@ -801,7 +853,7 @@ export async function getUserActivities(
         },
         { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
         { $sort: { attendedAt: -1 } },
-        { $limit: limit }
+        { $limit: sourceLimit }
       ])
       .toArray()) as (AttendanceRecord & { shop: Shop })[];
 

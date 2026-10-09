@@ -63,6 +63,7 @@ const activityTypeSchema = z
     'university_join',
     'club_join',
     'club_create',
+    'attendance_report',
     'shop_attendance'
   ])
   .describe(bilingual('活动类型。', 'Activity type.'));
@@ -177,7 +178,25 @@ export const activitySchema = z
       .enum(['shop', 'photo'])
       .optional()
       .describe(bilingual('删除申请类型。', 'Delete request type.')),
-    shopDeleteRequestVoteType: shopDeleteRequestVoteTypeSchema.optional()
+    shopDeleteRequestVoteType: shopDeleteRequestVoteTypeSchema.optional(),
+    attendanceReportTotal: z
+      .int()
+      .min(0)
+      .optional()
+      .describe(bilingual('上报的总在勤人数。', 'Total reported attendance across games.')),
+    attendanceReportGames: z
+      .array(
+        z.object({
+          gameId: z.int().describe(bilingual('游戏 ID。', 'Game ID.')),
+          name: z.string().describe(bilingual('游戏名称。', 'Game name.')),
+          currentAttendances: z
+            .int()
+            .min(0)
+            .describe(bilingual('该游戏的上报在勤人数。', 'Reported attendance for this game.'))
+        })
+      )
+      .optional()
+      .describe(bilingual('各游戏的上报人数。', 'Per-game reported attendance.'))
   })
   .describe(bilingual('用户活动。', 'User activity.'));
 
