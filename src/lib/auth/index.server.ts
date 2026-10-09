@@ -337,9 +337,12 @@ function createAuth() {
               }
             );
 
-            // Register the generated handle / display name as UGC (same path
-            // as profile edits). Lazy import avoids a module cycle with the
-            // UGC pipeline.
+            // Register the generated handle / display name / sign-up bio as
+            // UGC (same path as profile edits). The bio can already be set by
+            // the OAuth profile (e.g. phira) before any settings save, so it
+            // must be registered here too or it stays unaudited until the
+            // next backfill. Lazy import avoids a module cycle with the UGC
+            // pipeline.
             try {
               const [{ submitUgc }, { auditUgc }] = await Promise.all([
                 import('$lib/ugc/entries.server'),
@@ -348,7 +351,7 @@ function createAuth() {
               const profileUgc = {
                 name: username,
                 displayName: user.name ?? '',
-                bio: ''
+                bio: typeof user.bio === 'string' ? user.bio : ''
               };
               submitUgc(
                 'user',
