@@ -25,6 +25,7 @@
     "seed:dump": "tsx ./scripts/seed.ts dump",
     "seed:restore": "tsx ./scripts/seed.ts restore",
     "test:filter": "tsx ./scripts/validate-shop-filter.ts",
+    "test:regions": "tsx ./scripts/validate-region-selection.ts",
     "test:metro": "tsx ./scripts/validate-metro.ts",
     "verify:metro": "tsx ./scripts/verify-metro.ts",
     "wechat-refresh": "tsx ./scripts/refresh-wechat-token.ts"

@@ -396,6 +396,8 @@
   // ── Apply / reset ──
 
   const handleApply = () => {
+    // Applying also commits the current selection without requiring an extra add click.
+    addRegion();
     const state = sanitizeShopFilterState(supportedState($state.snapshot(draft)));
     // Hand the host the chains of exactly the regions that survived
     // sanitization — dropped regions need no labels anywhere.

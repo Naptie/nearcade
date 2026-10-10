@@ -937,7 +937,7 @@
   "filter_days_all": "每天都需满足",
   "filter_days_any": "任一天满足即可",
   "filter_distinct_titles": "游戏种类数",
-  "filter_error_location": "地区数据加载失败",
+  "filter_error_location": "定位失败，请检查位置权限后重试",
   "filter_exact_match": "精确匹配",
   "filter_games_chip": "游戏（{count}）",
   "filter_match_all": "全部满足",

@@ -937,7 +937,7 @@
   "filter_days_all": "すべての曜日",
   "filter_days_any": "いずれかの曜日",
   "filter_distinct_titles": "ゲームタイトル数",
-  "filter_error_location": "地域データの読み込みに失敗しました",
+  "filter_error_location": "位置情報の取得に失敗しました。位置情報の権限を確認して再試行してください。",
   "filter_exact_match": "完全一致",
   "filter_games_chip": "ゲーム（{count}）",
   "filter_match_all": "すべてに一致",
