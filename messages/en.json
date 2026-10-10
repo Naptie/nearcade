@@ -944,7 +944,7 @@
   "filter_days_all": "All of these days",
   "filter_days_any": "Any of these days",
   "filter_distinct_titles": "Distinct game titles",
-  "filter_error_location": "Failed to load regions",
+  "filter_error_location": "Failed to get your location. Please check location permissions and try again.",
   "filter_exact_match": "Exact match",
   "filter_games_chip": "Games ({count})",
   "filter_match_all": "Match all",
