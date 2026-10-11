@@ -71,3 +71,41 @@ code,
 .text-highlight {
   @apply text-accent dark:text-warning hover:text-primary/90 group-hover:text-primary transition-colors;
 }
+
+:root {
+  /* 正文字体中 CJK 墨迹中心相对基线的高度（Noto Sans SC 实测 0.355em）。
+     CSS 的对齐关键字无法表达“与 CJK 墨迹居中”（middle 对齐的是拉丁
+     x-height 中点，对 CJK 文本系统性偏低），因此以此实测常量为基准。 */
+  --cjk-ink-center: 0.355em;
+}
+
+/* 卡片 logo 图标。三张官方 PNG 均为满幅墨迹（墨迹中心 = 盒子中心），
+   按 va = --cjk-ink-center − height/2 与正文墨迹光学居中；
+   调整 --tag-height 或新增图标时对齐自动成立，无需重新调参。 */
+img.card-tag,
+.prose img.card-tag {
+  display: inline;
+  margin: 0 0.2em;
+  --tag-height: 1.15em;
+  height: var(--tag-height);
+  width: auto;
+  vertical-align: calc(var(--cjk-ink-center) - 0.5 * var(--tag-height));
+}
+
+img.card-tag-aime,
+.prose img.card-tag-aime {
+  --tag-height: 0.9em;
+}
+
+/* e-amusement 官方字标为浅灰色，浅色主题下反色以保证对比度 */
+html[data-theme='emerald'] img.card-tag-eamu,
+html[data-theme='emerald'] .prose img.card-tag-eamu {
+  filter: invert(1);
+}
+
+@media (prefers-color-scheme: light) {
+  html:not([data-theme]) img.card-tag-eamu,
+  html:not([data-theme]) .prose img.card-tag-eamu {
+    filter: invert(1);
+  }
+}

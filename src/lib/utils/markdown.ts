@@ -1,3 +1,4 @@
+import { base } from '$app/paths';
 import rehypeFormat from 'rehype-format';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
@@ -159,11 +160,27 @@ const escapeCurrencyDollarDelimiters = (input: string): string => {
 };
 
 /**
+ * 将文本中的卡片标签（如 [aic]、[eamu]、[aime]）替换为官方 logo 图标。
+ * 替换在 sanitize 之后进行，注入的均为固定可信 HTML。
+ */
+const cardTagPattern = /\[(aic|eamu|aime)\]/gi;
+
+const cardTagHtml: Record<string, string> = {
+  aic: `<img src="${base}/cards/amusement-ic.png" alt="Amusement IC" class="card-tag card-tag-aic">`,
+  aime: `<img src="${base}/cards/aime.png" alt="Aime" class="card-tag card-tag-aime">`,
+  eamu: `<img src="${base}/cards/e-amusement.png" alt="e-amusement" class="card-tag card-tag-eamu">`
+};
+
+const replaceCardTags = (html: string): string =>
+  html.replace(cardTagPattern, (match, tag: string) => cardTagHtml[tag.toLowerCase()] ?? match);
+
+/**
  * Convert markdown text to sanitized HTML
  */
 export const render = async (input: string): Promise<string> => {
   if (!input) return '';
-  return String(await processor.process(escapeCurrencyDollarDelimiters(input)));
+  const html = String(await processor.process(escapeCurrencyDollarDelimiters(input)));
+  return replaceCardTags(html);
 };
 
 /**
