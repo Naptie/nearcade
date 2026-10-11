@@ -287,7 +287,7 @@
   const rangeYears = $derived.by(() => {
     const presentYear = getYear(new Date());
     const years: number[] = [];
-    for (let year = SITE_FOUNDING_YEAR; year <= presentYear; year++) {
+    for (let year = presentYear; year >= SITE_FOUNDING_YEAR; year--) {
       years.push(year);
     }
     return years;
