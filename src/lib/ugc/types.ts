@@ -212,6 +212,8 @@ export interface UgcTranslationRecord {
   text: string;
   model: string;
   createdAt: Date;
+  /** `$set` by `persistUgcTranslation` on every write. */
+  updatedAt: Date;
 }
 
 export type UgcAuditVerdict = 'pass' | 'review' | 'block';

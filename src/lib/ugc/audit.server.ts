@@ -476,6 +476,9 @@ export const updateCachedVerdict = async (
       {
         $set: {
           verdict,
+          // A manual call records no violating categories — keep the cached
+          // shape uniform (categories is required on UgcAuditRecord).
+          categories: [],
           score: options.score ?? (verdict === 'pass' ? 1 : verdict === 'block' ? 1 : 0.5),
           reason: options.reason ?? '',
           source: 'manual',

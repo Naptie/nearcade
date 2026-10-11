@@ -24,6 +24,11 @@
  * e.g. text re-submitted before the hash-unchanged re-enforcement fix, or a
  * shop changelog rollback). The run archives their verbatim text.
  *
+ * LONG-TERM operational tool: safe to re-run whenever import data changes.
+ * Its meta handling (`keepMeta`) also self-heals legacy explicit-null audit
+ * fields on the rows it touches — the complete one-shot scrub for those is
+ * scripts/fix-legacy-nulls.ts.
+ *
  * Usage:
  *   pnpm register-ugc
  *   MONGODB_URI=mongodb://host pnpm register-ugc
@@ -286,6 +291,14 @@ const upsertOccurrence = (doc: Record<string, unknown>) => {
   const keep = <T>(field: string, fallback: T) => ({
     $cond: [sameHash, { $ifNull: [`$${field}`, fallback] }, fallback]
   });
+  // Verdict metadata only exists once a verdict has been applied (auditSet in
+  // entries.server.ts) — a pending or content-reset row leaves these fields
+  // absent rather than null (see UgcEntryRecord: optional, never nullable
+  // except auditModel). Keeps the registry shape uniform with live writers
+  // and scrubs historical nulls on unchanged rows when the backfill re-runs.
+  const keepMeta = (field: string) => ({
+    $cond: [sameHash, { $ifNull: [`$${field}`, '$$REMOVE'] }, '$$REMOVE']
+  });
   return {
     updateOne: {
       filter: { _id: doc._id as string },
@@ -302,11 +315,11 @@ const upsertOccurrence = (doc: Record<string, unknown>) => {
             createdAt: { $ifNull: ['$createdAt', { $literal: doc.createdAt }] },
             updatedAt: { $literal: doc.updatedAt },
             auditStatus: keep('auditStatus', 'pending'),
-            auditSource: keep('auditSource', null),
-            auditReason: keep('auditReason', null),
-            auditCategories: keep('auditCategories', null),
-            auditScore: keep('auditScore', null),
-            auditModel: keep('auditModel', null),
+            auditSource: keepMeta('auditSource'),
+            auditReason: keepMeta('auditReason'),
+            auditCategories: keepMeta('auditCategories'),
+            auditScore: keepMeta('auditScore'),
+            auditModel: keepMeta('auditModel'),
             ...(doc.key ? { key: { $literal: doc.key } } : {})
           }
         },

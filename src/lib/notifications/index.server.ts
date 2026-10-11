@@ -75,9 +75,18 @@ export const notify = async (
     readAt: null
   };
 
+  // The interface models absent context as *optional* fields, and every
+  // caller passes `undefined` for them — but the driver serializes undefined
+  // as null, which would persist meaningless `field: null` noise. Drop the
+  // keys instead: absent = not applicable. `readAt: null` is explicit above
+  // and carries semantics (unread), so it survives this strip.
+  const stored = Object.fromEntries(
+    Object.entries(fullNotification).filter(([, value]) => value !== undefined)
+  ) as Notification;
+
   try {
     // Store in database
-    await notificationsCollection.insertOne(fullNotification);
+    await notificationsCollection.insertOne(stored);
 
     // Send FCM notification (fire-and-forget)
     notifyFCM(fullNotification).catch((error) => {
