@@ -825,8 +825,8 @@ export const shopChangelogRollbackRetentionSchema = z
   .enum(['keep', 'purge'])
   .describe(
     bilingual(
-      '回滚后对被回滚记录的处理方式：keep 保留原文，purge 直接删除条目。',
-      'What happens to the rolled-back changelog entries: keep keeps them verbatim, purge hard-deletes them.'
+      '回滚后对被回滚记录的处理方式：keep 保留原文，purge 直接删除条目。照片由独立选项控制，且两种模式表现一致：回滚不会留下照片删除记录——keep 下上传记录保留但抹去 URL，purge 下上传记录一并删除。',
+      'What happens to the rolled-back changelog entries: keep keeps them verbatim, purge hard-deletes them. Photos are governed by a separate option and behave the same under both: a rollback never writes a photo-deletion entry — under keep the upload entry survives without its URL, under purge it is erased.'
     )
   );
 

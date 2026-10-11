@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import { m } from '$lib/paraglide/messages';
   import type { ShopChangelogEntryWithUser } from '$lib/types';
   import {
@@ -74,15 +75,31 @@
     return typeof count === 'number' && Number.isFinite(count) && count > 0 ? count : 0;
   };
 
+  /** Ids of the `photo_uploaded` entries this rollback erased. Separate from
+   * `appliedEntryIds` because photos are not part of the shop document, so the
+   * inverse replay never applies them. */
+  const rollbackRemovedPhotoEntryIds = (entry: ShopChangelogEntryWithUser): string[] => {
+    const ids = (entry.metadata as Record<string, unknown> | undefined)?.removedPhotoEntryIds;
+    return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
+  };
+
+  /** Everything the rollback touched: the field changes it reverted plus the
+   * photo uploads it erased. */
+  const rollbackAffectedIds = (entry: ShopChangelogEntryWithUser): SvelteSet<string> => {
+    const ids = new SvelteSet<string>(rollbackAppliedIds(entry));
+    for (const id of rollbackRemovedPhotoEntryIds(entry)) ids.add(id);
+    return ids;
+  };
+
   let pinnedAppliedIds = $derived.by(() => {
     const pinned = pinnedRollbackId ? entries.find((entry) => entry.id === pinnedRollbackId) : null;
-    return pinned ? new Set(rollbackAppliedIds(pinned)) : new Set<string>();
+    return pinned ? rollbackAffectedIds(pinned) : new Set<string>();
   });
 
   let hoveredAppliedIds = $derived.by(() => {
     if (!hoveredRollbackId || hoveredRollbackId === pinnedRollbackId) return new Set<string>();
     const hovered = entries.find((entry) => entry.id === hoveredRollbackId);
-    return hovered ? new Set(rollbackAppliedIds(hovered)) : new Set<string>();
+    return hovered ? rollbackAffectedIds(hovered) : new Set<string>();
   });
 
   /** Row background + left rail. Pinned rollbacks and their sets use the
@@ -117,18 +134,25 @@
   };
 
   /** Human summary of what a rollback did, from its own metadata; null falls
-   * back to the static description. */
+   * back to the static description.
+   *
+   * The two halves are reported independently. A rollback that only removed
+   * photos has no applied entries at all — photos cannot be inverse-replayed —
+   * so gating the whole summary on that count erased the photo result from
+   * view exactly when it was the only thing that happened. */
   const rollbackSummary = (entry: ShopChangelogEntryWithUser): string | null => {
+    const parts: string[] = [];
     const count = rollbackAppliedIds(entry).length;
-    if (count === 0) return null;
-    const base =
-      rollbackRetention(entry) === 'purge'
-        ? m.shop_changelog_rollback_purged_count({ count })
-        : m.shop_changelog_rollback_reverted_count({ count });
+    if (count > 0) {
+      parts.push(
+        rollbackRetention(entry) === 'purge'
+          ? m.shop_changelog_rollback_purged_count({ count })
+          : m.shop_changelog_rollback_reverted_count({ count })
+      );
+    }
     const photos = rollbackRemovedPhotoCount(entry);
-    return photos > 0
-      ? `${base} · ${m.shop_changelog_rollback_photos_removed({ count: photos })}`
-      : base;
+    if (photos > 0) parts.push(m.shop_changelog_rollback_photos_removed({ count: photos }));
+    return parts.length > 0 ? parts.join(' · ') : null;
   };
 
   // Window-level delegation keeps the cards free of interaction handlers (and

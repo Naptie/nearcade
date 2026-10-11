@@ -50,9 +50,10 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
       shopName: result.shopName,
       targetEntryId: result.targetEntryId,
       appliedEntryIds: result.appliedEntryIds,
-      rollbackEntryCount: result.rollbackEntryCount,
       retention: result.retention,
       removedPhotoIds: result.removedPhotoIds,
+      removedPhotoEntryIds: result.removedPhotoEntryIds,
+      failedPhotoIds: result.failedPhotoIds,
       notifiedUserIds: result.notifiedUserIds,
       snapshotStored: result.snapshotStored
     });

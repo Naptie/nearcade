@@ -48,7 +48,6 @@ export interface ShopRollbackPreview {
   currentShop: Shop;
   rolledBackShop: Shop;
   appliedEntryIds: string[];
-  rollbackEntryCount: number;
   /** Distinct authors of the reverted entries (the notify option targets these). */
   authors: ShopRollbackAuthor[];
   /** Photos uploaded within the rollback window — removable via `removePhotos`. */
@@ -83,6 +82,12 @@ export interface ShopRollbackResult extends ShopRollbackPreview {
   retention: ShopRollbackRetention;
   /** Photo ids actually removed (empty when `removePhotos` was off). */
   removedPhotoIds: string[];
+  /** `photo_uploaded` entries for those photos — the affected set the
+   *  highlight overlay needs, since photos are never in `appliedEntryIds`. */
+  removedPhotoEntryIds: string[];
+  /** Photos whose stored object (or DB record) could not be deleted. The photo
+   *  leaves the shop, but the stored file may still exist upstream. */
+  failedPhotoIds: string[];
   /** Authors the SYSTEM notice was sent to (empty when notify was off). */
   notifiedUserIds: string[];
   /** Whether the private reversal snapshot was persisted (always false under `purge`). */
@@ -371,7 +376,7 @@ export const getShopChangelogEntries = async (
 
   const pipeline = [
     { $match: { shopId } },
-    { $sort: { createdAt: -1 } },
+    { $sort: { createdAt: -1, _id: -1 } },
     { $skip: offset },
     { $limit: limit },
     ...USER_LOOKUP_STAGES
@@ -407,7 +412,7 @@ export const getRecentShopChangelogEntries = async (
   const collection = db.collection<ShopChangelogEntry>('shop_changelog');
 
   const pipeline = [
-    { $sort: { createdAt: -1 } },
+    { $sort: { createdAt: -1, _id: -1 } },
     { $skip: offset },
     { $limit: limit },
     ...USER_LOOKUP_STAGES
@@ -899,7 +904,6 @@ export const buildShopRollbackPreview = async (
     currentShop: shop,
     rolledBackShop,
     appliedEntryIds,
-    rollbackEntryCount: entries.length,
     authors,
     photos: collectWindowPhotos(entries)
   };
@@ -1120,9 +1124,10 @@ export const applyShopRollback = async (
 
   // Retention of the rolled-back ledger entries. `keep` leaves the window
   // untouched (history stays public and fully reconstructible); `purge`
-  // hard-deletes the reverted entries for erasure incidents. Non-applied
-  // entries in the window (photos, delete-request records) describe changes
-  // that were NOT reverted and are only touched by the photo removal below.
+  // hard-deletes the reverted entries for erasure incidents. Photo entries are
+  // never "applied" by the inverse replay — photos live in `images`, not in the
+  // shop document — so they are not part of this set at all; the photo removal
+  // below owns their ledger treatment, under either retention mode.
   if (retention === 'purge' && preview.appliedEntryIds.length > 0) {
     try {
       await db
@@ -1135,45 +1140,99 @@ export const applyShopRollback = async (
 
   // Photo removal: every photo uploaded inside the rollback window is deleted
   // from object storage and the `images` collection (same as the admin photo
-  // delete path), logged as photo_deleted, and its upload entry scrubbed so
-  // no reachable URL survives in the ledger. Best-effort per photo.
+  // delete path). Best-effort per photo.
+  //
+  // No `photo_deleted` entry is written, under either retention mode. A
+  // rollback is one ledger event, and splitting it into a rollback card plus a
+  // run of photo rows made a single operation read as several unrelated ones.
+  // Worse, those rows could never join the card's highlight overlay: they are
+  // not in `appliedEntryIds` (photos never are — see the retention pass above),
+  // so hovering the card lit up the reverted field entries while the photo
+  // removals sitting immediately below it stayed unlit. The notice also carried
+  // the photo URL, which `ShopChangelogView` renders as a thumbnail and
+  // `canViewDeletedPhotoInChangelog` hands to site admins and to the original
+  // uploader. The rollback entry below reports the count instead, and under
+  // `keep` the retained upload entries still record who uploaded what.
   const removedPhotoIds: string[] = [];
+  // Photos whose stored object could not be deleted — a provider outage, or a
+  // photo uploaded under a provider this deployment holds no credentials for.
+  // The record is still dropped so the photo leaves the shop, but the caller
+  // has to be able to see that the erasure was only partial.
+  const failedPhotoIds: string[] = [];
+  // Ids of the `photo_uploaded` ledger entries for the photos this rollback
+  // erased. They can never appear in `appliedEntryIds` (photos are not part of
+  // the shop document, so the inverse replay rejects them), which left the
+  // rollback's photo effect invisible to the changelog highlight overlay —
+  // hovering a photo-only rollback highlighted nothing at all. Recording them
+  // separately is what lets the card own its full affected set.
+  let removedPhotoEntryIds: string[] = [];
   if (options.removePhotos && preview.photos.length > 0) {
     const photosCollection = db.collection<ShopPhoto>('images');
     for (const photo of preview.photos) {
+      const doc = await photosCollection.findOne({ id: photo.photoId, shopId }).catch((err) => {
+        console.error(`Failed to look up photo ${photo.photoId} during rollback:`, err);
+        return null;
+      });
+      if (!doc) continue;
+
+      // Storage deletion is best-effort and must NOT gate the record deletion.
+      // Coupling the two inside one try/catch meant a single provider error
+      // skipped the photo entirely — it stayed live on the shop, its upload
+      // entry stayed intact, and the rollback still reported success with a
+      // zero photo count, which is how a broken erasure looked like a no-op.
       try {
-        const doc = await photosCollection.findOne({ id: photo.photoId, shopId });
-        if (!doc) continue;
         await deleteFile(doc);
+      } catch (err) {
+        failedPhotoIds.push(photo.photoId);
+        console.error(`Failed to delete stored file for photo ${photo.photoId}:`, err);
+      }
+
+      try {
         await photosCollection.deleteOne({ id: photo.photoId, shopId });
         removedPhotoIds.push(photo.photoId);
-        await logShopChange(client, {
-          shopId,
-          shopName: preview.rolledBackShop.name,
-          action: 'photo_deleted',
-          user,
-          fieldInfo: { field: 'photo', photoId: photo.photoId, photoUrl: doc.url },
-          metadata: {
-            ...(doc.uploadedBy ? { uploadedBy: doc.uploadedBy } : {}),
-            removedByRollback: true
-          }
-        });
       } catch (err) {
-        console.error(`Failed to remove photo ${photo.photoId} during rollback:`, err);
+        failedPhotoIds.push(photo.photoId);
+        console.error(`Failed to remove photo record ${photo.photoId} during rollback:`, err);
       }
     }
+
+    // The retention modes differ only in whether the upload entries survive:
+    // `keep` retains them as audit trail minus the now-dead URL, `purge` erases
+    // them outright. Photos still on the shop are never touched — their entry
+    // truthfully records a photo the page still shows.
     if (removedPhotoIds.length > 0) {
       try {
-        await db.collection<ShopChangelogEntry>('shop_changelog').updateMany(
-          {
-            shopId,
-            action: 'photo_uploaded',
-            'fieldInfo.photoId': { $in: removedPhotoIds }
-          },
-          { $unset: { 'fieldInfo.photoUrl': '' } }
-        );
+        const uploadEntries = await db
+          .collection<ShopChangelogEntry>('shop_changelog')
+          .find(
+            {
+              shopId,
+              action: 'photo_uploaded',
+              'fieldInfo.photoId': { $in: removedPhotoIds }
+            },
+            { projection: { _id: 0, id: 1 } }
+          )
+          .toArray();
+        removedPhotoEntryIds = uploadEntries.map((entry) => entry.id);
+
+        if (retention === 'purge') {
+          if (removedPhotoEntryIds.length > 0) {
+            await db
+              .collection<ShopChangelogEntry>('shop_changelog')
+              .deleteMany({ shopId, id: { $in: removedPhotoEntryIds } });
+          }
+        } else {
+          await db.collection<ShopChangelogEntry>('shop_changelog').updateMany(
+            {
+              shopId,
+              action: 'photo_uploaded',
+              'fieldInfo.photoId': { $in: removedPhotoIds }
+            },
+            { $unset: { 'fieldInfo.photoUrl': '' } }
+          );
+        }
       } catch (err) {
-        console.error('Failed to scrub removed photos from changelog entries:', err);
+        console.error('Failed to reconcile removed photos in changelog entries:', err);
       }
     }
   }
@@ -1188,7 +1247,7 @@ export const applyShopRollback = async (
     metadata: {
       targetEntryId,
       appliedEntryIds: preview.appliedEntryIds,
-      rollbackEntryCount: preview.rollbackEntryCount,
+      ...(removedPhotoEntryIds.length > 0 ? { removedPhotoEntryIds } : {}),
       retention,
       snapshotStored,
       removedPhotoCount: removedPhotoIds.length
@@ -1225,6 +1284,8 @@ export const applyShopRollback = async (
     ...preview,
     retention,
     removedPhotoIds,
+    removedPhotoEntryIds,
+    failedPhotoIds,
     notifiedUserIds,
     snapshotStored
   };
