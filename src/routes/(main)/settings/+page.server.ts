@@ -284,10 +284,12 @@ export const actions: Actions = {
       );
       const socialLinksWithVerified: SocialLinkInput[] = validSocialLinks.map((link) => {
         const current = currentByKey.get(`${link.platform}:${link.username}`);
+        const verified = current?.verified === true;
         return {
-          ...link,
-          verified: current?.verified === true,
-          userId: current?.verified === true ? current.userId : undefined
+          platform: link.platform,
+          username: link.username,
+          verified,
+          ...(verified && current?.userId ? { userId: current.userId } : {})
         };
       });
 
