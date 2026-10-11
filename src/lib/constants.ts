@@ -286,6 +286,8 @@ export const ATTENDANCE_REPORT_HISTORY_VISIBILITY_DAYS = 7;
 export const SHOP_ID_OFFSET_BEMANICN = 10000;
 export const SHOP_ID_OFFSET_ZIV = 20000;
 
+export const SITE_FOUNDING_YEAR = 2025;
+
 export type GameKey = (typeof GAME_TITLES)[number]['key'];
 export type SortKey = (typeof SORT_CRITERIA)[number]['key'];
 

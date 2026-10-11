@@ -98,33 +98,33 @@
 
   let link = $derived(getNotificationLink(notification, base));
 
-  let icon = $derived.by(() => {
+  let { glyph, color } = $derived.by(() => {
     switch (notification.type) {
       case 'COMMENTS':
-        return 'fa-solid fa-comment text-info';
+        return { glyph: 'fa-solid fa-comment', color: 'text-info' };
       case 'REPLIES':
-        return 'fa-solid fa-reply text-info';
+        return { glyph: 'fa-solid fa-reply', color: 'text-info' };
       case 'POST_VOTES':
       case 'COMMENT_VOTES':
         return notification.voteType === 'upvote'
-          ? 'fa-solid fa-thumbs-up text-success'
-          : 'fa-solid fa-thumbs-down text-error';
+          ? { glyph: 'fa-solid fa-thumbs-up', color: 'text-success' }
+          : { glyph: 'fa-solid fa-thumbs-down', color: 'text-error' };
       case 'JOIN_REQUESTS':
         return notification.joinRequestStatus === 'approved'
-          ? 'fa-solid fa-user-check text-success'
-          : 'fa-solid fa-user-xmark text-error';
+          ? { glyph: 'fa-solid fa-user-check', color: 'text-success' }
+          : { glyph: 'fa-solid fa-user-xmark', color: 'text-error' };
       case 'SHOP_DELETE_REQUESTS':
         if (notification.shopDeleteRequestStatus === 'approved') {
-          return 'fa-solid fa-trash-can text-success';
+          return { glyph: 'fa-solid fa-trash-can', color: 'text-success' };
         }
         if (notification.shopDeleteRequestStatus === 'deleted') {
-          return 'fa-solid fa-trash-can text-warning';
+          return { glyph: 'fa-solid fa-trash-can', color: 'text-warning' };
         }
-        return 'fa-solid fa-trash-can text-error';
+        return { glyph: 'fa-solid fa-trash-can', color: 'text-error' };
       case 'SYSTEM':
-        return 'fa-solid fa-shield-halved text-error';
+        return { glyph: 'fa-solid fa-shield-halved', color: 'text-error' };
       default:
-        return 'fa-solid fa-bell';
+        return { glyph: 'fa-solid fa-bell', color: 'text-base-content/60' };
     }
   });
 
@@ -188,7 +188,7 @@
   <!-- Icon and Timestamp -->
   <div class="flex h-full flex-col items-end gap-1">
     <div class="shrink-0">
-      <i class="{icon} text-base-content/60"></i>
+      <i class="{glyph} {color}" aria-hidden="true"></i>
     </div>
     <span class="text-base-content/50 text-xs">
       {formatDistanceToNow(notification.createdAt, {

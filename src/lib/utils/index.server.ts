@@ -139,6 +139,10 @@ export const initDatabase = async (mongo: MongoClient) => {
 
     // posts
     db.collection('posts').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
+    // User profile feed + heatmap: per-author recency reads and day-range counts.
+    db
+      .collection('posts')
+      .createIndex({ createdBy: 1, createdAt: -1 }, { name: 'createdBy_1_createdAt_-1' }),
 
     // announcements
     db.collection('announcements').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
@@ -156,6 +160,51 @@ export const initDatabase = async (mongo: MongoClient) => {
 
     // comments
     db.collection('comments').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
+    // Profile feed + heatmap reads filter comments by author and timestamp;
+    // shopId/shopDeleteRequestId variants serve the shop-comment and
+    // delete-request-comment activity pipelines.
+    db
+      .collection('comments')
+      .createIndex({ createdBy: 1, createdAt: -1 }, { name: 'createdBy_1_createdAt_-1' }),
+    db
+      .collection('comments')
+      .createIndex(
+        { createdBy: 1, shopId: 1, createdAt: -1 },
+        { name: 'createdBy_1_shopId_1_createdAt_-1' }
+      ),
+    db
+      .collection('comments')
+      .createIndex(
+        { createdBy: 1, shopDeleteRequestId: 1, createdAt: -1 },
+        { name: 'createdBy_1_shopDeleteRequestId_1_createdAt_-1' }
+      ),
+
+    // post_votes / comment_votes / shop_delete_request_votes — same feed +
+    // per-user day-count pattern as above.
+    db
+      .collection('post_votes')
+      .createIndex({ userId: 1, createdAt: -1 }, { name: 'userId_1_createdAt_-1' }),
+    db
+      .collection('comment_votes')
+      .createIndex({ userId: 1, createdAt: -1 }, { name: 'userId_1_createdAt_-1' }),
+    db
+      .collection('shop_delete_request_votes')
+      .createIndex({ userId: 1, createdAt: -1 }, { name: 'userId_1_createdAt_-1' }),
+
+    // attendances — check-in history (footprint-gated) reads by user + time.
+    db
+      .collection('attendances')
+      .createIndex({ userId: 1, attendedAt: -1 }, { name: 'userId_1_attendedAt_-1' }),
+
+    // attendance_reports — per-reporter recency reads + day counts.
+    db
+      .collection('attendance_reports')
+      .createIndex({ reportedBy: 1, reportedAt: -1 }, { name: 'reportedBy_1_reportedAt_-1' }),
+
+    // clubs — club-creation activities read by creator + time.
+    db
+      .collection('clubs')
+      .createIndex({ createdBy: 1, createdAt: -1 }, { name: 'createdBy_1_createdAt_-1' }),
 
     // clubs
     db.collection('clubs').createIndex({ id: 1 }, { name: 'id_1', unique: true }),

@@ -14,7 +14,10 @@ import { parseParamsOrError, parseQueryOrError } from '$lib/utils/validation.ser
 export const GET: RequestHandler = async ({ params, url, locals }) => {
   const session = locals.session;
   const { id } = parseParamsOrError(userRouteIdParamSchema, params);
-  const { page, limit } = parseQueryOrError(userActivitiesQuerySchema, url);
+  const { page, limit, from, to, types, timezone } = parseQueryOrError(
+    userActivitiesQuerySchema,
+    url
+  );
 
   try {
     const db = mongo.db();
@@ -50,7 +53,10 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
       user.id,
       isOwnProfile || session?.user?.userType === 'site_admin',
       limit + 1,
-      offset
+      offset,
+      // Date-range boundaries are interpreted in the viewer's timezone when
+      // provided, matching how the heatmap buckets days for the same viewer.
+      from && to ? { from, to, timezone: timezone ?? 'UTC', types } : { types }
     );
 
     // Check if there are more activities

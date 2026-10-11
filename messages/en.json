@@ -25,6 +25,24 @@
   "activity_currently_visiting_shop": "Currently visiting {targetName}",
   "activity_downvoted_comment": "Downvoted comment by {authorName} on {targetName}",
   "activity_downvoted_post": "Downvoted post {targetName}",
+  "activity_group_arcade": "Arcade check-ins",
+  "activity_group_changelog": "Changelog",
+  "activity_group_comments": "Comments & replies",
+  "activity_group_filter_n": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} group",
+        "countPlural=other": "{count} groups"
+      }
+    }
+  ],
+  "activity_group_organizations": "Universities & clubs",
+  "activity_group_posts": "Posts",
+  "activity_group_reports": "Attendance reports",
+  "activity_group_votes": "Votes",
+  "activity_heatmap": "Activity Graph",
   "activity_joined_club": "Joined club {targetName}",
   "activity_joined_university": "Joined university {targetName}",
   "activity_public": "Show my activity to other users",
@@ -1015,6 +1033,30 @@
   "grant_moderator": "Grant Moderator",
   "greeting": "The global rhythm game map.",
   "groove_coaster": "GROOVE COASTER",
+  "heatmap_activities_on": [
+    {
+      "declarations": ["input date", "input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} activity on {date}",
+        "countPlural=other": "{count} activities on {date}"
+      }
+    }
+  ],
+  "heatmap_all_types": "All activity types",
+  "heatmap_day_tooltip": [
+    {
+      "declarations": ["input count", "input date", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "1 activity on {date}",
+        "countPlural=other": "{count} activities on {date}"
+      }
+    }
+  ],
+  "heatmap_less": "Less",
+  "heatmap_more": "More",
+  "heatmap_range_12m": "Past 12 months",
   "hide_absent_game_titles": "Hide absent titles",
   "hmac_mismatch": "HMAC mismatch",
   "hmac_mismatch_description": "The HMAC signature provided in the email does not match our calculated value.",

@@ -17,6 +17,7 @@
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import ManagedArcade from '$lib/components/ManagedArcade.svelte';
   import ActivityItem from '$lib/components/ActivityItem.svelte';
+  import ActivityHeatmap from '$lib/components/ActivityHeatmap.svelte';
   import type { PageData } from './$types';
   import type { Activity } from '$lib/types';
   import { formatDistanceToNow } from 'date-fns';
@@ -304,6 +305,9 @@
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
       <!-- Main Content -->
       <div class="space-y-8 lg:col-span-2">
+        <!-- Activity Heatmap -->
+        <ActivityHeatmap userId={data.user.id} canView={canViewActivities} />
+
         <!-- Recent Activity -->
         <div class="bg-base-200 rounded-xl p-6">
           <h3 class="mb-4 flex items-center gap-2 text-lg font-semibold">
@@ -325,7 +329,7 @@
             <div class="text-base-content/60 py-8 text-center">
               <i class="fa-solid fa-exclamation-triangle text-error mb-2 text-3xl"></i>
               <p>{activitiesError}</p>
-              <button class="btn btn-sm btn-outline mt-4" onclick={() => loadActivities()}>
+              <button class="btn btn-sm btn-soft mt-4" onclick={() => loadActivities()}>
                 {m.try_again()}
               </button>
             </div>

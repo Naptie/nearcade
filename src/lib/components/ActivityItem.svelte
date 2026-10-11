@@ -11,6 +11,7 @@
   import { onMount } from 'svelte';
   import { GAME_TITLES } from '$lib/constants';
   import { formatTime, getDisplayName, getFnsLocale, getGameName } from '$lib/utils';
+  import { getActivityIcon } from '$lib/utils/activity-icons';
 
   const getShopDeleteRequestTargetName = (activity: Activity) => {
     if (activity.shopDeleteRequestType === 'photo') {
@@ -43,51 +44,8 @@
     });
   });
 
-  let icon = $derived.by(() => {
-    switch (activity.type) {
-      case 'post':
-        return 'fa-solid fa-pen-to-square text-info';
-      case 'comment':
-        return 'fa-solid fa-comment text-info';
-      case 'reply':
-        return 'fa-solid fa-reply text-info';
-      case 'shop_comment':
-        return 'fa-solid fa-store text-info';
-      case 'shop_reply':
-        return 'fa-solid fa-reply text-info';
-      case 'post_vote':
-      case 'comment_vote':
-      case 'shop_comment_vote':
-      case 'shop_delete_request_comment_vote':
-        return activity.voteType === 'upvote'
-          ? 'fa-solid fa-thumbs-up text-success'
-          : 'fa-solid fa-thumbs-down text-error';
-      case 'shop_delete_request_comment':
-        return 'fa-solid fa-comment text-warning';
-      case 'shop_delete_request_reply':
-        return 'fa-solid fa-reply text-warning';
-      case 'shop_delete_request_vote':
-        return activity.shopDeleteRequestVoteType === 'favor'
-          ? 'fa-solid fa-thumbs-up text-success'
-          : 'fa-solid fa-thumbs-down text-error';
-      case 'changelog':
-        return 'fa-solid fa-list-ul text-warning';
-      case 'shop_changelog':
-        return 'fa-solid fa-gamepad text-warning';
-      case 'university_join':
-        return 'fa-solid fa-graduation-cap text-primary';
-      case 'club_join':
-        return 'fa-solid fa-user-plus text-success';
-      case 'club_create':
-        return 'fa-solid fa-users text-primary';
-      case 'attendance_report':
-        return 'fa-solid fa-chart-column text-info';
-      case 'shop_attendance':
-        return 'fa-solid fa-gamepad text-info';
-      default:
-        return 'fa-solid fa-clock';
-    }
-  });
+  let { glyph, color } = $derived(getActivityIcon(activity));
+  let iconColor = $derived(activity.isLive ? 'text-warning' : color);
 
   let text = $derived.by(() => {
     const authorName = `<a href="${resolve('/(main)/users/[id]', {
@@ -387,7 +345,7 @@
 >
   <!-- Activity Icon -->
   <div class="mt-1 shrink-0">
-    <i class="{icon} text-base-content/60" class:text-warning={activity.isLive}></i>
+    <i class="{glyph} {iconColor}" aria-hidden="true"></i>
   </div>
 
   <!-- Activity Content -->

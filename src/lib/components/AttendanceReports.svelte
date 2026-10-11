@@ -89,7 +89,7 @@
       </div>
     {:else if reports.length === 0}
       <div class="text-base-content/60 py-8 text-center">
-        <i class="fa-solid fa-history mb-2 text-2xl"></i>
+        <i class="fa-solid fa-user-clock mb-2 text-2xl"></i>
         <p>{m.no_attendance_reports()}</p>
       </div>
     {:else}

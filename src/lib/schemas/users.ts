@@ -1,5 +1,6 @@
 import { PAGINATION } from '$lib/constants';
 import { z } from 'zod';
+import { getTimezoneOffset } from 'date-fns-tz';
 
 import { organizationChangelogEntrySchema } from './organizations';
 import { shopApiSchema, shopChangelogEntrySchema, shopDeleteRequestVoteTypeSchema } from './shops';
@@ -29,6 +30,22 @@ export const userRouteIdParamSchema = z.object({
   id: userRouteIdSchema
 });
 
+const activityDaySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format, expected YYYY-MM-DD')
+  .refine((value) => !Number.isNaN(new Date(`${value}T00:00:00Z`).getTime()), {
+    message: 'Invalid calendar date'
+  })
+  .describe(bilingual('日期，格式为 YYYY-MM-DD。', 'Calendar date as YYYY-MM-DD.'));
+
+const timezoneSchema = z
+  .string()
+  .min(1)
+  .refine((value) => !Number.isNaN(getTimezoneOffset(value)), {
+    message: 'Unknown IANA timezone'
+  })
+  .describe(bilingual('IANA 时区名称。', 'IANA timezone name.'));
+
 export const userActivitiesQuerySchema = z.object({
   page: positiveIntegerQueryParamSchema(
     bilingual('页数。默认为 1。', 'Page number. Defaults to 1.'),
@@ -41,10 +58,58 @@ export const userActivitiesQuerySchema = z.object({
     ),
     PAGINATION.PAGE_SIZE,
     100
-  )
+  ),
+  from: activityDaySchema
+    .optional()
+    .describe(
+      bilingual(
+        '起始日期（含），格式为 YYYY-MM-DD。提供时按日期范围过滤活动。',
+        'Start date (inclusive) as YYYY-MM-DD. When provided, activities are filtered to the date range.'
+      )
+    ),
+  to: activityDaySchema
+    .optional()
+    .describe(
+      bilingual(
+        '结束日期（含），格式为 YYYY-MM-DD。提供时按日期范围过滤活动。',
+        'End date (inclusive) as YYYY-MM-DD. When provided, activities are filtered to the date range.'
+      )
+    ),
+  types: z
+    .string()
+    .optional()
+    .describe(
+      bilingual(
+        '逗号分隔的活动类型列表，仅返回这些类型的活动。',
+        'Comma-separated activity types; only activities of these types are returned.'
+      )
+    )
+    .transform((value, ctx) => {
+      // Absent param stays undefined — an empty array would mean "no types
+      // wanted" for the feed query and silently blank the response.
+      if (value === undefined) return undefined;
+      const types = value
+        .split(',')
+        .map((type) => type.trim())
+        .filter(Boolean);
+      const parsed = z.array(activityTypeSchema).safeParse(types);
+      if (!parsed.success) {
+        ctx.addIssue({ code: 'custom', message: 'Unknown activity type in `types`.' });
+        return z.NEVER;
+      }
+      return parsed.data.length > 0 ? [...new Set(parsed.data)] : undefined;
+    }),
+  timezone: timezoneSchema
+    .optional()
+    .describe(
+      bilingual(
+        '用于解释日期范围边界的 IANA 时区。默认为 UTC。',
+        'IANA timezone used to interpret date range boundaries. Defaults to UTC.'
+      )
+    )
 });
 
-const activityTypeSchema = z
+export const activityTypeSchema = z
   .enum([
     'post',
     'comment',
@@ -67,6 +132,60 @@ const activityTypeSchema = z
     'shop_attendance'
   ])
   .describe(bilingual('活动类型。', 'Activity type.'));
+
+export type ActivityType = z.infer<typeof activityTypeSchema>;
+
+export const activityHeatmapQuerySchema = z.object({
+  from: activityDaySchema
+    .optional()
+    .describe(
+      bilingual(
+        '起始日期（含），格式为 YYYY-MM-DD。默认为今天往前推 12 个月。',
+        'Start date (inclusive) as YYYY-MM-DD. Defaults to 12 months before today.'
+      )
+    ),
+  to: activityDaySchema
+    .optional()
+    .describe(
+      bilingual(
+        '结束日期（含），格式为 YYYY-MM-DD。默认为今天。范围最长 400 天。',
+        'End date (inclusive) as YYYY-MM-DD. Defaults to today. Range is capped at 400 days.'
+      )
+    ),
+  timezone: timezoneSchema
+    .optional()
+    .describe(
+      bilingual(
+        '用于将活动按天分组的 IANA 时区。默认为 UTC。',
+        'IANA timezone used to group activities into days. Defaults to UTC.'
+      )
+    )
+});
+
+export const activityHeatmapDaySchema = z.object({
+  date: activityDaySchema.describe(
+    bilingual('日期，格式为 YYYY-MM-DD。', 'Calendar date as YYYY-MM-DD.')
+  ),
+  total: z.int().min(0).describe(bilingual('当日活动总数。', 'Total activity count for the day.')),
+  byType: z
+    .partialRecord(activityTypeSchema, z.int().min(0))
+    .describe(bilingual('按活动类型的当日计数。', 'Per-activity-type counts for the day.'))
+});
+
+export const activityHeatmapResponseSchema = z.object({
+  days: z
+    .array(activityHeatmapDaySchema)
+    .describe(bilingual('有活动的日期及其计数。', 'Days that have activity, with counts.')),
+  total: z
+    .int()
+    .min(0)
+    .describe(bilingual('范围内活动总数。', 'Total activity count in the range.')),
+  from: activityDaySchema.describe(
+    bilingual('实际使用的起始日期。', 'The start date actually used.')
+  ),
+  to: activityDaySchema.describe(bilingual('实际使用的结束日期。', 'The end date actually used.')),
+  timezone: timezoneSchema.describe(bilingual('实际使用的时区。', 'The timezone actually used.'))
+});
 
 const activityTargetTypeSchema = z
   .enum([

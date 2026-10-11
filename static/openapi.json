@@ -16114,7 +16114,7 @@
       "get": {
         "tags": ["users"],
         "summary": "获取用户活动 / Get user activities",
-        "description": "获取用户活动流，并根据隐私设置和当前查看者权限过滤不可见内容。\n\nGet a user activity feed, with entries filtered according to privacy settings and the current viewer permissions.",
+        "description": "获取用户活动流，并根据隐私设置和当前查看者权限过滤不可见内容。支持按日期范围（YYYY-MM-DD，含两端，按指定时区解释）与活动类型过滤。\n\nGet a user activity feed, with entries filtered according to privacy settings and the current viewer permissions. Supports filtering by date range (YYYY-MM-DD, inclusive, interpreted in the given timezone) and by activity types.",
         "operationId": "getUsersByIdActivities",
         "parameters": [
           {
@@ -16151,6 +16151,44 @@
               "default": 48
             },
             "description": "每页返回的活动条目数量。默认为站点分页大小，最大为 100。\n\nNumber of activities per page. Defaults to the site page size, up to 100."
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "description": "起始日期（含），格式为 YYYY-MM-DD。提供时按日期范围过滤活动。\n\nStart date (inclusive) as YYYY-MM-DD. When provided, activities are filtered to the date range.",
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "起始日期（含），格式为 YYYY-MM-DD。提供时按日期范围过滤活动。\n\nStart date (inclusive) as YYYY-MM-DD. When provided, activities are filtered to the date range."
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "description": "结束日期（含），格式为 YYYY-MM-DD。提供时按日期范围过滤活动。\n\nEnd date (inclusive) as YYYY-MM-DD. When provided, activities are filtered to the date range.",
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "结束日期（含），格式为 YYYY-MM-DD。提供时按日期范围过滤活动。\n\nEnd date (inclusive) as YYYY-MM-DD. When provided, activities are filtered to the date range."
+          },
+          {
+            "in": "query",
+            "name": "types",
+            "schema": {
+              "description": "逗号分隔的活动类型列表，仅返回这些类型的活动。\n\nComma-separated activity types; only activities of these types are returned.",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "timezone",
+            "schema": {
+              "description": "用于解释日期范围边界的 IANA 时区。默认为 UTC。\n\nIANA timezone used to interpret date range boundaries. Defaults to UTC.",
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "用于解释日期范围边界的 IANA 时区。默认为 UTC。\n\nIANA timezone used to interpret date range boundaries. Defaults to UTC."
           }
         ],
         "responses": {
@@ -16715,6 +16753,137 @@
                     }
                   },
                   "required": ["activities", "hasMore", "page", "limit"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求错误 / Bad Request"
+          },
+          "403": {
+            "description": "活动不可见 / Activities are private"
+          },
+          "404": {
+            "description": "用户不存在 / User not found"
+          },
+          "500": {
+            "description": "服务器错误 / Internal Server Error"
+          }
+        }
+      }
+    },
+    "/users/{id}/activities/heatmap": {
+      "get": {
+        "tags": ["users"],
+        "summary": "获取用户活动热力图 / Get user activity heatmap",
+        "description": "按天统计用户活动数量（用于个人主页的贡献热力图），遵循与活动流一致的隐私过滤。范围最长 400 天。\n\nCounts user activities per day (for the profile contribution heatmap) with the same privacy filtering as the activity feed. Range is capped at 400 days.",
+        "operationId": "getUsersByIdActivitiesHeatmap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "用户 ID，或以 `@` 开头的用户名。\n\nUser ID, or a username prefixed with `@`."
+            },
+            "required": true,
+            "description": "用户 ID，或以 `@` 开头的用户名。\n\nUser ID, or a username prefixed with `@`."
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "description": "起始日期（含），格式为 YYYY-MM-DD。默认为今天往前推 12 个月。\n\nStart date (inclusive) as YYYY-MM-DD. Defaults to 12 months before today.",
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "起始日期（含），格式为 YYYY-MM-DD。默认为今天往前推 12 个月。\n\nStart date (inclusive) as YYYY-MM-DD. Defaults to 12 months before today."
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "description": "结束日期（含），格式为 YYYY-MM-DD。默认为今天。范围最长 400 天。\n\nEnd date (inclusive) as YYYY-MM-DD. Defaults to today. Range is capped at 400 days.",
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "结束日期（含），格式为 YYYY-MM-DD。默认为今天。范围最长 400 天。\n\nEnd date (inclusive) as YYYY-MM-DD. Defaults to today. Range is capped at 400 days."
+          },
+          {
+            "in": "query",
+            "name": "timezone",
+            "schema": {
+              "description": "用于将活动按天分组的 IANA 时区。默认为 UTC。\n\nIANA timezone used to group activities into days. Defaults to UTC.",
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "用于将活动按天分组的 IANA 时区。默认为 UTC。\n\nIANA timezone used to group activities into days. Defaults to UTC."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "按天分组的用户活动计数 / Per-day user activity counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "days": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "date": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                            "description": "日期，格式为 YYYY-MM-DD。\n\nCalendar date as YYYY-MM-DD."
+                          },
+                          "total": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991,
+                            "description": "当日活动总数。\n\nTotal activity count for the day."
+                          },
+                          "byType": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "description": "按活动类型的当日计数。\n\nPer-activity-type counts for the day."
+                          }
+                        },
+                        "required": ["date", "total", "byType"],
+                        "additionalProperties": false
+                      },
+                      "description": "有活动的日期及其计数。\n\nDays that have activity, with counts."
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "范围内活动总数。\n\nTotal activity count in the range."
+                    },
+                    "from": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                      "description": "实际使用的起始日期。\n\nThe start date actually used."
+                    },
+                    "to": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                      "description": "实际使用的结束日期。\n\nThe end date actually used."
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "实际使用的时区。\n\nThe timezone actually used."
+                    }
+                  },
+                  "required": ["days", "total", "from", "to", "timezone"],
                   "additionalProperties": false
                 }
               }

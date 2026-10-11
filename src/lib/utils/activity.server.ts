@@ -16,11 +16,13 @@ import {
   PostReadability,
   type AttendanceRecord,
   type AttendanceReportRecord,
-  type ShopChangelogEntry
+  type ShopChangelogEntry,
+  type ActivityType
 } from '$lib/types';
 import type { User } from '$lib/auth/types';
 import { ATTENDANCE_REPORT_HISTORY_VISIBILITY_DAYS } from '$lib/constants';
 import { getDisplayName, protect } from '.';
+import { fromZonedTime } from 'date-fns-tz';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 
 /**
@@ -40,6 +42,35 @@ import redis, { ensureConnected } from '$lib/db/redis.server';
  */
 
 /**
+ * Optional feed filters. `from`/`to` are inclusive `YYYY-MM-DD` days in
+ * `timezone`; the range is translated to a UTC timestamp range and merged into
+ * every source pipeline's first `$match` — filtering after the merge would be
+ * wrong because each source over-fetches `offset + limit` recent rows and a
+ * past-day page could otherwise come back empty.
+ */
+export interface ActivityFilters {
+  from?: string;
+  to?: string;
+  timezone?: string;
+  types?: ActivityType[];
+}
+
+/** `YYYY-MM-DD` shifted one day forward on the calendar (UTC arithmetic). */
+const nextDay = (day: string) =>
+  new Date(new Date(`${day}T00:00:00Z`).getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+/**
+ * Inclusive day range in `timezone` (`YYYY-MM-DD`) → UTC timestamp range.
+ * Bounds resolve at local midnight in the requested timezone so a "day" means
+ * the same thing the heatmap's `$dateToString` bucketing produces for the
+ * same viewer (for a UTC+8 viewer, `2026-01-01` starts at `2025-12-31T16:00Z`).
+ */
+const dayRangeToUtcRange = (from: string, to: string, timezone = 'UTC') => ({
+  $gte: fromZonedTime(`${from}T00:00:00`, timezone),
+  $lt: fromZonedTime(`${nextDay(to)}T00:00:00`, timezone)
+});
+
+/**
  * Fetch recent activities for a user
  */
 export async function getUserActivities(
@@ -47,13 +78,29 @@ export async function getUserActivities(
   userId: string,
   canViewAll = false,
   limit: number = 20,
-  offset: number = 0
+  offset: number = 0,
+  filters: ActivityFilters = {}
 ): Promise<Activity[]> {
   const db = client.db();
   const activities: Activity[] = [];
   // Fetch enough rows from every source to cover this page after the sources
   // are merged and globally paginated.
   const sourceLimit = offset + limit;
+
+  // Optional date-range filter merged into every source's first $match.
+  const range =
+    filters.from && filters.to
+      ? dayRangeToUtcRange(filters.from, filters.to, filters.timezone)
+      : null;
+  const dateRange = range ? { createdAt: range } : {};
+  // The check-in source is timestamped by `attendedAt` instead of `createdAt`.
+  const attendanceRange = range ? { attendedAt: range } : {};
+  const attendanceReportRange = range ? { reportedAt: range } : {};
+  const membershipRange = range ? { joinedAt: range } : {};
+
+  const types = filters.types;
+  const wants = (...wanted: ActivityType[]) =>
+    !types || wanted.some((type) => types.includes(type));
 
   // Get user data to check privacy settings
   const user = await db.collection<User>('users').findOne({ id: userId });
@@ -78,30 +125,32 @@ export async function getUserActivities(
   };
 
   // Fetch posts
-  const posts = (await db
-    .collection<Post>('posts')
-    .aggregate([
-      { $match: { createdBy: userId } },
-      {
-        $lookup: {
-          from: 'universities',
-          localField: 'universityId',
-          foreignField: 'id',
-          as: 'university'
-        }
-      },
-      {
-        $lookup: {
-          from: 'clubs',
-          localField: 'clubId',
-          foreignField: 'id',
-          as: 'club'
-        }
-      },
-      { $sort: { createdAt: -1 } },
-      { $limit: sourceLimit }
-    ])
-    .toArray()) as (Post & { university?: University[]; club?: Club[] })[];
+  const posts = wants('post')
+    ? ((await db
+        .collection<Post>('posts')
+        .aggregate([
+          { $match: { createdBy: userId, ...dateRange } },
+          {
+            $lookup: {
+              from: 'universities',
+              localField: 'universityId',
+              foreignField: 'id',
+              as: 'university'
+            }
+          },
+          {
+            $lookup: {
+              from: 'clubs',
+              localField: 'clubId',
+              foreignField: 'id',
+              as: 'club'
+            }
+          },
+          { $sort: { createdAt: -1 } },
+          { $limit: sourceLimit }
+        ])
+        .toArray()) as (Post & { university?: University[]; club?: Club[] })[])
+    : [];
 
   posts.forEach((post) => {
     // Only include this post activity if it passes the privacy check
@@ -122,60 +171,62 @@ export async function getUserActivities(
   });
 
   // Fetch comments
-  const comments = (await db
-    .collection<Comment>('comments')
-    .aggregate([
-      { $match: { createdBy: userId } },
-      {
-        $lookup: {
-          from: 'posts',
-          localField: 'postId',
-          foreignField: 'id',
-          as: 'post'
-        }
-      },
-      {
-        $lookup: {
-          from: 'comments',
-          localField: 'parentCommentId',
-          foreignField: 'id',
-          as: 'parentComment'
-        }
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'parentComment.createdBy',
-          foreignField: 'id',
-          as: 'parentCommentAuthor'
-        }
-      },
-      {
-        $lookup: {
-          from: 'universities',
-          localField: 'post.universityId',
-          foreignField: 'id',
-          as: 'university'
-        }
-      },
-      {
-        $lookup: {
-          from: 'clubs',
-          localField: 'post.clubId',
-          foreignField: 'id',
-          as: 'club'
-        }
-      },
-      { $sort: { createdAt: -1 } },
-      { $limit: sourceLimit }
-    ])
-    .toArray()) as (Comment & {
-    post?: Post[];
-    parentComment?: Comment[];
-    parentCommentAuthor?: User[];
-    university?: University[];
-    club?: Club[];
-  })[];
+  const comments = wants('comment', 'reply')
+    ? ((await db
+        .collection<Comment>('comments')
+        .aggregate([
+          { $match: { createdBy: userId, ...dateRange } },
+          {
+            $lookup: {
+              from: 'posts',
+              localField: 'postId',
+              foreignField: 'id',
+              as: 'post'
+            }
+          },
+          {
+            $lookup: {
+              from: 'comments',
+              localField: 'parentCommentId',
+              foreignField: 'id',
+              as: 'parentComment'
+            }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'parentComment.createdBy',
+              foreignField: 'id',
+              as: 'parentCommentAuthor'
+            }
+          },
+          {
+            $lookup: {
+              from: 'universities',
+              localField: 'post.universityId',
+              foreignField: 'id',
+              as: 'university'
+            }
+          },
+          {
+            $lookup: {
+              from: 'clubs',
+              localField: 'post.clubId',
+              foreignField: 'id',
+              as: 'club'
+            }
+          },
+          { $sort: { createdAt: -1 } },
+          { $limit: sourceLimit }
+        ])
+        .toArray()) as (Comment & {
+        post?: Post[];
+        parentComment?: Comment[];
+        parentCommentAuthor?: User[];
+        university?: University[];
+        club?: Club[];
+      })[])
+    : [];
 
   comments.forEach((comment) => {
     const post = comment.post?.[0];
@@ -206,42 +257,44 @@ export async function getUserActivities(
   });
 
   // Fetch shop comments
-  const shopComments = (await db
-    .collection<Comment>('comments')
-    .aggregate([
-      { $match: { createdBy: userId, shopId: { $exists: true, $ne: null } } },
-      {
-        $lookup: {
-          from: 'shops',
-          localField: 'shopId',
-          foreignField: 'id',
-          as: 'shop'
-        }
-      },
-      {
-        $lookup: {
-          from: 'comments',
-          localField: 'parentCommentId',
-          foreignField: 'id',
-          as: 'parentComment'
-        }
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'parentComment.createdBy',
-          foreignField: 'id',
-          as: 'parentCommentAuthor'
-        }
-      },
-      { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
-      { $sort: { createdAt: -1 } },
-      { $limit: sourceLimit }
-    ])
-    .toArray()) as (Comment & {
-    shop: Shop;
-    parentCommentAuthor?: User[];
-  })[];
+  const shopComments = wants('shop_comment', 'shop_reply')
+    ? ((await db
+        .collection<Comment>('comments')
+        .aggregate([
+          { $match: { createdBy: userId, shopId: { $exists: true, $ne: null }, ...dateRange } },
+          {
+            $lookup: {
+              from: 'shops',
+              localField: 'shopId',
+              foreignField: 'id',
+              as: 'shop'
+            }
+          },
+          {
+            $lookup: {
+              from: 'comments',
+              localField: 'parentCommentId',
+              foreignField: 'id',
+              as: 'parentComment'
+            }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'parentComment.createdBy',
+              foreignField: 'id',
+              as: 'parentCommentAuthor'
+            }
+          },
+          { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
+          { $sort: { createdAt: -1 } },
+          { $limit: sourceLimit }
+        ])
+        .toArray()) as (Comment & {
+        shop: Shop;
+        parentCommentAuthor?: User[];
+      })[])
+    : [];
 
   shopComments.forEach((comment) => {
     const parentCommentAuthor = protect(comment.parentCommentAuthor?.[0]);
@@ -263,42 +316,50 @@ export async function getUserActivities(
   });
 
   // Fetch delete request comments
-  const deleteRequestComments = (await db
-    .collection<Comment>('comments')
-    .aggregate([
-      { $match: { createdBy: userId, shopDeleteRequestId: { $exists: true, $ne: null } } },
-      {
-        $lookup: {
-          from: 'shop_delete_requests',
-          localField: 'shopDeleteRequestId',
-          foreignField: 'id',
-          as: 'deleteRequest'
-        }
-      },
-      {
-        $lookup: {
-          from: 'comments',
-          localField: 'parentCommentId',
-          foreignField: 'id',
-          as: 'parentComment'
-        }
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'parentComment.createdBy',
-          foreignField: 'id',
-          as: 'parentCommentAuthor'
-        }
-      },
-      { $unwind: { path: '$deleteRequest', preserveNullAndEmptyArrays: false } },
-      { $sort: { createdAt: -1 } },
-      { $limit: sourceLimit }
-    ])
-    .toArray()) as (Comment & {
-    deleteRequest: ShopDeleteRequest;
-    parentCommentAuthor?: User[];
-  })[];
+  const deleteRequestComments = wants('shop_delete_request_comment', 'shop_delete_request_reply')
+    ? ((await db
+        .collection<Comment>('comments')
+        .aggregate([
+          {
+            $match: {
+              createdBy: userId,
+              shopDeleteRequestId: { $exists: true, $ne: null },
+              ...dateRange
+            }
+          },
+          {
+            $lookup: {
+              from: 'shop_delete_requests',
+              localField: 'shopDeleteRequestId',
+              foreignField: 'id',
+              as: 'deleteRequest'
+            }
+          },
+          {
+            $lookup: {
+              from: 'comments',
+              localField: 'parentCommentId',
+              foreignField: 'id',
+              as: 'parentComment'
+            }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'parentComment.createdBy',
+              foreignField: 'id',
+              as: 'parentCommentAuthor'
+            }
+          },
+          { $unwind: { path: '$deleteRequest', preserveNullAndEmptyArrays: false } },
+          { $sort: { createdAt: -1 } },
+          { $limit: sourceLimit }
+        ])
+        .toArray()) as (Comment & {
+        deleteRequest: ShopDeleteRequest;
+        parentCommentAuthor?: User[];
+      })[])
+    : [];
 
   deleteRequestComments.forEach((comment) => {
     const parentCommentAuthor = protect(comment.parentCommentAuthor?.[0]);
@@ -322,38 +383,40 @@ export async function getUserActivities(
   });
 
   // Fetch post votes
-  const postVotes = (await db
-    .collection<PostVote>('post_votes')
-    .aggregate([
-      { $match: { userId: userId } },
-      {
-        $lookup: {
-          from: 'posts',
-          localField: 'postId',
-          foreignField: 'id',
-          as: 'post'
-        }
-      },
-      {
-        $lookup: {
-          from: 'universities',
-          localField: 'post.universityId',
-          foreignField: 'id',
-          as: 'university'
-        }
-      },
-      {
-        $lookup: {
-          from: 'clubs',
-          localField: 'post.clubId',
-          foreignField: 'id',
-          as: 'club'
-        }
-      },
-      { $sort: { createdAt: -1 } },
-      { $limit: sourceLimit }
-    ])
-    .toArray()) as (PostVote & { post?: Post[]; university?: University[]; club?: Club[] })[];
+  const postVotes = wants('post_vote')
+    ? ((await db
+        .collection<PostVote>('post_votes')
+        .aggregate([
+          { $match: { userId: userId, ...dateRange } },
+          {
+            $lookup: {
+              from: 'posts',
+              localField: 'postId',
+              foreignField: 'id',
+              as: 'post'
+            }
+          },
+          {
+            $lookup: {
+              from: 'universities',
+              localField: 'post.universityId',
+              foreignField: 'id',
+              as: 'university'
+            }
+          },
+          {
+            $lookup: {
+              from: 'clubs',
+              localField: 'post.clubId',
+              foreignField: 'id',
+              as: 'club'
+            }
+          },
+          { $sort: { createdAt: -1 } },
+          { $limit: sourceLimit }
+        ])
+        .toArray()) as (PostVote & { post?: Post[]; university?: University[]; club?: Club[] })[])
+    : [];
 
   postVotes.forEach((vote) => {
     const post = vote.post?.[0];
@@ -379,60 +442,62 @@ export async function getUserActivities(
   });
 
   // Fetch comment votes
-  const commentVotes = (await db
-    .collection<CommentVote>('comment_votes')
-    .aggregate([
-      { $match: { userId: userId } },
-      {
-        $lookup: {
-          from: 'comments',
-          localField: 'commentId',
-          foreignField: 'id',
-          as: 'comment'
-        }
-      },
-      {
-        $lookup: {
-          from: 'posts',
-          localField: 'comment.postId',
-          foreignField: 'id',
-          as: 'post'
-        }
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'comment.createdBy',
-          foreignField: 'id',
-          as: 'commentAuthor'
-        }
-      },
-      {
-        $lookup: {
-          from: 'universities',
-          localField: 'post.universityId',
-          foreignField: 'id',
-          as: 'university'
-        }
-      },
-      {
-        $lookup: {
-          from: 'clubs',
-          localField: 'post.clubId',
-          foreignField: 'id',
-          as: 'club'
-        }
-      },
-      { $sort: { createdAt: -1 } },
-      { $limit: sourceLimit }
-    ])
-    .toArray()) as (CommentVote & {
-    comment?: Comment[];
-    post?: Post[];
-    commentAuthor?: User[];
-    university?: University[];
-    club?: Club[];
-  })[];
+  const commentVotes = wants('comment_vote')
+    ? ((await db
+        .collection<CommentVote>('comment_votes')
+        .aggregate([
+          { $match: { userId: userId, ...dateRange } },
+          {
+            $lookup: {
+              from: 'comments',
+              localField: 'commentId',
+              foreignField: 'id',
+              as: 'comment'
+            }
+          },
+          {
+            $lookup: {
+              from: 'posts',
+              localField: 'comment.postId',
+              foreignField: 'id',
+              as: 'post'
+            }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'comment.createdBy',
+              foreignField: 'id',
+              as: 'commentAuthor'
+            }
+          },
+          {
+            $lookup: {
+              from: 'universities',
+              localField: 'post.universityId',
+              foreignField: 'id',
+              as: 'university'
+            }
+          },
+          {
+            $lookup: {
+              from: 'clubs',
+              localField: 'post.clubId',
+              foreignField: 'id',
+              as: 'club'
+            }
+          },
+          { $sort: { createdAt: -1 } },
+          { $limit: sourceLimit }
+        ])
+        .toArray()) as (CommentVote & {
+        comment?: Comment[];
+        post?: Post[];
+        commentAuthor?: User[];
+        university?: University[];
+        club?: Club[];
+      })[])
+    : [];
 
   commentVotes.forEach((vote) => {
     const comment = vote.comment?.[0];
@@ -465,41 +530,43 @@ export async function getUserActivities(
   });
 
   // Fetch shop comment votes
-  const shopCommentVotes = (await db
-    .collection<CommentVote>('comment_votes')
-    .aggregate([
-      { $match: { userId: userId } },
-      {
-        $lookup: {
-          from: 'comments',
-          localField: 'commentId',
-          foreignField: 'id',
-          as: 'comment'
-        }
-      },
-      { $unwind: { path: '$comment', preserveNullAndEmptyArrays: false } },
-      { $match: { 'comment.shopId': { $exists: true, $ne: null } } },
-      {
-        $lookup: {
-          from: 'shops',
-          localField: 'comment.shopId',
-          foreignField: 'id',
-          as: 'shop'
-        }
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'comment.createdBy',
-          foreignField: 'id',
-          as: 'commentAuthor'
-        }
-      },
-      { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
-      { $sort: { createdAt: -1 } },
-      { $limit: sourceLimit }
-    ])
-    .toArray()) as (CommentVote & { comment: Comment; shop: Shop; commentAuthor?: User[] })[];
+  const shopCommentVotes = wants('shop_comment_vote')
+    ? ((await db
+        .collection<CommentVote>('comment_votes')
+        .aggregate([
+          { $match: { userId: userId, ...dateRange } },
+          {
+            $lookup: {
+              from: 'comments',
+              localField: 'commentId',
+              foreignField: 'id',
+              as: 'comment'
+            }
+          },
+          { $unwind: { path: '$comment', preserveNullAndEmptyArrays: false } },
+          { $match: { 'comment.shopId': { $exists: true, $ne: null } } },
+          {
+            $lookup: {
+              from: 'shops',
+              localField: 'comment.shopId',
+              foreignField: 'id',
+              as: 'shop'
+            }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'comment.createdBy',
+              foreignField: 'id',
+              as: 'commentAuthor'
+            }
+          },
+          { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
+          { $sort: { createdAt: -1 } },
+          { $limit: sourceLimit }
+        ])
+        .toArray()) as (CommentVote & { comment: Comment; shop: Shop; commentAuthor?: User[] })[])
+    : [];
 
   shopCommentVotes.forEach((vote) => {
     const commentAuthor = protect(vote.commentAuthor?.[0]);
@@ -522,45 +589,47 @@ export async function getUserActivities(
   });
 
   // Fetch delete request comment votes
-  const deleteRequestCommentVotes = (await db
-    .collection<CommentVote>('comment_votes')
-    .aggregate([
-      { $match: { userId: userId } },
-      {
-        $lookup: {
-          from: 'comments',
-          localField: 'commentId',
-          foreignField: 'id',
-          as: 'comment'
-        }
-      },
-      { $unwind: { path: '$comment', preserveNullAndEmptyArrays: false } },
-      { $match: { 'comment.shopDeleteRequestId': { $exists: true, $ne: null } } },
-      {
-        $lookup: {
-          from: 'shop_delete_requests',
-          localField: 'comment.shopDeleteRequestId',
-          foreignField: 'id',
-          as: 'deleteRequest'
-        }
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'comment.createdBy',
-          foreignField: 'id',
-          as: 'commentAuthor'
-        }
-      },
-      { $unwind: { path: '$deleteRequest', preserveNullAndEmptyArrays: false } },
-      { $sort: { createdAt: -1 } },
-      { $limit: sourceLimit }
-    ])
-    .toArray()) as (CommentVote & {
-    comment: Comment;
-    deleteRequest: ShopDeleteRequest;
-    commentAuthor?: User[];
-  })[];
+  const deleteRequestCommentVotes = wants('shop_delete_request_comment_vote')
+    ? ((await db
+        .collection<CommentVote>('comment_votes')
+        .aggregate([
+          { $match: { userId: userId, ...dateRange } },
+          {
+            $lookup: {
+              from: 'comments',
+              localField: 'commentId',
+              foreignField: 'id',
+              as: 'comment'
+            }
+          },
+          { $unwind: { path: '$comment', preserveNullAndEmptyArrays: false } },
+          { $match: { 'comment.shopDeleteRequestId': { $exists: true, $ne: null } } },
+          {
+            $lookup: {
+              from: 'shop_delete_requests',
+              localField: 'comment.shopDeleteRequestId',
+              foreignField: 'id',
+              as: 'deleteRequest'
+            }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'comment.createdBy',
+              foreignField: 'id',
+              as: 'commentAuthor'
+            }
+          },
+          { $unwind: { path: '$deleteRequest', preserveNullAndEmptyArrays: false } },
+          { $sort: { createdAt: -1 } },
+          { $limit: sourceLimit }
+        ])
+        .toArray()) as (CommentVote & {
+        comment: Comment;
+        deleteRequest: ShopDeleteRequest;
+        commentAuthor?: User[];
+      })[])
+    : [];
 
   deleteRequestCommentVotes.forEach((vote) => {
     const commentAuthor = protect(vote.commentAuthor?.[0]);
@@ -585,23 +654,25 @@ export async function getUserActivities(
   });
 
   // Fetch delete request votes
-  const deleteRequestVotes = (await db
-    .collection<ShopDeleteRequestVote>('shop_delete_request_votes')
-    .aggregate([
-      { $match: { userId } },
-      {
-        $lookup: {
-          from: 'shop_delete_requests',
-          localField: 'shopDeleteRequestId',
-          foreignField: 'id',
-          as: 'deleteRequest'
-        }
-      },
-      { $unwind: { path: '$deleteRequest', preserveNullAndEmptyArrays: false } },
-      { $sort: { createdAt: -1 } },
-      { $limit: sourceLimit }
-    ])
-    .toArray()) as (ShopDeleteRequestVote & { deleteRequest: ShopDeleteRequest })[];
+  const deleteRequestVotes = wants('shop_delete_request_vote')
+    ? ((await db
+        .collection<ShopDeleteRequestVote>('shop_delete_request_votes')
+        .aggregate([
+          { $match: { userId, ...dateRange } },
+          {
+            $lookup: {
+              from: 'shop_delete_requests',
+              localField: 'shopDeleteRequestId',
+              foreignField: 'id',
+              as: 'deleteRequest'
+            }
+          },
+          { $unwind: { path: '$deleteRequest', preserveNullAndEmptyArrays: false } },
+          { $sort: { createdAt: -1 } },
+          { $limit: sourceLimit }
+        ])
+        .toArray()) as (ShopDeleteRequestVote & { deleteRequest: ShopDeleteRequest })[])
+    : [];
 
   deleteRequestVotes.forEach((vote) => {
     activities.push({
@@ -620,23 +691,25 @@ export async function getUserActivities(
 
   // Fetch university membership activities (if privacy allows)
   if (includeUniversityActivities) {
-    const universityMemberships = (await db
-      .collection<UniversityMember>('university_members')
-      .aggregate([
-        { $match: { userId: userId } },
-        {
-          $lookup: {
-            from: 'universities',
-            localField: 'universityId',
-            foreignField: 'id',
-            as: 'university'
-          }
-        },
-        { $unwind: { path: '$university', preserveNullAndEmptyArrays: false } },
-        { $sort: { joinedAt: -1 } },
-        { $limit: sourceLimit }
-      ])
-      .toArray()) as (UniversityMember & { university: University })[];
+    const universityMemberships = wants('university_join')
+      ? ((await db
+          .collection<UniversityMember>('university_members')
+          .aggregate([
+            { $match: { userId: userId, ...membershipRange } },
+            {
+              $lookup: {
+                from: 'universities',
+                localField: 'universityId',
+                foreignField: 'id',
+                as: 'university'
+              }
+            },
+            { $unwind: { path: '$university', preserveNullAndEmptyArrays: false } },
+            { $sort: { joinedAt: -1 } },
+            { $limit: sourceLimit }
+          ])
+          .toArray()) as (UniversityMember & { university: University })[])
+      : [];
 
     universityMemberships.forEach((membership) => {
       activities.push({
@@ -652,32 +725,34 @@ export async function getUserActivities(
     });
 
     // Fetch club membership activities (if privacy allows)
-    const clubMemberships = (await db
-      .collection<ClubMember>('club_members')
-      .aggregate([
-        { $match: { userId: userId } },
-        {
-          $lookup: {
-            from: 'clubs',
-            localField: 'clubId',
-            foreignField: 'id',
-            as: 'club'
-          }
-        },
-        {
-          $lookup: {
-            from: 'universities',
-            localField: 'club.universityId',
-            foreignField: 'id',
-            as: 'university'
-          }
-        },
-        { $unwind: { path: '$club', preserveNullAndEmptyArrays: false } },
-        { $unwind: { path: '$university', preserveNullAndEmptyArrays: false } },
-        { $sort: { joinedAt: -1 } },
-        { $limit: sourceLimit }
-      ])
-      .toArray()) as (ClubMember & { club: Club; university: University })[];
+    const clubMemberships = wants('club_join')
+      ? ((await db
+          .collection<ClubMember>('club_members')
+          .aggregate([
+            { $match: { userId: userId, ...membershipRange } },
+            {
+              $lookup: {
+                from: 'clubs',
+                localField: 'clubId',
+                foreignField: 'id',
+                as: 'club'
+              }
+            },
+            {
+              $lookup: {
+                from: 'universities',
+                localField: 'club.universityId',
+                foreignField: 'id',
+                as: 'university'
+              }
+            },
+            { $unwind: { path: '$club', preserveNullAndEmptyArrays: false } },
+            { $unwind: { path: '$university', preserveNullAndEmptyArrays: false } },
+            { $sort: { joinedAt: -1 } },
+            { $limit: sourceLimit }
+          ])
+          .toArray()) as (ClubMember & { club: Club; university: University })[])
+      : [];
 
     clubMemberships.forEach((membership) => {
       activities.push({
@@ -695,23 +770,25 @@ export async function getUserActivities(
     });
 
     // Fetch club creation activities (if privacy allows)
-    const createdClubs = (await db
-      .collection<Club>('clubs')
-      .aggregate([
-        { $match: { createdBy: userId } },
-        {
-          $lookup: {
-            from: 'universities',
-            localField: 'universityId',
-            foreignField: 'id',
-            as: 'university'
-          }
-        },
-        { $unwind: { path: '$university', preserveNullAndEmptyArrays: false } },
-        { $sort: { createdAt: -1 } },
-        { $limit: sourceLimit }
-      ])
-      .toArray()) as (Club & { university: University })[];
+    const createdClubs = wants('club_create')
+      ? ((await db
+          .collection<Club>('clubs')
+          .aggregate([
+            { $match: { createdBy: userId, ...dateRange } },
+            {
+              $lookup: {
+                from: 'universities',
+                localField: 'universityId',
+                foreignField: 'id',
+                as: 'university'
+              }
+            },
+            { $unwind: { path: '$university', preserveNullAndEmptyArrays: false } },
+            { $sort: { createdAt: -1 } },
+            { $limit: sourceLimit }
+          ])
+          .toArray()) as (Club & { university: University })[])
+      : [];
 
     createdClubs.forEach((club) => {
       activities.push({
@@ -729,32 +806,34 @@ export async function getUserActivities(
     });
 
     // Fetch changelog entries (if privacy allows)
-    const changelogEntries = (await db
-      .collection<ChangelogEntry>('changelog')
-      .aggregate([
-        { $match: { userId: userId } },
-        {
-          $lookup: {
-            from: 'universities',
-            localField: 'targetId',
-            foreignField: 'id',
-            as: 'university'
-          }
-        },
-        {
-          $lookup: {
-            from: 'clubs',
-            localField: 'targetId',
-            foreignField: 'id',
-            as: 'club'
-          }
-        },
-        { $unwind: { path: '$university', preserveNullAndEmptyArrays: true } },
-        { $unwind: { path: '$club', preserveNullAndEmptyArrays: true } },
-        { $sort: { createdAt: -1 } },
-        { $limit: sourceLimit }
-      ])
-      .toArray()) as (ChangelogEntry & { university?: University; club?: Club })[];
+    const changelogEntries = wants('changelog')
+      ? ((await db
+          .collection<ChangelogEntry>('changelog')
+          .aggregate([
+            { $match: { userId: userId, ...dateRange } },
+            {
+              $lookup: {
+                from: 'universities',
+                localField: 'targetId',
+                foreignField: 'id',
+                as: 'university'
+              }
+            },
+            {
+              $lookup: {
+                from: 'clubs',
+                localField: 'targetId',
+                foreignField: 'id',
+                as: 'club'
+              }
+            },
+            { $unwind: { path: '$university', preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: '$club', preserveNullAndEmptyArrays: true } },
+            { $sort: { createdAt: -1 } },
+            { $limit: sourceLimit }
+          ])
+          .toArray()) as (ChangelogEntry & { university?: University; club?: Club })[])
+      : [];
 
     changelogEntries.forEach((entry) => {
       activities.push({
@@ -771,14 +850,16 @@ export async function getUserActivities(
     });
   }
   // Fetch shop changelog entries
-  const shopChangelogEntries = (await db
-    .collection<ShopChangelogEntry>('shop_changelog')
-    .aggregate([
-      { $match: { userId: userId } },
-      { $sort: { createdAt: -1 } },
-      { $limit: sourceLimit }
-    ])
-    .toArray()) as ShopChangelogEntry[];
+  const shopChangelogEntries = wants('shop_changelog')
+    ? ((await db
+        .collection<ShopChangelogEntry>('shop_changelog')
+        .aggregate([
+          { $match: { userId: userId, ...dateRange } },
+          { $sort: { createdAt: -1 } },
+          { $limit: sourceLimit }
+        ])
+        .toArray()) as ShopChangelogEntry[])
+    : [];
 
   shopChangelogEntries.forEach((entry) => {
     activities.push({
@@ -796,23 +877,25 @@ export async function getUserActivities(
   // intentionally omitted from the feed response, while counts remain visible.
   const attendanceReportCommentCutoff =
     Date.now() - ATTENDANCE_REPORT_HISTORY_VISIBILITY_DAYS * 24 * 60 * 60 * 1000;
-  const attendanceReports = (await db
-    .collection<AttendanceReportRecord>('attendance_reports')
-    .aggregate([
-      { $match: { reportedBy: userId } },
-      { $sort: { reportedAt: -1 } },
-      {
-        $lookup: {
-          from: 'shops',
-          localField: 'shopId',
-          foreignField: 'id',
-          as: 'shop'
-        }
-      },
-      { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
-      { $limit: sourceLimit }
-    ])
-    .toArray()) as (AttendanceReportRecord & { shop: Shop })[];
+  const attendanceReports = wants('attendance_report')
+    ? ((await db
+        .collection<AttendanceReportRecord>('attendance_reports')
+        .aggregate([
+          { $match: { reportedBy: userId, ...attendanceReportRange } },
+          { $sort: { reportedAt: -1 } },
+          {
+            $lookup: {
+              from: 'shops',
+              localField: 'shopId',
+              foreignField: 'id',
+              as: 'shop'
+            }
+          },
+          { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
+          { $limit: sourceLimit }
+        ])
+        .toArray()) as (AttendanceReportRecord & { shop: Shop })[])
+    : [];
 
   attendanceReports.forEach((report) => {
     const reportedAt = new Date(report.reportedAt);
@@ -839,23 +922,25 @@ export async function getUserActivities(
 
   if (canViewAll || user.isFootprintPublic) {
     // Fetch shop attendance activities
-    const shopAttendances = (await db
-      .collection<AttendanceRecord>('attendances')
-      .aggregate([
-        { $match: { userId: userId } },
-        {
-          $lookup: {
-            from: 'shops',
-            localField: 'shopId',
-            foreignField: 'id',
-            as: 'shop'
-          }
-        },
-        { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
-        { $sort: { attendedAt: -1 } },
-        { $limit: sourceLimit }
-      ])
-      .toArray()) as (AttendanceRecord & { shop: Shop })[];
+    const shopAttendances = wants('shop_attendance')
+      ? ((await db
+          .collection<AttendanceRecord>('attendances')
+          .aggregate([
+            { $match: { userId: userId, ...attendanceRange } },
+            {
+              $lookup: {
+                from: 'shops',
+                localField: 'shopId',
+                foreignField: 'id',
+                as: 'shop'
+              }
+            },
+            { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
+            { $sort: { attendedAt: -1 } },
+            { $limit: sourceLimit }
+          ])
+          .toArray()) as (AttendanceRecord & { shop: Shop })[])
+      : [];
 
     const getGameNames = (games: { gameId: number; name: string; version: string }[]) =>
       games.map((game) => (game.version ? `${game.name} (${game.version})` : game.name)).join(', ');
@@ -888,6 +973,7 @@ export async function getUserActivities(
           const data = JSON.parse(dataStr);
           const attendedAt = new Date(data.attendedAt);
           const plannedLeaveAt = new Date(data.plannedLeaveAt);
+          const inRange = !range || (attendedAt >= range.$gte && attendedAt < range.$lt);
           const gameNames = getGameNames(
             data.games.map((game: { id: number }) => {
               const shopGame = shop.games.find((g) => g.gameId === game.id);
@@ -898,25 +984,32 @@ export async function getUserActivities(
               };
             })
           );
-          activities.push({
-            id: `shop-attendance-${attendedAt.getTime()}`,
-            type: 'shop_attendance',
-            createdAt: attendedAt,
-            userId: userId,
-            shopId: shop.id,
-            shopName: shop.name,
-            leaveAt: plannedLeaveAt,
-            attendanceGames: gameNames,
-            isLive: true
-          });
+          if (inRange && wants('shop_attendance')) {
+            activities.push({
+              id: `shop-attendance-${attendedAt.getTime()}`,
+              type: 'shop_attendance',
+              createdAt: attendedAt,
+              userId: userId,
+              shopId: shop.id,
+              shopName: shop.name,
+              leaveAt: plannedLeaveAt,
+              attendanceGames: gameNames,
+              isLive: true
+            });
+          }
         }
       }
     }
   }
 
-  // Sort all activities by creation time (descending) and apply pagination
+  // Sort all activities by creation time (descending), apply the requested
+  // type filter and paginate.
   activities.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
+  const filtered = filters.types
+    ? activities.filter((a) => filters.types!.includes(a.type))
+    : activities;
+
   // Apply offset and limit
-  return activities.slice(offset, offset + limit);
+  return filtered.slice(offset, offset + limit);
 }

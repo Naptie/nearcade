@@ -376,6 +376,7 @@ export type CommentVote = z.infer<typeof commentVoteSchema>;
 
 // Activity types for recent activity feature
 export type Activity = z.infer<typeof activitySchema>;
+export type { ActivityType } from '$lib/schemas/users';
 
 // Notification types for active notification system
 export interface Notification {

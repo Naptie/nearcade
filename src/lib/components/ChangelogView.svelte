@@ -147,7 +147,7 @@
       <i class="fa-solid fa-exclamation-triangle"></i>
       <span>{error}</span>
       <div>
-        <button class="btn btn-sm btn-outline" onclick={() => loadChangelogEntries()}>
+        <button class="btn btn-sm btn-soft" onclick={() => loadChangelogEntries()}>
           {m.retry()}
         </button>
       </div>

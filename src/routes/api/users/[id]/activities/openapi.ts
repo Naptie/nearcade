@@ -11,8 +11,8 @@ export default defineOpenApiRoute({
     tags: ['users'],
     summary: bilingual('获取用户活动', 'Get user activities', true),
     description: bilingual(
-      '获取用户活动流，并根据隐私设置和当前查看者权限过滤不可见内容。',
-      'Get a user activity feed, with entries filtered according to privacy settings and the current viewer permissions.'
+      '获取用户活动流，并根据隐私设置和当前查看者权限过滤不可见内容。支持按日期范围（YYYY-MM-DD，含两端，按指定时区解释）与活动类型过滤。',
+      'Get a user activity feed, with entries filtered according to privacy settings and the current viewer permissions. Supports filtering by date range (YYYY-MM-DD, inclusive, interpreted in the given timezone) and by activity types.'
     ),
     requestParams: {
       path: userRouteIdParamSchema,
