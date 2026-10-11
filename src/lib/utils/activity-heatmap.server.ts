@@ -2,6 +2,7 @@ import type { MongoClient } from 'mongodb';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import type { User } from '$lib/auth/types';
+import { canViewFootprints } from '.';
 import { PostReadability } from '$lib/types';
 import type { ActivityType } from '$lib/types';
 
@@ -17,7 +18,8 @@ import type { ActivityType } from '$lib/types';
  *   are dropped unless `canViewAll || isUniversityPublic !== false`
  * - when university activities are hidden, post/comment/vote interactions are
  *   counted only for PUBLIC posts (membership-leak prevention)
- * - check-ins are counted only when `canViewAll || isFootprintPublic`
+ * - check-ins and attendance reports are counted only when
+ *   `canViewAll || isFootprintPublic`
  *
  * Like the feed, sources requiring an existing target (shop, post, delete
  * request) drop documents whose target vanished, and comments split into three
@@ -158,7 +160,7 @@ export async function getActivityHeatmap(
   }
 
   const includeUniversityActivities = canViewAll || user.isUniversityPublic !== false;
-  const includeFootprints = canViewAll || user.isFootprintPublic;
+  const includeFootprints = canViewFootprints(user, canViewAll);
   const range = dayRangeToUtcRange(filters);
   const tz = filters.timezone;
   const days = new Map<string, ActivityHeatmapDay>();
@@ -377,17 +379,20 @@ export async function getActivityHeatmap(
     ])
   );
 
-  // ---- attendance reports (type: attendance_report) -------------------------------
-  mergeCounts(
-    days,
-    await runCountPipeline(db, 'attendance_reports', [
-      { $match: { reportedBy: userId, reportedAt: range } },
-      ...countByDay('reportedAt', tz, 'attendance_report')
-    ])
-  );
-
-  // ---- check-ins (type: shop_attendance) --------------------------------------------
+  // ---- footprint-gated sources -----------------------------------------------------
+  // Attendance reports and check-ins both place the user at a shop at a point
+  // in time, so neither may be counted when the feed would hide them.
   if (includeFootprints) {
+    // ---- attendance reports (type: attendance_report) -----------------------------
+    mergeCounts(
+      days,
+      await runCountPipeline(db, 'attendance_reports', [
+        { $match: { reportedBy: userId, reportedAt: range } },
+        ...countByDay('reportedAt', tz, 'attendance_report')
+      ])
+    );
+
+    // ---- check-ins (type: shop_attendance) --------------------------------------------
     mergeCounts(
       days,
       await runCountPipeline(db, 'attendances', [

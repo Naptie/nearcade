@@ -196,7 +196,7 @@ export const initDatabase = async (mongo: MongoClient) => {
       .collection('attendances')
       .createIndex({ userId: 1, attendedAt: -1 }, { name: 'userId_1_attendedAt_-1' }),
 
-    // attendance_reports — per-reporter recency reads + day counts.
+    // attendance_reports — per-reporter recency reads + footprint-gated day counts.
     db
       .collection('attendance_reports')
       .createIndex({ reportedBy: 1, reportedAt: -1 }, { name: 'reportedBy_1_reportedAt_-1' }),

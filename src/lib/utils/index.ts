@@ -1725,6 +1725,19 @@ export const getFnsLocale = (locale: string) => {
   }
 };
 
+/**
+ * Whether the viewer may see a user's footprints — check-ins and attendance
+ * reports. Single gate shared by the shop attendance list, the profile
+ * activity feed, and the activity heatmap: `canViewAll` (the viewer is the
+ * user themselves or a site admin) always passes; otherwise the user must
+ * have enabled Footprint Visibility. Reports stay attributed on shop pages
+ * regardless — only the user's own profile surfaces are gated.
+ */
+export const canViewFootprints = (
+  user: Pick<User, 'isFootprintPublic'> | null | undefined,
+  canViewAll: boolean
+): boolean => canViewAll || !!user?.isFootprintPublic;
+
 export const protect = (user: User | PublicUser | undefined): PublicUser | undefined => {
   if (!user) return user;
   const protectedUser = user as PublicUser & Partial<User>;

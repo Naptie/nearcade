@@ -21,7 +21,7 @@ import {
 } from '$lib/types';
 import type { User } from '$lib/auth/types';
 import { ATTENDANCE_REPORT_HISTORY_VISIBILITY_DAYS } from '$lib/constants';
-import { getDisplayName, protect } from '.';
+import { canViewFootprints, getDisplayName, protect } from '.';
 import { fromZonedTime } from 'date-fns-tz';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 
@@ -35,7 +35,8 @@ import redis, { ensureConnected } from '$lib/db/redis.server';
  * - Post creation, post comments/replies, and post/comment votes
  * - Shop and shop-deletion-request comments/replies and votes
  * - University/club joins, club creation, and university/club/shop changelog entries
- * - Shop check-ins and attendance reports (older report comments are hidden)
+ * - Shop check-ins and attendance reports (footprint-gated; older report
+ *   comments are hidden)
  *
  * Activities are sorted by creation time in descending order and include navigation
  * details for the relevant content.
@@ -110,6 +111,9 @@ export async function getUserActivities(
 
   // Check if university-related activities should be included (default: true)
   const includeUniversityActivities = canViewAll || user.isUniversityPublic !== false;
+
+  // Check if check-ins and attendance reports should be included (default: false)
+  const includeFootprints = canViewFootprints(user, canViewAll);
 
   // Helper function to check if an activity involving a post should be included
   // based on the user's privacy settings and post readability
@@ -875,27 +879,30 @@ export async function getUserActivities(
 
   // Fetch attendance reports authored by the user. Older report notes are
   // intentionally omitted from the feed response, while counts remain visible.
+  // Like check-ins, a report places the user at a shop at a point in time, so
+  // the entries follow the same Footprint Visibility gate.
   const attendanceReportCommentCutoff =
     Date.now() - ATTENDANCE_REPORT_HISTORY_VISIBILITY_DAYS * 24 * 60 * 60 * 1000;
-  const attendanceReports = wants('attendance_report')
-    ? ((await db
-        .collection<AttendanceReportRecord>('attendance_reports')
-        .aggregate([
-          { $match: { reportedBy: userId, ...attendanceReportRange } },
-          { $sort: { reportedAt: -1 } },
-          {
-            $lookup: {
-              from: 'shops',
-              localField: 'shopId',
-              foreignField: 'id',
-              as: 'shop'
-            }
-          },
-          { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
-          { $limit: sourceLimit }
-        ])
-        .toArray()) as (AttendanceReportRecord & { shop: Shop })[])
-    : [];
+  const attendanceReports =
+    includeFootprints && wants('attendance_report')
+      ? ((await db
+          .collection<AttendanceReportRecord>('attendance_reports')
+          .aggregate([
+            { $match: { reportedBy: userId, ...attendanceReportRange } },
+            { $sort: { reportedAt: -1 } },
+            {
+              $lookup: {
+                from: 'shops',
+                localField: 'shopId',
+                foreignField: 'id',
+                as: 'shop'
+              }
+            },
+            { $unwind: { path: '$shop', preserveNullAndEmptyArrays: false } },
+            { $limit: sourceLimit }
+          ])
+          .toArray()) as (AttendanceReportRecord & { shop: Shop })[])
+      : [];
 
   attendanceReports.forEach((report) => {
     const reportedAt = new Date(report.reportedAt);
@@ -920,7 +927,7 @@ export async function getUserActivities(
     });
   });
 
-  if (canViewAll || user.isFootprintPublic) {
+  if (includeFootprints) {
     // Fetch shop attendance activities
     const shopAttendances = wants('shop_attendance')
       ? ((await db

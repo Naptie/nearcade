@@ -2,7 +2,7 @@ import redis, { ensureConnected } from '$lib/db/redis.server';
 import mongo from '$lib/db/index.server';
 import type { AttendanceData, AttendanceReport, Shop } from '$lib/types';
 import type { User, AuthSession } from '$lib/auth/types';
-import { protect } from '$lib/utils';
+import { canViewFootprints, protect } from '$lib/utils';
 
 export interface AttendanceDataOptions {
   fetchRegistered?: boolean;
@@ -182,11 +182,8 @@ export const getShopsAttendanceData = async (
   for (const result of results.values()) {
     result.registered.forEach((entry) => {
       const user = users.find((u) => u.id === entry.userId) as User;
-      if (
-        session?.user?.userType === 'site_admin' ||
-        session?.user?.id === user?.id ||
-        user?.isFootprintPublic
-      ) {
+      const canViewAll = session?.user?.userType === 'site_admin' || session?.user?.id === user?.id;
+      if (canViewFootprints(user, canViewAll)) {
         entry.user = protect(user);
       } else {
         delete entry.userId;
