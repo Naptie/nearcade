@@ -57,11 +57,16 @@ Please join the following QQ group for discussions.
 - Percussion Master
 - Danz Base
 - Hatsune Miku: Project DIVA Arcade
+- Initial D Arcade Stage
 - O.N.G.E.K.I.
+- Wangan Midnight Maximum Tune
 - DANCE aROUND
+- Pokémon Ga-Olé
 - Taiko no Tatsujin
+- Pokémon MEZASTAR
 - DANCE³ EVO
 - jubeat (China)
+- BOMBERGIRL
 
 ### 🗃️ Data Collection
 

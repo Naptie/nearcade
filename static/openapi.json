@@ -5538,11 +5538,16 @@
                 "percussion_master",
                 "danzbase",
                 "project_diva_arcade",
+                "initial_d",
                 "ongeki",
+                "wangan_midnight",
                 "dance_around",
+                "pokemon_gaole",
                 "taiko_no_tatsujin",
+                "pokemon_mezastar",
                 "dance3_evo",
-                "jubeat_cn"
+                "jubeat_cn",
+                "bombergirl"
               ]
             },
             "description": "排序维度。默认 shops。\n\nSort key. Defaults to shops."
@@ -9376,7 +9381,7 @@
                         "additionalProperties": false,
                         "description": "店铺更新记录。\n\nShop changelog entry."
                       },
-                      "description": "更新记录列表。\n\nChangelog entries."
+                      "description": "更新记录列表。\n\nShop changelog entries."
                     },
                     "total": {
                       "type": "integer",

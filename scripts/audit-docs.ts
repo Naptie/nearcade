@@ -46,6 +46,7 @@ if (!('MONGODB_URI' in process.env)) {
 import { userSchema } from '../src/lib/schemas/common';
 import {
   shopChangelogEntrySchema,
+  shopChangelogSnapshotSchema,
   shopDeleteRequestSchema,
   shopDeleteRequestVoteSchema,
   shopDocumentSchema
@@ -152,6 +153,9 @@ const notificationMirror = z.object({
   shopDeleteRequestType: z.enum(['shop', 'photo']).optional(),
   shopName: z.string().optional(),
   kind: z.enum(UGC_KINDS).optional(),
+  // Rollback notices (applyShopRollback) — everything else under SYSTEM is a
+  // UGC removal notice, which leaves this field unset.
+  noticeKind: z.literal('rollback').optional(),
   contentType: z.enum(UGC_CONTENT_TYPES).optional(),
   refId: z.string().optional(),
   reason: z.string().optional(),
@@ -557,6 +561,12 @@ interface RegistryEntry {
    * `metadata` bookkeeping doc plus the cached data documents).
    */
   pickSchema?: (doc: Record<string, unknown>) => z.ZodTypeAny;
+  /**
+   * Post-schema, collection-specific legacy check the schema can't express
+   * (e.g. values that used to be written into a catchall field). Return
+   * issues, or null when the document is fine.
+   */
+  extraCheck?: (doc: Record<string, unknown>) => DocIssue[] | null;
 }
 
 const SCHEMA_BACKED: RegistryEntry[] = [
@@ -620,7 +630,30 @@ const SCHEMA_BACKED: RegistryEntry[] = [
   {
     collection: 'shop_changelog',
     schema: shopChangelogEntrySchema,
-    source: 'src/lib/schemas/shops.ts (shopChangelogEntrySchema)'
+    source: 'src/lib/schemas/shops.ts (shopChangelogEntrySchema)',
+    // Rollback entries used to embed the full pre-rollback shop document in
+    // `metadata.oldShop` (plus a write-only `metadata.newShop`) — readable by
+    // anyone through the public changelog APIs. Snapshots now live in the
+    // private `shop_changelog_snapshots` collection; inline copies are legacy.
+    extraCheck: (doc) => {
+      if (doc.action !== 'rollback') return null;
+      const metadata = doc.metadata;
+      if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+      const legacy = ['oldShop', 'newShop'].filter((key) => key in (metadata as object));
+      if (legacy.length === 0) return null;
+      return [
+        {
+          path: 'metadata',
+          code: 'legacy_inline_snapshot',
+          message: `legacy inline shop snapshot(s) still present: ${legacy.join(', ')} (run scripts/migrate-changelog-snapshots.ts)`
+        }
+      ];
+    }
+  },
+  {
+    collection: 'shop_changelog_snapshots',
+    schema: shopChangelogSnapshotSchema,
+    source: 'src/lib/schemas/shops.ts (shopChangelogSnapshotSchema)'
   },
   {
     collection: 'changelog',
@@ -942,6 +975,10 @@ try {
             message: `fields not present in the current schema: ${extra.join(', ')}`
           });
         }
+      }
+
+      if (entry.extraCheck) {
+        issues.push(...(entry.extraCheck(plain) ?? []));
       }
 
       if (issues.length) {

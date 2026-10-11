@@ -25,11 +25,16 @@ export const GAME_TITLES = [
   { id: 22, key: 'percussion_master', seats: 2 },
   { id: 23, key: 'danzbase', seats: 2 },
   { id: 24, key: 'project_diva_arcade', seats: 1 },
+  { id: 26, key: 'initial_d', seats: 1 },
   { id: 27, key: 'ongeki', seats: 1 },
+  { id: 28, key: 'wangan_midnight', seats: 1 },
   { id: 29, key: 'dance_around', seats: 2 },
+  { id: 30, key: 'pokemon_gaole', seats: 1 },
   { id: 31, key: 'taiko_no_tatsujin', seats: 2 },
+  { id: 32, key: 'pokemon_mezastar', seats: 2 },
   { id: 33, key: 'dance3_evo', seats: 2 },
-  { id: 34, key: 'jubeat_cn', seats: 1 }
+  { id: 34, key: 'jubeat_cn', seats: 1 },
+  { id: 35, key: 'bombergirl', seats: 1 }
 ] as const;
 
 export const USER_TYPES = [

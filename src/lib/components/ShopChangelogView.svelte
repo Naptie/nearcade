@@ -1,11 +1,7 @@
 <script lang="ts">
-  /* eslint svelte/no-at-html-tags: "off" */
   import { onMount } from 'svelte';
-  import { createTwoFilesPatch } from 'diff';
-  import * as Diff2Html from 'diff2html';
-  import 'diff2html/bundles/css/diff2html.min.css';
   import { m } from '$lib/paraglide/messages';
-  import type { Shop, ShopChangelogEntryWithUser } from '$lib/types';
+  import type { ShopChangelogEntryWithUser } from '$lib/types';
   import {
     formatShopChangelogDescription,
     getShopChangelogActionName,
@@ -24,10 +20,9 @@
   interface Props {
     shopId: number;
     isSiteAdmin?: boolean;
-    onRollbackApplied?: () => void | Promise<void>;
   }
 
-  let { shopId, isSiteAdmin = false, onRollbackApplied }: Props = $props();
+  let { shopId, isSiteAdmin = false }: Props = $props();
 
   let entries = $state<ShopChangelogEntryWithUser[]>([]);
   let isLoading = $state(true);
@@ -35,17 +30,6 @@
   let hasMore = $state(true);
   let currentPage = $state(1);
   let error = $state<string | null>(null);
-  let rollbackPreview = $state<{
-    targetEntryId: string | null;
-    currentShop: Shop;
-    rolledBackShop: Shop;
-    appliedEntryIds: string[];
-    rollbackEntryCount: number;
-  } | null>(null);
-  let rollbackError = $state<string | null>(null);
-  let isPreviewingRollback = $state(false);
-  let isApplyingRollback = $state(false);
-  let rollbackDiffHtml = $state('');
   let entryElements: Record<string, HTMLElement> = {};
   let showHighlight = $state(false);
 
@@ -54,27 +38,126 @@
   // Get the highlighted entry ID from URL params
   const highlightedEntryId = $derived(page.url.searchParams.get('entry'));
 
-  const stringifyJson = (value: unknown) => JSON.stringify(value, null, 2);
+  /** Time-point preview page for an entry (`?at=` renders the shop as it stood there). */
+  const previewHref = (entryId: string) =>
+    `${resolve('/(main)/shops/[id]', { id: String(shopId) })}?at=${entryId}`;
 
-  const renderJsonDiff = (currentShop: Shop, rolledBackShop: Shop) => {
-    const patch = createTwoFilesPatch(
-      m.shop_changelog_rollback_current_state(),
-      m.shop_changelog_rollback_target_state(),
-      stringifyJson(currentShop),
-      stringifyJson(rolledBackShop),
-      '',
-      '',
-      { context: Number.MAX_SAFE_INTEGER }
-    );
+  /** The newest entry's time point is exactly the live shop (its own change
+   * included), so a preview link there would be a no-op — it is omitted.
+   * `entries[0]` stays the globally newest entry across pagination (older
+   * pages only ever get appended). */
+  const isGloballyLatest = (entry: ShopChangelogEntryWithUser) => entries[0]?.id === entry.id;
 
-    return Diff2Html.html(patch, {
-      drawFileList: false,
-      matching: 'lines',
-      outputFormat: 'side-by-side',
-      renderNothingWhenEmpty: false
-    })
-      .replace(/\s*<tr>\s*<td[^>]*d2h-info[\s\S]*?<\/tr>\s*/g, '')
-      .replace(/\s*<span class="d2h-code-line-prefix">[\s\S]*?<\/span>\s*/g, '');
+  // --- Rollback highlight overlay -------------------------------------------
+  // A rollback entry's metadata.appliedEntryIds names exactly the entries it
+  // reverted, wherever they sit in the (linear) ledger — the affected set is
+  // an overlay on the list, not a subtree, so it is highlighted rather than
+  // nested. Hovering a rollback card tentatively highlights its set in the
+  // info color; clicking pins it in the primary color, and the pin persists
+  // while hovering other cards (the two colors keep the overlap unambiguous).
+  // Esc or clicking elsewhere unpins.
+  let pinnedRollbackId = $state<string | null>(null);
+  let hoveredRollbackId = $state<string | null>(null);
+
+  const rollbackAppliedIds = (entry: ShopChangelogEntryWithUser): string[] => {
+    const ids = (entry.metadata as Record<string, unknown> | undefined)?.appliedEntryIds;
+    return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
+  };
+
+  const rollbackRetention = (entry: ShopChangelogEntryWithUser): string | null => {
+    const retention = (entry.metadata as Record<string, unknown> | undefined)?.retention;
+    return typeof retention === 'string' ? retention : null;
+  };
+
+  const rollbackRemovedPhotoCount = (entry: ShopChangelogEntryWithUser): number => {
+    const count = (entry.metadata as Record<string, unknown> | undefined)?.removedPhotoCount;
+    return typeof count === 'number' && Number.isFinite(count) && count > 0 ? count : 0;
+  };
+
+  let pinnedAppliedIds = $derived.by(() => {
+    const pinned = pinnedRollbackId ? entries.find((entry) => entry.id === pinnedRollbackId) : null;
+    return pinned ? new Set(rollbackAppliedIds(pinned)) : new Set<string>();
+  });
+
+  let hoveredAppliedIds = $derived.by(() => {
+    if (!hoveredRollbackId || hoveredRollbackId === pinnedRollbackId) return new Set<string>();
+    const hovered = entries.find((entry) => entry.id === hoveredRollbackId);
+    return hovered ? new Set(rollbackAppliedIds(hovered)) : new Set<string>();
+  });
+
+  /** Row background + left rail. Pinned rollbacks and their sets use the
+   * primary color; hovered (tentative) ones use info — the colors are
+   * distinct so a pin stays legible while hovering elsewhere. The rollback
+   * card itself gets the stronger tint; the entries it reverted a lighter
+   * one, both with an inset rail so the grouping survives scrolling. */
+  const rowClass = (entry: ShopChangelogEntryWithUser): string => {
+    const classes = ['p-4', 'transition-colors', 'hover:bg-base-50'];
+    if (highlightedEntryId === entry.id && showHighlight) classes.push('bg-primary/15');
+    if (entry.action === 'rollback') classes.push('cursor-pointer');
+
+    const pinnedHere =
+      !!pinnedRollbackId && (entry.id === pinnedRollbackId || pinnedAppliedIds.has(entry.id));
+    const hoveredHere =
+      !!hoveredRollbackId &&
+      hoveredRollbackId !== pinnedRollbackId &&
+      (entry.id === hoveredRollbackId || hoveredAppliedIds.has(entry.id));
+
+    if (pinnedHere) {
+      classes.push(
+        entry.id === pinnedRollbackId ? 'bg-primary/15' : 'bg-primary/10',
+        'shadow-[inset_3px_0_0_0_var(--color-primary)]'
+      );
+    } else if (hoveredHere) {
+      classes.push(
+        entry.id === hoveredRollbackId ? 'bg-info/10' : 'bg-info/5',
+        'shadow-[inset_3px_0_0_0_var(--color-info)]'
+      );
+    }
+    return classes.join(' ');
+  };
+
+  /** Human summary of what a rollback did, from its own metadata; null falls
+   * back to the static description. */
+  const rollbackSummary = (entry: ShopChangelogEntryWithUser): string | null => {
+    const count = rollbackAppliedIds(entry).length;
+    if (count === 0) return null;
+    const base =
+      rollbackRetention(entry) === 'purge'
+        ? m.shop_changelog_rollback_purged_count({ count })
+        : m.shop_changelog_rollback_reverted_count({ count });
+    const photos = rollbackRemovedPhotoCount(entry);
+    return photos > 0
+      ? `${base} · ${m.shop_changelog_rollback_photos_removed({ count: photos })}`
+      : base;
+  };
+
+  // Window-level delegation keeps the cards free of interaction handlers (and
+  // the a11y warnings they trigger). A click toggles the pin on a rollback
+  // card — unless it landed on one of the card's own interactive elements —
+  // and clicking anywhere else, or pressing Escape, unpins. Pointerover
+  // drives the tentative hover highlight.
+  const rollbackIdFromEvent = (event: Event): string | null => {
+    if (!(event.target instanceof Element)) return null;
+    return event.target.closest('[data-rollback-id]')?.getAttribute('data-rollback-id') ?? null;
+  };
+
+  const handleWindowClick = (event: MouseEvent) => {
+    const id = rollbackIdFromEvent(event);
+    if (!id) {
+      pinnedRollbackId = null;
+      return;
+    }
+    if (
+      event.target instanceof Element &&
+      event.target.closest('a, button, input, select, textarea, label')
+    ) {
+      return;
+    }
+    pinnedRollbackId = pinnedRollbackId === id ? null : id;
+  };
+
+  const handleWindowPointerOver = (event: PointerEvent) => {
+    hoveredRollbackId = rollbackIdFromEvent(event);
   };
 
   const loadEntries = async (page = 1, append = false) => {
@@ -116,8 +199,6 @@
     await loadEntries(currentPage + 1, true);
   };
 
-  const canRollbackEntry = (entry: ShopChangelogEntryWithUser) => entry.action !== 'created';
-
   const deleteEntry = async (entry: ShopChangelogEntryWithUser) => {
     if (!confirm(m.shop_changelog_rollback_delete_confirm())) return;
 
@@ -131,58 +212,6 @@
     }
 
     entries = entries.filter((item) => item.id !== entry.id);
-  };
-
-  const previewRollback = async (entry: ShopChangelogEntryWithUser) => {
-    rollbackError = null;
-    isPreviewingRollback = true;
-
-    try {
-      const response = await fetch(fromPath(`/api/shops/${shopId}/changelog/rollback`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetEntryId: entry.id })
-      });
-
-      if (!response.ok) throw new Error(await response.text());
-      rollbackPreview = (await response.json()) as typeof rollbackPreview;
-      if (rollbackPreview) {
-        rollbackDiffHtml = renderJsonDiff(
-          rollbackPreview.currentShop,
-          rollbackPreview.rolledBackShop
-        );
-      }
-    } catch (err) {
-      console.error('Failed to preview rollback:', err);
-      rollbackError = m.shop_changelog_rollback_preview_failed();
-    } finally {
-      isPreviewingRollback = false;
-    }
-  };
-
-  const applyRollback = async () => {
-    if (!rollbackPreview || isApplyingRollback) return;
-    isApplyingRollback = true;
-    rollbackError = null;
-
-    try {
-      const response = await fetch(fromPath(`/api/shops/${shopId}/changelog/rollback`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetEntryId: rollbackPreview.targetEntryId })
-      });
-
-      if (!response.ok) throw new Error(await response.text());
-      rollbackPreview = null;
-      rollbackDiffHtml = '';
-      await loadEntries();
-      await onRollbackApplied?.();
-    } catch (err) {
-      console.error('Failed to apply rollback:', err);
-      rollbackError = m.failed_to_update();
-    } finally {
-      isApplyingRollback = false;
-    }
   };
 
   onMount(() => {
@@ -201,6 +230,14 @@
     });
   });
 </script>
+
+<svelte:window
+  onclick={handleWindowClick}
+  onpointerover={handleWindowPointerOver}
+  onkeydown={(event) => {
+    if (event.key === 'Escape') pinnedRollbackId = null;
+  }}
+/>
 
 <div class="bg-base-100 rounded-lg">
   {#if isLoading}
@@ -229,11 +266,9 @@
       {#each entries as entry (entry.id)}
         <div
           bind:this={entryElements[entry.id]}
-          class="hover:bg-base-50 p-4 transition-colors {highlightedEntryId === entry.id &&
-          showHighlight
-            ? 'bg-primary/15'
-            : ''}"
+          class={rowClass(entry)}
           id="shop-entry-{entry.id}"
+          data-rollback-id={entry.action === 'rollback' ? entry.id : undefined}
         >
           <div class="flex gap-3">
             <!-- Action icon -->
@@ -271,32 +306,14 @@
                     </span>
                   </div>
 
-                  <!-- Change description -->
+                  <!-- Change description; rollbacks summarize what they reverted -->
                   <div class="text-base-content/80 text-sm">
-                    {formatShopChangelogDescription(entry, m)}
+                    {#if entry.action === 'rollback'}
+                      {rollbackSummary(entry) ?? formatShopChangelogDescription(entry, m)}
+                    {:else}
+                      {formatShopChangelogDescription(entry, m)}
+                    {/if}
                   </div>
-
-                  {#if isSiteAdmin}
-                    <div class="mt-2 flex flex-wrap gap-2">
-                      {#if canRollbackEntry(entry)}
-                        <button
-                          class="btn btn-primary btn-xs btn-soft"
-                          onclick={() => previewRollback(entry)}
-                          disabled={isPreviewingRollback}
-                        >
-                          <i class="fa-solid fa-rotate-left"></i>
-                          {m.shop_changelog_rollback_action()}
-                        </button>
-                      {/if}
-                      <button
-                        class="btn btn-error btn-xs btn-soft"
-                        onclick={() => deleteEntry(entry)}
-                      >
-                        <i class="fa-solid fa-trash"></i>
-                        {m.shop_changelog_rollback_delete_action()}
-                      </button>
-                    </div>
-                  {/if}
 
                   <!-- Photo thumbnail for photo events -->
                   {#if (entry.action === 'photo_uploaded' || entry.action === 'photo_deleted' || entry.action === 'photo_delete_request_submitted' || entry.action === 'photo_delete_request_approved' || entry.action === 'photo_delete_request_rejected') && entry.fieldInfo.photoUrl}
@@ -319,6 +336,33 @@
                   })}
                 </div>
               </div>
+
+              {#if !isGloballyLatest(entry) || isSiteAdmin}
+                <!-- Time-point preview (left) + admin actions (right); a direct
+                child of the content column so justify-between reaches the
+                entry's right edge (the header's text column stops short of the
+                timestamp). -->
+                <div
+                  class="mt-2 flex items-center justify-between gap-2"
+                  class:flex-row-reverse={isSiteAdmin}
+                >
+                  {#if isSiteAdmin}
+                    <button
+                      class="btn btn-error btn-soft btn-xs"
+                      onclick={() => deleteEntry(entry)}
+                    >
+                      <i class="fa-solid fa-trash"></i>
+                      {m.shop_changelog_rollback_delete_action()}
+                    </button>
+                  {/if}
+                  {#if !isGloballyLatest(entry)}
+                    <a class="btn btn-soft btn-xs" href={previewHref(entry.id)}>
+                      <i class="fa-solid fa-eye"></i>
+                      {m.shop_changelog_view_at_point()}
+                    </a>
+                  {/if}
+                </div>
+              {/if}
 
               <!-- Value details for field changes -->
               {#if entry.oldValue || entry.newValue}
@@ -349,143 +393,3 @@
     {/if}
   {/if}
 </div>
-
-{#if rollbackPreview}
-  <div class="modal modal-open">
-    <div class="modal-box max-w-5xl overflow-hidden">
-      <h3 class="text-lg font-bold">{m.shop_changelog_rollback_preview()}</h3>
-      <p class="text-base-content/70 mt-1 text-sm">
-        {m.shop_changelog_rollback_preview_description()}
-      </p>
-
-      {#if rollbackError}
-        <div class="alert alert-error mt-4">
-          <i class="fa-solid fa-exclamation-triangle"></i>
-          <span>{rollbackError}</span>
-        </div>
-      {/if}
-
-      <div class="rollback-diff-pane border-base-300 mt-4 overflow-auto rounded-xl border text-xs">
-        {@html rollbackDiffHtml}
-      </div>
-
-      <div class="modal-action">
-        <button
-          class="btn btn-ghost"
-          onclick={() => {
-            rollbackPreview = null;
-            rollbackDiffHtml = '';
-          }}
-          disabled={isApplyingRollback}
-        >
-          {m.cancel()}
-        </button>
-        <button class="btn btn-primary" onclick={applyRollback} disabled={isApplyingRollback}>
-          {#if isApplyingRollback}<span class="loading loading-spinner loading-sm"></span>{/if}
-          {m.shop_changelog_rollback_confirm()}
-        </button>
-      </div>
-    </div>
-    <button
-      class="modal-backdrop"
-      onclick={() => {
-        rollbackPreview = null;
-        rollbackDiffHtml = '';
-      }}>{m.close()}</button
-    >
-  </div>
-{/if}
-
-<style>
-  :global(.rollback-diff-pane) {
-    max-height: 28rem;
-    overflow: auto;
-    background: var(--color-base-100);
-    color: var(--color-base-content);
-  }
-
-  :global(.rollback-diff-pane .d2h-file-wrapper) {
-    margin: 0;
-    border: 0;
-    border-radius: 0;
-    background: var(--color-base-100);
-  }
-
-  :global(.rollback-diff-pane .d2h-file-header) {
-    display: none;
-  }
-
-  :global(.rollback-diff-pane .d2h-file-side-diff) {
-    display: block;
-    flex: 1 1 0;
-    width: 50%;
-    min-width: 0;
-    margin: 0;
-    overflow-x: hidden;
-  }
-
-  :global(.rollback-diff-pane .d2h-diff-table) {
-    width: 100%;
-    table-layout: fixed;
-    font-family: var(--font-mono, 'JetBrains Mono Variable', monospace);
-    font-size: 0.6875rem;
-    border-collapse: collapse;
-  }
-
-  :global(.rollback-diff-pane .d2h-code-side-linenumber),
-  :global(.rollback-diff-pane .d2h-code-linenumber) {
-    display: none;
-  }
-
-  :global(.rollback-diff-pane .d2h-code-line-prefix) {
-    display: none;
-  }
-
-  :global(.rollback-diff-pane .d2h-code-side-line),
-  :global(.rollback-diff-pane .d2h-code-line) {
-    display: block;
-    width: 100%;
-    height: auto;
-    min-height: 0;
-    padding: 0;
-    border: 0;
-    background: var(--color-base-100);
-    color: var(--color-base-content);
-  }
-
-  :global(.rollback-diff-pane .d2h-info) {
-    display: none;
-    width: 0;
-    height: 0;
-    min-height: 0;
-    padding: 0;
-    border: 0;
-    overflow: hidden;
-  }
-
-  :global(.rollback-diff-pane .d2h-code-line-ctn) {
-    display: block;
-    width: 100%;
-    padding: 0 0.25rem;
-    color: inherit;
-    font-size: 0.6875rem;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
-  :global(.rollback-diff-pane .d2h-code-side-line:hover),
-  :global(.rollback-diff-pane .d2h-code-line:hover) {
-    background: color-mix(in oklab, var(--color-base-content) 7%, var(--color-base-100));
-  }
-
-  :global(.d2h-code-line ins, .d2h-code-side-line ins) {
-    background: color-mix(in oklab, var(--color-success) 10%, transparent);
-    color: var(--color-success);
-  }
-
-  :global(.d2h-code-line del, .d2h-code-side-line del) {
-    background: color-mix(in oklab, var(--color-error) 10%, transparent);
-    color: var(--color-error);
-  }
-</style>

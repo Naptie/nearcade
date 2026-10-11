@@ -73,6 +73,14 @@
           targetName
         });
       case 'SYSTEM': {
+        // Rollback notices carry their own wording; every other SYSTEM row is
+        // a UGC removal notice. The admin's custom message (if any) arrives
+        // via `content` and renders in the shared quoted slot below.
+        if (notification.noticeKind === 'rollback') {
+          return m.notification_system_changes_rolled_back({
+            shopName: notification.shopName ?? ''
+          });
+        }
         const noun = ugcRemovalNoun(notification.contentType, notification.kind);
         if (notification.reviewedBy) {
           if (notification.reason) {

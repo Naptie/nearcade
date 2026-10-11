@@ -18,6 +18,7 @@
   import { onUgcTranslated, resolveUgcTextState, type UgcTranslationStatus } from '$lib/ugc/client';
   import { translationCacheKey } from '$lib/ugc/hash';
   import { fade } from 'svelte/transition';
+
   interface Props {
     comment: CommentWithAuthorAndVote;
     currentUserId?: string;
@@ -371,7 +372,7 @@
                 ? 'not-hover:text-success'
                 : ''}"
               onclick={() => handleVote('upvote')}
-              disabled={!currentUserId}
+              disabled={!currentUserId || !onVote}
             >
               <i class="fa-solid fa-caret-up fa-lg"></i>
               <span>{comment.upvotes}</span>
@@ -393,7 +394,7 @@
                 ? 'not-hover:text-error'
                 : ''}"
               onclick={() => handleVote('downvote')}
-              disabled={!currentUserId}
+              disabled={!currentUserId || !onVote}
             >
               <i class="fa-solid fa-caret-down fa-lg"></i>
               <span>{comment.downvotes}</span>

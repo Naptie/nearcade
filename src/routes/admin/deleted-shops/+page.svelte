@@ -109,10 +109,16 @@
 
         {#each data.shops as shop (shop._id)}
           <tr class="hover">
-            <!-- The shop is gone from `shops`, so its public page is a 404.
-                 Deliberately not linked. -->
+            <!-- Site admins can preview the archived snapshot on the shop page. -->
             <td class="max-w-[22vw]">
-              <span class="font-medium">{shop.name}</span>
+              <a
+                class="hover:text-accent font-medium transition-colors"
+                href={resolve('/(main)/shops/[id]', { id: String(shop.id) })}
+                target={adaptiveNewTab()}
+                title={m.admin_deleted_shops_preview_title()}
+              >
+                {shop.name}
+              </a>
               <div class="text-base-content/50 font-mono text-xs">#{shop.id}</div>
             </td>
 
@@ -170,6 +176,15 @@
             <td class="text-right">
               <div class="flex justify-end">
                 <AdminRowActions>
+                  <a
+                    class="btn btn-soft btn-sm btn-square"
+                    href={resolve('/(main)/shops/[id]', { id: String(shop.id) })}
+                    target={adaptiveNewTab()}
+                    title={m.admin_deleted_shops_preview_title()}
+                    aria-label={m.admin_deleted_shops_preview_title()}
+                  >
+                    <i class="fa-solid fa-eye"></i>
+                  </a>
                   {#if shop.deleteRequest}
                     <a
                       class="btn btn-soft btn-sm btn-square"

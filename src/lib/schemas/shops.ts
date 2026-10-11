@@ -813,12 +813,84 @@ export const shopChangelogEntrySchema = z
 export const shopChangelogListResponseSchema = z.object({
   entries: z
     .array(shopChangelogEntrySchema)
-    .describe(bilingual('更新记录列表。', 'Changelog entries.')),
+    .describe(bilingual('更新记录列表。', 'Shop changelog entries.')),
   total: z.int().min(0).describe(bilingual('更新记录总数。', 'Total changelog entry count.')),
   page: z.int().min(1).describe(bilingual('当前页。', 'Current page.')),
   limit: z.int().min(1).describe(bilingual('每页条目数。', 'Items per page.')),
   hasMore: z.boolean().describe(bilingual('是否还有更多条目。', 'Whether more entries exist.')),
   totalPages: z.int().min(0).describe(bilingual('总页数。', 'Total page count.'))
+});
+
+export const shopChangelogRollbackRetentionSchema = z
+  .enum(['keep', 'purge'])
+  .describe(
+    bilingual(
+      '回滚后对被回滚记录的处理方式：keep 保留原文，purge 直接删除条目。',
+      'What happens to the rolled-back changelog entries: keep keeps them verbatim, purge hard-deletes them.'
+    )
+  );
+
+export const shopChangelogRollbackBodySchema = z.object({
+  targetEntryId: z
+    .string()
+    .nullish()
+    .describe(
+      bilingual(
+        '回滚目标记录 ID；为空表示回滚到店铺创建时。',
+        'Rollback target entry ID; empty rolls back to shop creation.'
+      )
+    ),
+  retention: shopChangelogRollbackRetentionSchema.default('keep'),
+  removePhotos: z
+    .boolean()
+    .default(false)
+    .describe(
+      bilingual(
+        '同时删除回滚窗口内上传的照片（对象存储与记录一并移除）。',
+        'Also delete photos uploaded within the rollback window (object storage and records).'
+      )
+    ),
+  notify: z
+    .object({
+      enabled: z.boolean().default(false),
+      message: z
+        .string()
+        .max(500)
+        .optional()
+        .describe(
+          bilingual(
+            '附带在系统通知中的自定义说明。',
+            'Custom explanation attached to the system notice.'
+          )
+        )
+    })
+    .optional()
+    .describe(
+      bilingual(
+        '是否通过系统通知告知被回滚的作者。',
+        'Whether to send a system notice to the affected authors.'
+      )
+    )
+});
+
+/**
+ * Private reversal snapshot for a rollback changelog entry (`shop_changelog_snapshots`).
+ * The envelope is schema-backed while `snapshot` stays untyped on purpose:
+ * it captures the shop verbatim at rollback time, so old snapshots
+ * legitimately predate later shop schema evolutions.
+ */
+export const shopChangelogSnapshotSchema = z.object({
+  _id: z.string().optional().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
+  entryId: z
+    .string()
+    .describe(
+      bilingual('关联的回滚记录 ID。', 'The rollback changelog entry this snapshot reverses.')
+    ),
+  shopId: shopIdSchema,
+  snapshot: z
+    .record(z.string(), z.unknown())
+    .describe(bilingual('回滚前的店铺文档原文。', 'The verbatim pre-rollback shop document.')),
+  createdAt: dateTimeSchema(bilingual('快照时间。', 'Snapshot time.'))
 });
 
 const attendanceHistoryGameSchema = z.object({

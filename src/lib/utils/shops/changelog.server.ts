@@ -1,10 +1,11 @@
-import type { Document, Filter, MongoClient } from 'mongodb';
+import type { Document, Filter, MongoClient, ObjectId } from 'mongodb';
 import type {
   Game,
   Shop,
   ShopChangelogAction,
   ShopChangelogEntry,
-  ShopChangelogEntryWithUser
+  ShopChangelogEntryWithUser,
+  ShopPhoto
 } from '$lib/types';
 import { nanoid } from 'nanoid';
 import { resolveShopAddress } from '$lib/utils/region.server';
@@ -13,6 +14,8 @@ import { reassignShopTransitInBackground } from '$lib/openmetro/assign.server';
 import { auditUgc, type UgcAuditBlock } from '$lib/ugc/audit.server';
 import { submitUgc } from '$lib/ugc/entries.server';
 import { shopUgcTexts } from '$lib/ugc/shop-fields.server';
+import { deleteFile } from '$lib/oss/index';
+import { notify } from '$lib/notifications/index.server';
 import { escapeRegex, userLookupStages, USER_LABEL_EXPRESSION } from './query.server';
 
 interface ChangelogUser {
@@ -46,6 +49,44 @@ export interface ShopRollbackPreview {
   rolledBackShop: Shop;
   appliedEntryIds: string[];
   rollbackEntryCount: number;
+  /** Distinct authors of the reverted entries (the notify option targets these). */
+  authors: ShopRollbackAuthor[];
+  /** Photos uploaded within the rollback window — removable via `removePhotos`. */
+  photos: ShopRollbackPhotoTarget[];
+}
+
+/** What happens to the rolled-back changelog entries. */
+export type ShopRollbackRetention = 'keep' | 'purge';
+
+export interface ShopRollbackOptions {
+  /** Default `keep`: the ledger stays intact and fully reconstructible. */
+  retention?: ShopRollbackRetention;
+  /** Delete photos uploaded within the rollback window (OSS object + record). */
+  removePhotos?: boolean;
+  /** Send a SYSTEM notice to each affected author, optionally with a custom message. */
+  notify?: { enabled?: boolean; message?: string };
+}
+
+export interface ShopRollbackPhotoTarget {
+  photoId: string;
+  photoUrl: string | null;
+  uploadedBy: string | null;
+}
+
+export interface ShopRollbackAuthor {
+  id: string;
+  name: string | null;
+}
+
+export interface ShopRollbackResult extends ShopRollbackPreview {
+  /** Retention mode that was applied. */
+  retention: ShopRollbackRetention;
+  /** Photo ids actually removed (empty when `removePhotos` was off). */
+  removedPhotoIds: string[];
+  /** Authors the SYSTEM notice was sent to (empty when notify was off). */
+  notifiedUserIds: string[];
+  /** Whether the private reversal snapshot was persisted (always false under `purge`). */
+  snapshotStored: boolean;
 }
 
 const mutableShopFields = [
@@ -144,6 +185,25 @@ export const canViewDeletedPhotoInChangelog = (
 };
 
 /**
+ * Private reversal snapshots for rollback changelog entries. The public
+ * `shop_changelog` ledger must never carry full shop documents — its entries
+ * (including metadata) are readable by anyone — so `applyShopRollback` stores
+ * the pre-rollback shop verbatim here, keyed by the rollback entry's id, and
+ * only the reversal path in this module reads it back. Never exposed through
+ * any API route or search index.
+ */
+const SNAPSHOTS_COLLECTION = 'shop_changelog_snapshots';
+
+interface ShopChangelogSnapshotRecord {
+  _id?: ObjectId;
+  entryId: string;
+  shopId: number;
+  /** The verbatim pre-rollback shop document. */
+  snapshot: Shop;
+  createdAt: Date;
+}
+
+/**
  * Insert a single shop changelog entry.
  */
 export const logShopChange = async (
@@ -158,11 +218,14 @@ export const logShopChange = async (
     newValue?: string | null;
     metadata?: ShopChangelogEntry['metadata'];
     createdAt?: Date;
+    /** Pre-generated entry id — lets callers reference the entry (e.g. its
+     * reversal snapshot) before it is inserted. Random nanoid when omitted. */
+    id?: string;
   }
 ): Promise<void> => {
   const db = client.db();
   const entry: ShopChangelogEntry = {
-    id: nanoid(),
+    id: change.id ?? nanoid(),
     shopId: change.shopId,
     shopName: change.shopName,
     action: change.action,
@@ -620,6 +683,14 @@ export const getShopChangelogFacets = async (
   };
 };
 
+/** Fetch the entries a rollback to `targetEntryId` reverts: everything
+ * recorded strictly AFTER the target. "As of the target entry" semantics —
+ * the target's own change stays part of the reconstructed state, so the
+ * rollback lands on exactly what the time-point preview shows. The cut is
+ * pure-timestamp on purpose: a multi-field edit logs one entry per field,
+ * often within the same millisecond, and the shop document was updated
+ * atomically — splitting a group by insertion order would reconstruct a
+ * mid-edit state that never existed. */
 const getRollbackEntries = async (
   client: MongoClient,
   shopId: number,
@@ -637,19 +708,39 @@ const getRollbackEntries = async (
     targetCreatedAt = new Date(targetEntry.createdAt);
   }
 
-  const filter: Filter<ShopChangelogEntry> = { shopId };
-  if (targetCreatedAt) {
-    filter.createdAt = { $gte: targetCreatedAt };
-  }
+  const filter: Filter<ShopChangelogEntry> = {
+    shopId,
+    ...(targetCreatedAt ? { createdAt: { $gt: targetCreatedAt } } : {})
+  };
 
-  return collection.find(filter).sort({ createdAt: -1 }).toArray();
+  // `_id` as the tiebreaker keeps same-millisecond groups in a deterministic
+  // (reverse insertion) order; members touch disjoint fields, so the order
+  // never changes the outcome.
+  return collection.find(filter).sort({ createdAt: -1, _id: -1 }).toArray();
 };
 
-const applyInverseEntry = (shop: Shop, entry: ShopChangelogEntry): boolean => {
+/** Defensive guard for the inverse replay: an entry carrying neither value
+ * key would write null/'' into the fields it once touched if applied.
+ * Original writers always store at least one of the two keys (null when a
+ * field was previously unset), so their absence means the values were
+ * stripped out-of-band. The redact retention that used to produce such
+ * entries was removed before any deployment, so none should exist — skip
+ * rather than corrupt state if stray data ever appears. */
+const isRedactedEntry = (entry: ShopChangelogEntry): boolean =>
+  (entry.action === 'modified' || entry.action === 'game_modified') &&
+  !('oldValue' in entry) &&
+  !('newValue' in entry);
+
+const applyInverseEntry = (
+  shop: Shop,
+  entry: ShopChangelogEntry,
+  snapshots: Map<string, Shop>
+): boolean => {
   switch (entry.action) {
     case 'created':
       return false;
     case 'modified': {
+      if (isRedactedEntry(entry)) return false;
       const field = entry.fieldInfo.field;
       if (!isMutableShopField(field)) return false;
       (shop as unknown as Record<MutableShopField, unknown>)[field] = parseStoredValue(
@@ -659,6 +750,7 @@ const applyInverseEntry = (shop: Shop, entry: ShopChangelogEntry): boolean => {
       return true;
     }
     case 'game_modified': {
+      if (isRedactedEntry(entry)) return false;
       const field = entry.fieldInfo.field;
       if (!field.startsWith('game.') || entry.fieldInfo.gameId === undefined) return false;
 
@@ -688,15 +780,89 @@ const applyInverseEntry = (shop: Shop, entry: ShopChangelogEntry): boolean => {
       return true;
     }
     case 'rollback': {
-      // A rollback changelog entry is itself reversible: restoring its pre-rollback
-      // snapshot brings the shop back to the state it had immediately before that rollback.
-      return applyShopSnapshot(shop, entry.metadata?.oldShop);
+      // A rollback changelog entry is itself reversible: restoring its
+      // pre-rollback snapshot (stored privately in shop_changelog_snapshots)
+      // brings the shop back to the state it had immediately before that
+      // rollback. Entries whose snapshot is unavailable — purged, lost, or
+      // the public preview path, which never reads private data — are
+      // skipped; the reverted entries themselves still reconstruct those
+      // time points from the public ledger where retention allows.
+      return applyShopSnapshot(shop, snapshots.get(entry.id));
     }
     default:
       return false;
   }
 };
 
+/** Batch-fetch the reversal snapshots for the rollback entries in a window.
+ * `includeInlineLegacy` opts into the pre-migration inline `metadata.oldShop`
+ * fallback — admin-only: the public time-point preview must never read it,
+ * because a legacy snapshot can carry content that a purge-style removal
+ * scrubbed from the public ledger. */
+const getReversalSnapshots = async (
+  client: MongoClient,
+  entries: ShopChangelogEntry[],
+  options: { includeInlineLegacy?: boolean } = {}
+): Promise<Map<string, Shop>> => {
+  const rollbackEntryIds = entries
+    .filter((entry) => entry.action === 'rollback')
+    .map((entry) => entry.id);
+  if (rollbackEntryIds.length === 0) return new Map();
+
+  const docs = await client
+    .db()
+    .collection<ShopChangelogSnapshotRecord>(SNAPSHOTS_COLLECTION)
+    .find({ entryId: { $in: rollbackEntryIds } })
+    .toArray();
+  const snapshots = new Map(docs.map((doc) => [doc.entryId, doc.snapshot]));
+
+  if (options.includeInlineLegacy) {
+    for (const entry of entries) {
+      if (
+        entry.action === 'rollback' &&
+        !snapshots.has(entry.id) &&
+        isObjectRecord(entry.metadata) &&
+        isObjectRecord(entry.metadata.oldShop)
+      ) {
+        snapshots.set(entry.id, entry.metadata.oldShop as Shop);
+      }
+    }
+  }
+  return snapshots;
+};
+
+/** Photos uploaded within the rollback window (revertible via `removePhotos`). */
+const collectWindowPhotos = (entries: ShopChangelogEntry[]): ShopRollbackPhotoTarget[] =>
+  entries
+    .filter((entry) => entry.action === 'photo_uploaded' && entry.fieldInfo.photoId)
+    .map((entry) => ({
+      photoId: entry.fieldInfo.photoId as string,
+      photoUrl: entry.fieldInfo.photoUrl ?? null,
+      uploadedBy: entry.userId ?? null
+    }));
+
+/** Distinct named authors of the given entries, preserving first-seen order. */
+const collectAuthors = async (
+  client: MongoClient,
+  entries: ShopChangelogEntry[]
+): Promise<ShopRollbackAuthor[]> => {
+  const ids = [...new Set(entries.map((entry) => entry.userId).filter((id): id is string => !!id))];
+  if (ids.length === 0) return [];
+
+  const users = await client
+    .db()
+    .collection<{ id: string; name?: string | null }>('users')
+    .find({ id: { $in: ids } }, { projection: { _id: 0, id: 1, name: 1 } })
+    .toArray();
+  const nameById = new Map(users.map((user) => [user.id, user.name ?? null]));
+
+  return ids.map((id) => ({ id, name: nameById.get(id) ?? null }));
+};
+
+/** The state a rollback to `targetEntryId` restores: the shop as it stood at
+ * that entry (the entry's own change kept), computed by reverting every
+ * entry recorded after it. Shared by the admin rollback and the public
+ * time-point preview so both land on the identical state. */
 export const buildShopRollbackPreview = async (
   client: MongoClient,
   shopId: number,
@@ -710,15 +876,21 @@ export const buildShopRollbackPreview = async (
 
   const rolledBackShop = clone(shop);
   const entries = await getRollbackEntries(client, shopId, targetEntryId);
+  const snapshots = await getReversalSnapshots(client, entries, { includeInlineLegacy: true });
   const appliedEntryIds: string[] = [];
 
   for (const entry of entries) {
-    if (applyInverseEntry(rolledBackShop, entry)) {
+    if (applyInverseEntry(rolledBackShop, entry, snapshots)) {
       appliedEntryIds.push(entry.id);
     }
   }
 
   rolledBackShop.updatedAt = new Date();
+
+  const authors = await collectAuthors(
+    client,
+    entries.filter((entry) => appliedEntryIds.includes(entry.id))
+  );
 
   return {
     shopId,
@@ -727,16 +899,124 @@ export const buildShopRollbackPreview = async (
     currentShop: shop,
     rolledBackShop,
     appliedEntryIds,
-    rollbackEntryCount: entries.length
+    rollbackEntryCount: entries.length,
+    authors,
+    photos: collectWindowPhotos(entries)
   };
+};
+
+export interface ShopTimePointPreview {
+  shopId: number;
+  shopName: string;
+  targetEntryId: string;
+  targetEntryCreatedAt: Date;
+  /** Reconstructed stored-shape shop document at the target entry. */
+  shop: Shop;
+  appliedEntryIds: string[];
+  entryCount: number;
+  authors: ShopRollbackAuthor[];
+  photos: ShopRollbackPhotoTarget[];
+}
+
+/**
+ * Reconstruct the shop as it stood at a changelog entry for the *public*
+ * time-point preview — the entry's own change is part of the state, matching
+ * what a rollback to it restores. Same inverse replay as the rollback
+ * preview, but built exclusively from public ledger data: private reversal
+ * snapshots (and their legacy inline copies) are never consulted, so a
+ * rollback entry without an accessible snapshot is simply skipped — content
+ * that retention scrubbed from the ledger cannot resurface here, and purged
+ * entries degrade to the post-rollback values instead.
+ */
+export const buildShopTimePointPreview = async (
+  client: MongoClient,
+  shopId: number,
+  targetEntryId: string
+): Promise<ShopTimePointPreview> => {
+  const db = client.db();
+  const shop = await db.collection<Shop>('shops').findOne({ id: shopId });
+  if (!shop) {
+    throw new Error('Shop not found');
+  }
+
+  // The target itself is not part of the revert window — fetch it for its
+  // timestamp (the previewed state's `updatedAt`).
+  const targetEntry = await db
+    .collection<ShopChangelogEntry>('shop_changelog')
+    .findOne({ shopId, id: targetEntryId });
+  if (!targetEntry) {
+    throw new Error('Target changelog entry not found');
+  }
+
+  const entries = await getRollbackEntries(client, shopId, targetEntryId);
+
+  const snapshots = await getReversalSnapshots(client, entries);
+  const appliedEntryIds: string[] = [];
+  for (const entry of entries) {
+    if (applyInverseEntry(shop, entry, snapshots)) {
+      appliedEntryIds.push(entry.id);
+    }
+  }
+  shop.updatedAt = targetEntry.createdAt;
+
+  const authors = await collectAuthors(
+    client,
+    entries.filter((entry) => appliedEntryIds.includes(entry.id))
+  );
+
+  return {
+    shopId,
+    shopName: shop.name,
+    targetEntryId,
+    targetEntryCreatedAt: new Date(targetEntry.createdAt),
+    shop,
+    appliedEntryIds,
+    entryCount: entries.length,
+    authors,
+    photos: collectWindowPhotos(entries)
+  };
+};
+
+/** Send the rollback SYSTEM notice to each affected author. Best-effort and
+ * always delivered (`notify` treats SYSTEM as platform-generated), speaking
+ * as the official account; the optional custom message rides the `content`
+ * slot that NotificationItem renders as a quoted line. */
+const notifyRollbackAuthors = async (
+  recipients: ShopRollbackAuthor[],
+  context: { shopId: number; shopName: string; message?: string; reviewedBy: string | null }
+): Promise<string[]> => {
+  const notified: string[] = [];
+  for (const author of recipients) {
+    try {
+      await notify({
+        type: 'SYSTEM',
+        actorUserId: 'system',
+        actorName: 'nearcade',
+        targetUserId: author.id,
+        noticeKind: 'rollback',
+        kind: 'shop',
+        refId: String(context.shopId),
+        shopId: context.shopId,
+        shopName: context.shopName,
+        ...(context.message ? { content: context.message } : {}),
+        ...(context.reviewedBy ? { reviewedBy: context.reviewedBy } : {})
+      });
+      notified.push(author.id);
+    } catch (err) {
+      console.error(`Failed to notify rolled-back author ${author.id}:`, err);
+    }
+  }
+  return notified;
 };
 
 export const applyShopRollback = async (
   client: MongoClient,
   shopId: number,
   targetEntryId: string | null,
-  user: ChangelogUser
-): Promise<ShopRollbackPreview> => {
+  user: ChangelogUser,
+  options: ShopRollbackOptions = {}
+): Promise<ShopRollbackResult> => {
+  const retention = options.retention ?? 'keep';
   const preview = await buildShopRollbackPreview(client, shopId, targetEntryId);
   const db = client.db();
   const storedRegion = preview.rolledBackShop.address.region;
@@ -815,7 +1095,91 @@ export const applyShopRollback = async (
   // so `transit.metro` follows the restored coordinates (non-fatal).
   reassignShopTransitInBackground(client, shopId);
 
+  // The rollback entry is referenced by its reversal snapshot, so its id is
+  // generated up front and the snapshot is written first (both best-effort —
+  // the whole rollback flow is sequential best-effort, no transactions).
+  const rollbackEntryId = nanoid();
+
+  let snapshotStored = false;
+  if (retention !== 'purge') {
+    // `purge` skips the snapshot on purpose: the pre-rollback state IS the
+    // prohibited content being erased, and a rollback of it should not be
+    // reversible. `keep` retains it privately for reversibility.
+    try {
+      await db.collection<ShopChangelogSnapshotRecord>(SNAPSHOTS_COLLECTION).insertOne({
+        entryId: rollbackEntryId,
+        shopId,
+        snapshot: preview.currentShop,
+        createdAt: new Date()
+      });
+      snapshotStored = true;
+    } catch (err) {
+      console.error('Failed to store rollback reversal snapshot:', err);
+    }
+  }
+
+  // Retention of the rolled-back ledger entries. `keep` leaves the window
+  // untouched (history stays public and fully reconstructible); `purge`
+  // hard-deletes the reverted entries for erasure incidents. Non-applied
+  // entries in the window (photos, delete-request records) describe changes
+  // that were NOT reverted and are only touched by the photo removal below.
+  if (retention === 'purge' && preview.appliedEntryIds.length > 0) {
+    try {
+      await db
+        .collection<ShopChangelogEntry>('shop_changelog')
+        .deleteMany({ shopId, id: { $in: preview.appliedEntryIds } });
+    } catch (err) {
+      console.error('Failed to purge rolled-back entries:', err);
+    }
+  }
+
+  // Photo removal: every photo uploaded inside the rollback window is deleted
+  // from object storage and the `images` collection (same as the admin photo
+  // delete path), logged as photo_deleted, and its upload entry scrubbed so
+  // no reachable URL survives in the ledger. Best-effort per photo.
+  const removedPhotoIds: string[] = [];
+  if (options.removePhotos && preview.photos.length > 0) {
+    const photosCollection = db.collection<ShopPhoto>('images');
+    for (const photo of preview.photos) {
+      try {
+        const doc = await photosCollection.findOne({ id: photo.photoId, shopId });
+        if (!doc) continue;
+        await deleteFile(doc);
+        await photosCollection.deleteOne({ id: photo.photoId, shopId });
+        removedPhotoIds.push(photo.photoId);
+        await logShopChange(client, {
+          shopId,
+          shopName: preview.rolledBackShop.name,
+          action: 'photo_deleted',
+          user,
+          fieldInfo: { field: 'photo', photoId: photo.photoId, photoUrl: doc.url },
+          metadata: {
+            ...(doc.uploadedBy ? { uploadedBy: doc.uploadedBy } : {}),
+            removedByRollback: true
+          }
+        });
+      } catch (err) {
+        console.error(`Failed to remove photo ${photo.photoId} during rollback:`, err);
+      }
+    }
+    if (removedPhotoIds.length > 0) {
+      try {
+        await db.collection<ShopChangelogEntry>('shop_changelog').updateMany(
+          {
+            shopId,
+            action: 'photo_uploaded',
+            'fieldInfo.photoId': { $in: removedPhotoIds }
+          },
+          { $unset: { 'fieldInfo.photoUrl': '' } }
+        );
+      } catch (err) {
+        console.error('Failed to scrub removed photos from changelog entries:', err);
+      }
+    }
+  }
+
   await logShopChange(client, {
+    id: rollbackEntryId,
     shopId,
     shopName: preview.rolledBackShop.name,
     action: 'rollback',
@@ -825,10 +1189,43 @@ export const applyShopRollback = async (
       targetEntryId,
       appliedEntryIds: preview.appliedEntryIds,
       rollbackEntryCount: preview.rollbackEntryCount,
-      oldShop: preview.currentShop,
-      newShop: preview.rolledBackShop
+      retention,
+      snapshotStored,
+      removedPhotoCount: removedPhotoIds.length
     }
   });
 
-  return preview;
+  // Authors of the reverted changes plus uploaders of removed photos — the
+  // acting admin is never notified about their own action.
+  const recipientIds = new Set<string>();
+  for (const author of preview.authors) recipientIds.add(author.id);
+  for (const photo of preview.photos) {
+    if (photo.uploadedBy && removedPhotoIds.includes(photo.photoId)) {
+      recipientIds.add(photo.uploadedBy);
+    }
+  }
+  recipientIds.delete(user.id ?? '');
+
+  const notifiedUserIds = options.notify?.enabled
+    ? await notifyRollbackAuthors(
+        [...recipientIds].map((id) => ({
+          id,
+          name: preview.authors.find((author) => author.id === id)?.name ?? null
+        })),
+        {
+          shopId,
+          shopName: preview.rolledBackShop.name,
+          message: options.notify?.message?.trim() || undefined,
+          reviewedBy: user.id
+        }
+      )
+    : [];
+
+  return {
+    ...preview,
+    retention,
+    removedPhotoIds,
+    notifiedUserIds,
+    snapshotStored
+  };
 };

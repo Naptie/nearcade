@@ -7,12 +7,11 @@
     aggregateGames,
     calculateDistance,
     convertCoordinates,
-    formatDistance,
+    formatDateTime,
     formatHourLiteral,
     formatOpeningHourLiteral,
     formatShopAddress,
     formatTime,
-    getDisplayName,
     getFnsLocale,
     getGameName,
     getMyLocation,
@@ -27,7 +26,6 @@
   import { ATTENDANCE_RADIUS_KM, GAME_TITLES } from '$lib/constants';
   import { getContext } from 'svelte';
   import type { AMapContext, QueueRecord, QueuePosition, QueueMember } from '$lib/types';
-  import AttendanceModal from '$lib/components/AttendanceModal.svelte';
   import { browser } from '$app/environment';
   import type { AttendanceData, AttendanceReport } from '$lib/types';
   import { fromPath } from '$lib/utils/scoped';
@@ -38,7 +36,6 @@
   import { fromZonedTime } from 'date-fns-tz';
   import { getLocale } from '$lib/paraglide/runtime';
   import { hasBoundPhone } from '$lib/utils';
-  import { toastError } from '$lib/notifications/toast.svelte';
   import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import FancyButton from '$lib/components/FancyButton.svelte';
   import type { User } from '$lib/auth/types';
@@ -51,15 +48,13 @@
     getCanonicalUrl,
     toAbsoluteUrl
   } from '$lib/utils/seo';
-  import { goto, invalidateAll } from '$app/navigation';
+  import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
-  import { buildImageUploadUrl } from '$lib/utils/image';
   import AttendanceReports from '$lib/components/AttendanceReports.svelte';
   import { flip } from 'svelte/animate';
   import { fade } from 'svelte/transition';
   import Comment from '$lib/components/Comment.svelte';
-  import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
-  import type { OpeningHourTime, ImageAsset } from '$lib/types';
+  import type { OpeningHourTime } from '$lib/types';
   import type { OpeningHourEntry } from '$lib/utils/shops/derived';
   import { render } from '$lib/utils/markdown';
   import PhotoCarousel from '$lib/components/PhotoCarousel.svelte';
@@ -69,7 +64,18 @@
   import { maybeShowUgcTranslationPrompt } from '$lib/ugc/client';
   import T from '$lib/ugc/components/T.svelte';
   import InlineAlert from '$lib/components/InlineAlert.svelte';
+  import MetaRobots from '$lib/components/MetaRobots.svelte';
   import { adaptiveIcon } from '$lib/actions/adaptive-icon';
+  import StarShopButton from '$lib/components/shops/StarShopButton.svelte';
+  import ShopActionsMenu from '$lib/components/shops/ShopActionsMenu.svelte';
+  import ShopRollbackDialog from '$lib/components/shops/ShopRollbackDialog.svelte';
+  import { goto } from '$app/navigation';
+  import ShopAttendanceActions, {
+    type ReportedAttendanceSummary
+  } from '$lib/components/shops/ShopAttendanceActions.svelte';
+  import CommentComposer from '$lib/components/shops/CommentComposer.svelte';
+  import PendingDeleteRequestCard from '$lib/components/shops/PendingDeleteRequestCard.svelte';
+  import DeleteRequestModal from '$lib/components/shops/DeleteRequestModal.svelte';
 
   let { data }: { data: PageData } = $props();
 
@@ -118,6 +124,14 @@
   });
   let isAdmin = $derived(data.user?.userType === 'site_admin');
   let hasPhone = $derived(hasBoundPhone(data.user) || isAdmin);
+  /** Site admins fall back to the `deleted_shops` archive for removed shops;
+   * the page then renders a read-only snapshot with mutations disabled. */
+  let isDeletedPreview = $derived(!!data.deletedPreview);
+  /** `?at=<entryId>` renders the shop reconstructed at a changelog entry —
+   * same read-only treatment as the deleted-shop snapshot. */
+  let isTimePointPreview = $derived(!!data.timePointPreview);
+  let isPreview = $derived(isDeletedPreview || isTimePointPreview);
+  let showRollbackDialog = $state(false);
   let isShopOwner = $derived(!!data.user && !!shop?.ownerId && shop.ownerId === data.user.id);
   let canModifyClaimedShop = $derived(!shop?.isClaimed || isAdmin || isShopOwner);
   let canModifyLockedShop = $derived(!shop?.isLocked || isAdmin);
@@ -127,6 +141,8 @@
   /** Commenting is independent of shop management: claimed or locked shops
    * still accept comments from any signed-in user with a bound phone. */
   let canComment = $derived(!!data.user && hasPhone);
+  /** Read-only snapshots also strip comment interactions, not just composers. */
+  let canInteractComments = $derived(canComment && !isPreview);
   let protectedShopActionMessage = $derived.by(() => {
     if (!data.user) {
       return '';
@@ -152,19 +168,7 @@
   );
   let attendanceData = $state<AttendanceData>([]);
   let attendanceReport = $state<AttendanceReport>([]);
-  let showAttendanceModal = $state(false);
-  let showReportAttendanceModal = $state(false);
-  let selectedGameForReport = $state<{ id: number; name: string; version: string } | null>(null);
-  let reportedAttendance = $state<number>(0);
-  let reportedAttendances = $state<
-    Array<{
-      id: number;
-      count: number | undefined;
-      reportedBy: User | undefined;
-      reportedAt: string;
-      comment: string | null;
-    }>
-  >([]);
+  let reportedAttendances = $state<ReportedAttendanceSummary[]>([]);
   let totalAttendance = $state(0);
   let openingHours = $derived(shop && getShopOpeningHours(shop));
   let showOpeningHoursInUserTime = $state(false);
@@ -176,10 +180,6 @@
     return shop && attendance.shop.id !== shop.id ? attendance : false;
   });
   let hovered = $state<Record<number, boolean>>({});
-  let isLoading = $state(0);
-
-  // Track user's current attendance status
-  let userAttendance = $state<boolean>(false);
   let costs: Record<string, string> = $state({});
 
   // Queue data for claimed shops
@@ -190,14 +190,11 @@
   };
   let queueData = $state<EnrichedQueueRecord[]>([]);
 
-  // Update user attendance status
-  $effect(() => {
-    if (data.user && attendanceData) {
-      userAttendance = attendanceData.some((attendee) => attendee.userId === data.user?.id);
-    }
-  });
-
   let isChangelogOpen = $derived(page.url.hash === '#changelog');
+
+  // Attendance mutations (attend/leave/report) live in ShopAttendanceActions;
+  // the games list reaches the shared report modal through this ref.
+  let attendanceActions: ShopAttendanceActions | null = $state(null);
 
   let radius = $state(10);
 
@@ -278,13 +275,15 @@
     if (shop) {
       // First-visit AI translation invitation (shop name/description/address
       // render server-attached translations directly, so trigger it here).
-      maybeShowUgcTranslationPrompt();
+      if (!isPreview) {
+        maybeShowUgcTranslationPrompt();
 
-      // For claimed shops, fetch queue data; otherwise fetch attendance data
-      if (shop.isClaimed) {
-        getQueueData();
-      } else {
-        getAttendanceData();
+        // For claimed shops, fetch queue data; otherwise fetch attendance data
+        if (shop.isClaimed) {
+          getQueueData();
+        } else {
+          getAttendanceData();
+        }
       }
       render(shop._t?.shop_description?.[pageLocale] ?? shop.comment).then((content) => {
         shopComment = { rendered: true, content };
@@ -299,7 +298,9 @@
       );
 
       // Check user location proximity to shop
-      checkUserProximity();
+      if (!isPreview) {
+        checkUserProximity();
+      }
     }
   });
 
@@ -500,98 +501,6 @@
     };
   };
 
-  const handleAttend = async (games: number[], plannedLeaveAt: Date) => {
-    if (!canProtectedShopAction || !shop) return;
-
-    isLoading = 1;
-    try {
-      const response = await fetch(fromPath(`/api/shops/${shop.id}/attendance`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          games: games.map((id) => ({ id })),
-          plannedLeaveAt: plannedLeaveAt.toISOString()
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to attend');
-      }
-
-      await getAttendanceData();
-    } catch (error) {
-      console.error('Error attending:', error);
-      // TODO: Show error toast
-    } finally {
-      isLoading = 0;
-    }
-  };
-
-  const handleLeave = async () => {
-    if (!canProtectedShopAction || !shop) return;
-
-    isLoading = 1;
-    try {
-      const response = await fetch(fromPath(`/api/shops/${shop.id}/attendance`), {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to leave');
-      }
-
-      await getAttendanceData();
-    } catch (error) {
-      console.error('Error leaving:', error);
-      // TODO: Show error toast
-    } finally {
-      isLoading = 0;
-    }
-  };
-
-  const handleReportAttendance = async () => {
-    if (!canProtectedShopAction || !selectedGameForReport || !shop) return;
-
-    isLoading = 2;
-    try {
-      const response = await fetch(fromPath(`/api/shops/${shop.id}/attendance`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          games: [
-            {
-              id: selectedGameForReport.id,
-              currentAttendances: reportedAttendance
-            }
-          ]
-        })
-      });
-
-      if (response.ok) {
-        await getAttendanceData();
-        showReportAttendanceModal = false;
-        selectedGameForReport = null;
-        reportedAttendance = 0;
-      }
-    } catch (err) {
-      console.error('Error reporting attendance:', err);
-    } finally {
-      isLoading = 0;
-    }
-  };
-
-  const openReportModal = (game: { id: number; name: string; version: string }) => {
-    if (!canProtectedShopAction) return;
-
-    selectedGameForReport = game;
-    reportedAttendance = reportedAttendances.find((g) => g.id === game.id)?.count || 0;
-    showReportAttendanceModal = true;
-  };
-
   // Helper to get queue data for a specific game
   const getGameQueue = (gameId: number) => {
     return queueData.find((q) => q.gameId === gameId);
@@ -644,7 +553,7 @@
 
   // Refresh data every 30 seconds
   $effect(() => {
-    if (!browser) return;
+    if (!browser || isPreview) return;
 
     const interval = setInterval(shop?.isClaimed ? getQueueData : getAttendanceData, 30000);
     return () => clearInterval(interval);
@@ -652,124 +561,15 @@
 
   // Comment section state
   let comments = $derived(shopDataResolved?.comments ?? []);
-  let newCommentContent = $state('');
-  let newCommentImageIds = $state<string[]>([]);
-  let newCommentAttachments = $state<ImageAsset[]>([]);
-  let isSubmittingComment = $state(false);
   let replyingTo = $state<string | null>(null);
-  let replyContent = $state('');
-  let replyImageIds = $state<string[]>([]);
-  let replyAttachments = $state<ImageAsset[]>([]);
-  let isSubmittingReply = $state(false);
   let isCommentsRendered = $state(false);
 
-  // Delete request state
+  // Delete request modal open state (the modal itself lives in DeleteRequestModal)
   let showDeleteRequestModal = $state(false);
-  let deleteRequestReason = $state('');
-  let deleteRequestImageIds = $state<string[]>([]);
-  let deleteRequestAttachments = $state<ImageAsset[]>([]);
-  let isSubmittingDeleteRequest = $state(false);
-  let deleteRequestError = $state('');
-  let deleteRequestSuccess = $state('');
-  let deleteRequestReviewNote = $state('');
-  let isProcessingDeleteRequest = $state(false);
-  let deleteRequestProcessError = $state('');
-
-  // Lock toggle state
-  let isTogglingLock = $state(false);
-
-  const profileLinkClass =
-    'underline decoration-transparent decoration-1 underline-offset-3 transition-colors hover:text-white hover:decoration-white';
-
-  const profileHref = (user?: { id: string; name?: string | null } | null) =>
-    user ? resolve('/(main)/users/[id]', { id: user.name ? '@' + user.name : user.id }) : '#';
-
-  const handleToggleLock = async () => {
-    if (!shop || !isAdmin || isTogglingLock) return;
-    isTogglingLock = true;
-    try {
-      const response = await fetch(fromPath(`/api/shops/${shop.id}`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isLocked: !shop.isLocked })
-      });
-      if (response.ok) {
-        await invalidateAll();
-      } else {
-        const err = (await response.json()) as { message?: string };
-        alert(err.message || m.error_occurred());
-      }
-    } catch {
-      alert(m.network_error_try_again());
-    } finally {
-      isTogglingLock = false;
-    }
-  };
 
   onMount(() => {
     isCommentsRendered = true;
   });
-
-  const resetNewCommentComposer = () => {
-    newCommentContent = '';
-    newCommentImageIds = [];
-    newCommentAttachments = [];
-  };
-
-  const cleanupDraftImages = async (imageIds: string[]) => {
-    await Promise.all(
-      imageIds.map(async (imageId) => {
-        try {
-          await fetch(fromPath(`/api/images/${imageId}`), { method: 'DELETE' });
-        } catch (error) {
-          console.error('Failed to delete draft image:', error);
-        }
-      })
-    );
-  };
-
-  const resetReplyComposer = (cleanupDrafts = false) => {
-    if (cleanupDrafts && replyImageIds.length > 0) {
-      void cleanupDraftImages(replyImageIds);
-    }
-
-    replyingTo = null;
-    replyContent = '';
-    replyImageIds = [];
-    replyAttachments = [];
-  };
-
-  const handleCommentSubmit = async () => {
-    if (
-      !canComment ||
-      !shop ||
-      (!newCommentContent.trim() && newCommentImageIds.length === 0) ||
-      isSubmittingComment
-    )
-      return;
-
-    isSubmittingComment = true;
-
-    try {
-      const response = await fetch(fromPath(`/api/shops/${shop.id}/comments`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newCommentContent.trim(), images: newCommentImageIds })
-      });
-
-      if (response.ok) {
-        resetNewCommentComposer();
-        invalidateAll();
-      } else {
-        const errorData = (await response.json()) as { message: string };
-        toastError(errorData.message || m.failed_to_post_comment());
-      }
-    } catch {
-      toastError(m.network_error_try_again());
-    } finally {
-      isSubmittingComment = false;
-    }
-  };
 
   const handleCommentVote = async (commentId: string, voteType: 'upvote' | 'downvote') => {
     if (!canComment) return;
@@ -791,52 +591,8 @@
 
   const handleCommentReply = (commentId: string) => {
     if (!canComment) return;
-
-    if (replyImageIds.length > 0) {
-      void cleanupDraftImages(replyImageIds);
-    }
-
+    // Any discarded reply composer cleans up its own draft images on destroy.
     replyingTo = commentId;
-    replyContent = '';
-    replyImageIds = [];
-    replyAttachments = [];
-  };
-
-  const submitReply = async () => {
-    if (
-      !canComment ||
-      !shop ||
-      (!replyContent.trim() && replyImageIds.length === 0) ||
-      !replyingTo ||
-      isSubmittingReply
-    )
-      return;
-
-    isSubmittingReply = true;
-
-    try {
-      const response = await fetch(fromPath(`/api/shops/${shop.id}/comments`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: replyContent.trim(),
-          images: replyImageIds,
-          parentCommentId: replyingTo
-        })
-      });
-
-      if (response.ok) {
-        resetReplyComposer();
-        invalidateAll();
-      } else {
-        const errorData = (await response.json()) as { message: string };
-        toastError(errorData.message || m.failed_to_post_comment());
-      }
-    } catch {
-      toastError(m.network_error_try_again());
-    } finally {
-      isSubmittingReply = false;
-    }
   };
 
   const handleCommentEdit = async (commentId: string, newContent: string, imageIds: string[]) => {
@@ -880,108 +636,6 @@
       alert(m.network_error_try_again());
     }
   };
-
-  const handleSubmitDeleteRequest = async () => {
-    if (
-      !canProtectedShopAction ||
-      !shop ||
-      !deleteRequestReason.trim() ||
-      isSubmittingDeleteRequest
-    )
-      return;
-    isSubmittingDeleteRequest = true;
-    deleteRequestError = '';
-    try {
-      const response = await fetch(fromPath(`/api/shops/${shop.id}/delete-request`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: deleteRequestReason.trim(), images: deleteRequestImageIds })
-      });
-      if (response.ok) {
-        deleteRequestSuccess = m.shop_delete_request_submitted();
-        deleteRequestReason = '';
-        deleteRequestImageIds = [];
-        deleteRequestAttachments = [];
-        showDeleteRequestModal = false;
-        invalidateAll();
-      } else {
-        const err = (await response.json()) as { message?: string };
-        deleteRequestError = err.message || m.error_occurred();
-      }
-    } catch {
-      deleteRequestError = m.network_error_try_again();
-    } finally {
-      isSubmittingDeleteRequest = false;
-    }
-  };
-
-  const resetDeleteRequestComposer = (cleanupDrafts = false) => {
-    if (cleanupDrafts && deleteRequestImageIds.length > 0) {
-      void cleanupDraftImages(deleteRequestImageIds);
-    }
-
-    showDeleteRequestModal = false;
-    deleteRequestReason = '';
-    deleteRequestError = '';
-    deleteRequestImageIds = [];
-    deleteRequestAttachments = [];
-  };
-
-  const handleRetractDeleteRequest = async () => {
-    if (!canProtectedShopAction || !pendingDeleteRequest || isProcessingDeleteRequest) return;
-    if (!confirm(m.retract_delete_request_confirm())) return;
-    isProcessingDeleteRequest = true;
-    deleteRequestProcessError = '';
-    try {
-      const response = await fetch(
-        fromPath(`/api/shops/delete-requests/${pendingDeleteRequest.id}`),
-        { method: 'DELETE' }
-      );
-      if (response.ok) {
-        invalidateAll();
-      } else {
-        const err = (await response.json()) as { message?: string };
-        deleteRequestProcessError = err.message || m.error_occurred();
-      }
-    } catch {
-      deleteRequestProcessError = m.network_error_try_again();
-    } finally {
-      isProcessingDeleteRequest = false;
-    }
-  };
-
-  const handleProcessDeleteRequest = async (action: 'approve' | 'reject') => {
-    if (
-      !canProtectedShopAction ||
-      data.user?.userType !== 'site_admin' ||
-      !pendingDeleteRequest ||
-      isProcessingDeleteRequest
-    )
-      return;
-    isProcessingDeleteRequest = true;
-    deleteRequestProcessError = '';
-    try {
-      const response = await fetch(
-        fromPath(`/api/shops/delete-requests/${pendingDeleteRequest.id}`),
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action, reviewNote: deleteRequestReviewNote.trim() || null })
-        }
-      );
-      if (response.ok) {
-        deleteRequestReviewNote = '';
-        await goto(resolve('/(main)/shops/delete-requests/[id]', { id: pendingDeleteRequest.id }));
-      } else {
-        const err = (await response.json()) as { message?: string };
-        deleteRequestProcessError = err.message || m.error_occurred();
-      }
-    } catch {
-      deleteRequestProcessError = m.network_error_try_again();
-    } finally {
-      isProcessingDeleteRequest = false;
-    }
-  };
 </script>
 
 <svelte:head>
@@ -1012,8 +666,14 @@
   {/if}
 </svelte:head>
 
-<JsonLd schema={shopSchema} />
-<JsonLd schema={breadcrumbSchema} />
+{#if isPreview}
+  <MetaRobots />
+{/if}
+
+{#if !isPreview}
+  <JsonLd schema={shopSchema} />
+  <JsonLd schema={breadcrumbSchema} />
+{/if}
 
 {#if !shopDataResolved && shopDataLoading}
   <!-- Loading State with Skeleton -->
@@ -1073,61 +733,89 @@
 {:else if shop}
   <!-- Loaded Content -->
   <div class="mx-auto max-w-7xl px-4 pt-20 pb-8 sm:px-6 lg:px-8">
-    <div class="md:grid md:grid-cols-5 md:gap-8 lg:grid-cols-3">
-      {#snippet attend(klass = 'w-full')}
-        {#if !canProtectedShopAction}
-          <div class="tooltip tooltip-error {klass}" data-tip={protectedShopActionMessage}>
-            <button class="btn btn-primary w-full" disabled>
-              <i class="fa-solid fa-play"></i>
-              {m.attend()}
-            </button>
-          </div>
-        {:else if userAttendance}
-          <button
-            class="btn btn-error btn-soft {klass}"
-            onclick={() => handleLeave()}
-            disabled={isLoading === 1}
-          >
-            {#if isLoading === 1}
-              <span class="loading loading-spinner loading-xs"></span>
-            {:else}
-              <i class="fa-solid fa-stop"></i>
+    {#if isDeletedPreview && data.deletedPreview}
+      <!-- Deleted-shop snapshot banner (site admins only) -->
+      <div class="mb-4">
+        <InlineAlert type="warning" soft title={m.admin_deleted_shops_preview_title()}>
+          <p>{m.admin_deleted_shops_preview_description()}</p>
+          <div class="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm">
+            {#if data.deletedPreview.deletedAt}
+              <span>
+                {m.admin_deleted_shops_header_time()}:
+                {formatDateTime(data.deletedPreview.deletedAt)}
+              </span>
             {/if}
-            {m.leave()}
-          </button>
-        {:else}
-          <div
-            class="tooltip-error {klass}"
-            class:tooltip={!isShopOpen || shop.isClaimed || !!otherShop || isUserNearShop === false}
-            data-tip={isShopOpen
-              ? otherShop
-                ? m.attending_other_shop({
-                    shopName: otherShop.shop.name,
-                    attendedAt: formatTime(otherShop.attendedAt)
-                  })
-                : shop.isClaimed
-                  ? m.attend_claimed()
-                  : isUserNearShop === false && distance
-                    ? locationError || m.not_near_shop({ distance: formatDistance(distance, 2) })
-                    : ''
-              : shop.isClosed
-                ? m.shop_is_permanently_closed()
-                : m.shop_closed()}
-          >
-            <button
-              class="btn btn-primary w-full"
-              onclick={() => (showAttendanceModal = true)}
-              disabled={!isShopOpen ||
-                shop.isClaimed ||
-                !!otherShop ||
-                isLoading === 1 ||
-                !isUserNearShop}
-            >
-              <i class="fa-solid fa-play"></i>
-              {m.attend()}
-            </button>
+            {#if data.deletedPreview.deletedBy}
+              <span class="flex items-center gap-1.5">
+                {m.admin_deleted_shops_header_admin()}:
+                <UserAvatar user={data.deletedPreview.deletedBy} size="xs" showName />
+              </span>
+            {/if}
+            {#if data.deletedPreview.deleteRequestId}
+              <a
+                class="link"
+                href={resolve('/(main)/shops/delete-requests/[id]', {
+                  id: data.deletedPreview.deleteRequestId
+                })}
+              >
+                {m.view_delete_request()}
+              </a>
+            {/if}
           </div>
-        {/if}
+        </InlineAlert>
+      </div>
+    {/if}
+    {#if isTimePointPreview && data.timePointPreview}
+      <!-- Changelog time-point snapshot banner (public, admin gets rollback) -->
+      <div class="mb-4">
+        <InlineAlert type="warning" soft title={m.shop_time_point_preview_title()}>
+          <p>{m.shop_time_point_preview_description()}</p>
+          <div class="mt-2 flex flex-wrap items-center justify-between gap-1">
+            <span class="text-sm">
+              {m.shop_time_point_preview_time()}:
+              {formatDateTime(data.timePointPreview.entryCreatedAt)}
+            </span>
+            <div class="flex flex-wrap items-center gap-1">
+              <a
+                class="btn btn-soft btn-primary btn-xs"
+                href={resolve('/(main)/shops/[id]', { id: String(shop.id) })}
+              >
+                <i class="fa-solid fa-arrow-left"></i>
+                {m.shop_time_point_back_to_current()}
+              </a>
+              {#if isAdmin && canProtectedShopAction}
+                <button
+                  class="btn btn-error btn-xs btn-soft"
+                  onclick={() => (showRollbackDialog = true)}
+                >
+                  <i class="fa-solid fa-rotate-left"></i>
+                  {m.shop_time_point_rollback()}
+                </button>
+              {/if}
+            </div>
+          </div>
+        </InlineAlert>
+      </div>
+    {/if}
+    <div class="md:grid md:grid-cols-5 md:gap-8 lg:grid-cols-3">
+      {#snippet renderAttendanceActions(klass = 'w-full')}
+        <ShopAttendanceActions
+          bind:this={attendanceActions}
+          class={klass}
+          {shop}
+          user={data.user}
+          {now}
+          {attendanceData}
+          {reportedAttendances}
+          otherAttendance={otherShop || null}
+          {isShopOpen}
+          {isUserNearShop}
+          {distance}
+          {locationError}
+          {canProtectedShopAction}
+          {protectedShopActionMessage}
+          onChanged={getAttendanceData}
+        />
       {/snippet}
       {#snippet closedAlert()}
         <InlineAlert type="error" soft title={m.shop_is_permanently_closed()}>
@@ -1202,7 +890,9 @@
             <span class="text-base-content/60 text-right not-md:hidden">
               #{shop.id}
             </span>
-            {@render attend('max-w-[40vw] min-w-24 tooltip-left md:hidden')}
+            {#if !isPreview}
+              {@render renderAttendanceActions('max-w-[40vw] min-w-24 tooltip-left md:hidden')}
+            {/if}
           </div>
 
           <div
@@ -1238,8 +928,10 @@
               shopId={shop.id}
               bind:photos
               currentUser={data.user}
-              canUpload={canProtectedShopAction}
-              canManagePhotos={canProtectedShopAction}
+              canUpload={canProtectedShopAction && !isPreview}
+              canManagePhotos={canProtectedShopAction && !isPreview}
+              showUploadButton={!isPreview}
+              showViewAllLink={!isPreview}
               disabledActionReason={protectedShopActionMessage}
               onBlockedAction={isPhoneRequired ? phoneRequiredToast : undefined}
             />
@@ -1257,160 +949,22 @@
                 <i class="fa-solid fa-map-location-dot"></i>
                 {m.explore_nearby()}
               </a>
-              {#if data.user}
-                {@const isStarred = data.user.starredArcades?.includes(shop.id)}
-                {@const toggleStar = async () => {
-                  isLoading = 3;
-                  try {
-                    const formData = new FormData();
-                    formData.append('arcadeId', shop.id.toString());
-                    const response = await fetch(
-                      resolve('/(main)/settings/starred-arcades') +
-                        (isStarred ? '?/removeArcade' : '?/addArcade'),
-                      {
-                        method: 'POST',
-                        body: formData
-                      }
-                    );
-                    if (response.ok) {
-                      await invalidateAll();
-                    }
-                  } catch (err) {
-                    console.log('Error starring arcade:', err);
-                  } finally {
-                    isLoading = 0;
-                  }
-                }}
-                <button
-                  class="btn btn-warning btn-soft group"
-                  class:hover:btn-error={isStarred}
-                  disabled={isLoading === 3}
-                  onclick={toggleStar}
-                >
-                  <span class="loading loading-spinner loading-sm" class:hidden={isLoading !== 3}
-                  ></span>
-                  <span
-                    class:hidden={!isStarred || isLoading === 3}
-                    class:not-group-hover:hidden={isStarred}
-                  >
-                    <i class="fa-solid fa-trash"></i>
-                  </span>
-                  <span
-                    class:group-hover:hidden={isStarred}
-                    class:not-group-hover:hidden={!isStarred}
-                    class:hidden={isLoading === 3}
-                  >
-                    <i class="fa-solid fa-star"></i>
-                  </span>
-                  <span
-                    class:hidden={isStarred || isLoading === 3}
-                    class:group-hover:hidden={!isStarred}
-                  >
-                    <i class="fa-regular fa-star"></i>
-                  </span>
-                  <span
-                    class:not-group-hover:hidden={isStarred && isLoading !== 3}
-                    class:hidden={!isStarred}
-                  >
-                    {m.unstar()}
-                  </span>
-                  <span
-                    class:group-hover:hidden={isStarred}
-                    class:hidden={isStarred && isLoading === 3}
-                  >
-                    {isStarred ? m.starred() : m.star()}
-                  </span>
-                </button>
+              {#if data.user && !isPreview}
+                <StarShopButton shopId={shop.id} user={data.user} />
               {/if}
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-              {#if data.user}
-                <!-- Three-dots dropdown for shop actions -->
-                <div class="dropdown lg:dropdown-end">
-                  <button
-                    type="button"
-                    tabindex="0"
-                    class="btn btn-circle btn-soft"
-                    aria-label={m.more_actions()}
-                    title={m.more_actions()}
-                  >
-                    <i class="fa-solid fa-ellipsis"></i>
-                  </button>
-                  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-                  <ul
-                    tabindex="0"
-                    class="dropdown-content menu bg-base-200 rounded-box z-10 w-52 p-2 shadow"
-                  >
-                    <li>
-                      {#if canProtectedShopAction}
-                        <a href={resolve('/(main)/shops/[id]/edit', { id: String(shop.id) })}>
-                          <i class="fa-solid fa-pen-to-square"></i>
-                          {m.edit_shop()}
-                        </a>
-                      {:else if isPhoneRequired}
-                        <button onclick={() => phoneRequiredToast()}>
-                          <i class="fa-solid fa-pen-to-square"></i>
-                          {m.edit_shop()}
-                        </button>
-                      {:else}
-                        <button
-                          disabled
-                          class:opacity-50={!canProtectedShopAction}
-                          class:cursor-not-allowed={!canProtectedShopAction}
-                          title={protectedShopActionMessage}
-                        >
-                          <i class="fa-solid fa-pen-to-square"></i>
-                          {m.edit_shop()}
-                        </button>
-                      {/if}
-                    </li>
-                    <li>
-                      <button
-                        onclick={() => {
-                          if (pendingDeleteRequest) return;
-                          if (!canProtectedShopAction) {
-                            if (isPhoneRequired) phoneRequiredToast();
-                            return;
-                          }
-                          showDeleteRequestModal = true;
-                        }}
-                        disabled={(!canProtectedShopAction && !isPhoneRequired) ||
-                          !!pendingDeleteRequest}
-                        class:opacity-50={(!canProtectedShopAction && !isPhoneRequired) ||
-                          !!pendingDeleteRequest}
-                        class:cursor-not-allowed={(!canProtectedShopAction && !isPhoneRequired) ||
-                          !!pendingDeleteRequest}
-                        title={pendingDeleteRequest
-                          ? m.shop_delete_request_already_pending()
-                          : !canProtectedShopAction && !isPhoneRequired
-                            ? protectedShopActionMessage
-                            : undefined}
-                      >
-                        <i class="fa-solid fa-trash-can"></i>
-                        {m.request_delete_shop()}
-                      </button>
-                    </li>
-                    {#if isAdmin}
-                      <li>
-                        <button
-                          onclick={handleToggleLock}
-                          disabled={isTogglingLock}
-                          class:opacity-50={isTogglingLock}
-                        >
-                          {#if isTogglingLock}
-                            <span class="loading loading-spinner loading-xs"></span>
-                          {:else if shop.isLocked}
-                            <i class="fa-solid fa-lock-open"></i>
-                          {:else}
-                            <i class="fa-solid fa-lock"></i>
-                          {/if}
-                          {shop.isLocked ? m.shop_unlock() : m.shop_lock()}
-                        </button>
-                      </li>
-                    {/if}
-                  </ul>
-                </div>
+              {#if data.user && !isPreview}
+                <ShopActionsMenu
+                  {shop}
+                  user={data.user}
+                  {canProtectedShopAction}
+                  {protectedShopActionMessage}
+                  {isPhoneRequired}
+                  hasPendingDeleteRequest={!!pendingDeleteRequest}
+                  onRequestDelete={() => (showDeleteRequestModal = true)}
+                />
               {/if}
               <a
                 href={link}
@@ -1663,9 +1217,9 @@
               {/if}
 
               <!-- Attend button -->
-              {#if data.user}
+              {#if data.user && !isPreview}
                 <div class="border-base-content/10 mt-4 border-t pt-4">
-                  {@render attend()}
+                  {@render renderAttendanceActions()}
                 </div>
               {/if}
             </div>
@@ -1673,114 +1227,12 @@
 
           <!-- Pending Delete Request -->
           {#if pendingDeleteRequest}
-            <div class="card border-warning/40 bg-warning/5 border">
-              <div class="card-body p-6">
-                <h3 class="text-warning mb-3 flex items-center gap-2 text-lg font-semibold">
-                  <i class="fa-solid fa-triangle-exclamation"></i>
-                  {m.pending_delete_request()}
-                </h3>
-
-                <div class="space-y-2 text-sm">
-                  <div>
-                    <span class="text-base-content/60">{m.shop_delete_request_reason()}:</span>
-                    <p class="mt-1 font-medium break-all">{pendingDeleteRequest.reason}</p>
-                  </div>
-                  <div class="flex items-center justify-between gap-1">
-                    <span class="text-base-content/60">{m.request_by()}:</span>
-                    <span class="text-right font-medium">
-                      {#if pendingDeleteRequest.requestedByUser}
-                        <a
-                          href={profileHref(pendingDeleteRequest.requestedByUser)}
-                          class={profileLinkClass}
-                        >
-                          {getDisplayName(pendingDeleteRequest.requestedByUser)}
-                        </a>
-                      {:else}
-                        {pendingDeleteRequest.requestedByName ?? m.unknown_user()}
-                      {/if}
-                    </span>
-                  </div>
-                  <div class="flex items-center justify-between gap-1">
-                    <span class="text-base-content/60">{m.created_at()}:</span>
-                    <span class="text-right font-medium">
-                      {new Date(pendingDeleteRequest.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-
-                {#if deleteRequestProcessError}
-                  <div class="alert alert-error alert-soft mt-3 py-2 text-sm">
-                    {deleteRequestProcessError}
-                  </div>
-                {/if}
-
-                <div class="mt-3 space-y-2">
-                  <!-- Requester: retract button -->
-                  {#if data.user?.id === pendingDeleteRequest.requestedBy}
-                    <button
-                      class="btn btn-warning btn-soft btn-sm w-full"
-                      onclick={handleRetractDeleteRequest}
-                      disabled={!canProtectedShopAction || isProcessingDeleteRequest}
-                      title={!canProtectedShopAction ? protectedShopActionMessage : undefined}
-                    >
-                      {#if isProcessingDeleteRequest}
-                        <span class="loading loading-spinner loading-xs"></span>
-                      {:else}
-                        <i class="fa-solid fa-rotate-left"></i>
-                      {/if}
-                      {m.retract_delete_request()}
-                    </button>
-                  {/if}
-
-                  <!-- Admin: approve/reject with review note -->
-                  {#if data.user?.userType === 'site_admin'}
-                    <input
-                      type="text"
-                      class="input input-bordered input-sm w-full"
-                      placeholder={m.shop_delete_request_review_note()}
-                      bind:value={deleteRequestReviewNote}
-                      disabled={!canProtectedShopAction || isProcessingDeleteRequest}
-                    />
-                    <div class="flex gap-2">
-                      <button
-                        class="btn btn-success btn-sm flex-1"
-                        onclick={() => handleProcessDeleteRequest('approve')}
-                        disabled={!canProtectedShopAction || isProcessingDeleteRequest}
-                      >
-                        {#if isProcessingDeleteRequest}
-                          <span class="loading loading-spinner loading-xs"></span>
-                        {:else}
-                          <i class="fa-solid fa-check"></i>
-                        {/if}
-                        {m.admin_approve()}
-                      </button>
-                      <button
-                        class="btn btn-error btn-sm flex-1"
-                        onclick={() => handleProcessDeleteRequest('reject')}
-                        disabled={!canProtectedShopAction || isProcessingDeleteRequest}
-                      >
-                        {#if isProcessingDeleteRequest}
-                          <span class="loading loading-spinner loading-xs"></span>
-                        {:else}
-                          <i class="fa-solid fa-xmark"></i>
-                        {/if}
-                        {m.admin_reject()}
-                      </button>
-                    </div>
-                  {/if}
-
-                  <a
-                    href={resolve('/(main)/shops/delete-requests/[id]', {
-                      id: pendingDeleteRequest.id
-                    })}
-                    class="btn btn-ghost btn-sm w-full"
-                  >
-                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                    {m.view_delete_request()}
-                  </a>
-                </div>
-              </div>
-            </div>
+            <PendingDeleteRequestCard
+              request={pendingDeleteRequest}
+              user={data.user}
+              {canProtectedShopAction}
+              {protectedShopActionMessage}
+            />
           {/if}
 
           <!-- Attendance Reports -->
@@ -1817,11 +1269,11 @@
                       />
                     </h3>
                     <div class="flex items-center gap-1">
-                      {#if data.user && !shop.isClaimed}
+                      {#if data.user && !shop.isClaimed && !isPreview}
                         {#if canProtectedShopAction && isShopOpen && isUserNearShop}
                           <FancyButton
                             callback={() =>
-                              openReportModal({
+                              attendanceActions?.openReport({
                                 id: game.gameId,
                                 name: game.name,
                                 version: game.version
@@ -2042,46 +1494,24 @@
           </h2>
 
           <!-- Add comment form -->
-          {#if canComment}
-            <div class="bg-base-100 mb-6 rounded-xl p-4">
-              <MarkdownEditor
-                bind:value={newCommentContent}
-                bind:attachments={newCommentAttachments}
-                bind:imageIds={newCommentImageIds}
-                placeholder={m.comment_placeholder()}
-                disabled={isSubmittingComment}
-                minHeight="min-h-[100px]"
-                currentUser={data.user}
-                imageUploadUrl={buildImageUploadUrl({
-                  draftKind: 'shop-comment',
-                  shopId: shop.id
-                })}
-              />
-
-              <div class="mt-3 flex justify-end">
-                <button
-                  class="btn btn-primary btn-sm"
-                  onclick={handleCommentSubmit}
-                  disabled={isSubmittingComment ||
-                    (!newCommentContent.trim() && newCommentImageIds.length === 0)}
-                >
-                  {#if isSubmittingComment}
-                    <span class="loading loading-spinner loading-sm"></span>
-                  {:else}
-                    <i class="fa-solid fa-paper-plane"></i>
-                  {/if}
-                  {m.post_comment()}
-                </button>
+          {#if !isPreview}
+            {#if canComment}
+              <div class="bg-base-100 mb-6 rounded-xl p-4">
+                <CommentComposer
+                  shopId={shop.id}
+                  currentUser={data.user}
+                  onSubmitted={invalidateAll}
+                />
               </div>
-            </div>
-          {:else}
-            <VerifiedContactPrompt
-              user={data.user}
-              loginMessage={m.login_to_comment()}
-              icon="fa-comment"
-              compact
-              class="mb-6"
-            />
+            {:else}
+              <VerifiedContactPrompt
+                user={data.user}
+                loginMessage={m.login_to_comment()}
+                icon="fa-comment"
+                compact
+                class="mb-6"
+              />
+            {/if}
           {/if}
 
           <!-- Comments list -->
@@ -2091,61 +1521,33 @@
                 <div>
                   <Comment
                     {comment}
-                    currentUserId={canComment ? data.user?.id : undefined}
-                    currentUser={canComment ? data.user : undefined}
-                    canReply={canComment}
+                    currentUserId={canInteractComments ? data.user?.id : undefined}
+                    currentUser={canInteractComments ? data.user : undefined}
+                    canReply={canInteractComments}
                     canEdit={false}
-                    onVote={canComment ? handleCommentVote : undefined}
-                    onReply={canComment ? handleCommentReply : undefined}
-                    onEdit={handleCommentEdit}
-                    onDelete={handleCommentDelete}
+                    onVote={canInteractComments ? handleCommentVote : undefined}
+                    onReply={canInteractComments ? handleCommentReply : undefined}
+                    onEdit={canInteractComments ? handleCommentEdit : undefined}
+                    onDelete={canInteractComments ? handleCommentDelete : undefined}
                     isPostRendered={isCommentsRendered}
                     depth={0}
                   />
 
                   <!-- Reply form -->
-                  {#if replyingTo === comment.id && canComment}
+                  {#if replyingTo === comment.id && canInteractComments}
                     <div class="bg-base-200 mt-2 ml-8 rounded-xl p-4">
-                      <MarkdownEditor
-                        bind:value={replyContent}
-                        bind:attachments={replyAttachments}
-                        bind:imageIds={replyImageIds}
-                        placeholder={m.reply_to_comment()}
-                        disabled={isSubmittingReply}
-                        minHeight="min-h-[100px]"
+                      <CommentComposer
+                        shopId={shop.id}
                         currentUser={data.user}
-                        imageUploadUrl={buildImageUploadUrl({
-                          draftKind: 'shop-comment',
-                          shopId: shop.id
-                        })}
+                        parentCommentId={comment.id}
+                        placeholder={m.reply_to_comment()}
+                        submitLabel={m.reply()}
+                        onCancel={() => (replyingTo = null)}
+                        onSubmitted={() => {
+                          replyingTo = null;
+                          invalidateAll();
+                        }}
                       />
-
-                      <div class="mt-3 flex items-center justify-end">
-                        <div class="flex gap-2">
-                          <button
-                            class="btn btn-ghost btn-sm"
-                            onclick={() => {
-                              resetReplyComposer(true);
-                            }}
-                            disabled={isSubmittingReply}
-                          >
-                            {m.cancel()}
-                          </button>
-                          <button
-                            class="btn btn-primary btn-sm"
-                            onclick={submitReply}
-                            disabled={isSubmittingReply ||
-                              (!replyContent.trim() && replyImageIds.length === 0)}
-                          >
-                            {#if isSubmittingReply}
-                              <span class="loading loading-spinner loading-sm"></span>
-                            {:else}
-                              <i class="fa-solid fa-paper-plane"></i>
-                            {/if}
-                            {m.reply()}
-                          </button>
-                        </div>
-                      </div>
                     </div>
                   {/if}
 
@@ -2153,14 +1555,14 @@
                   {#each comments.filter((c) => c.parentCommentId === comment.id) as reply (reply.id)}
                     <Comment
                       comment={reply}
-                      currentUserId={canComment ? data.user?.id : undefined}
-                      currentUser={canComment ? data.user : undefined}
-                      canReply={canComment}
+                      currentUserId={canInteractComments ? data.user?.id : undefined}
+                      currentUser={canInteractComments ? data.user : undefined}
+                      canReply={canInteractComments}
                       canEdit={false}
-                      onVote={canComment ? handleCommentVote : undefined}
-                      onReply={canComment ? handleCommentReply : undefined}
-                      onEdit={handleCommentEdit}
-                      onDelete={handleCommentDelete}
+                      onVote={canInteractComments ? handleCommentVote : undefined}
+                      onReply={canInteractComments ? handleCommentReply : undefined}
+                      onEdit={canInteractComments ? handleCommentEdit : undefined}
+                      onDelete={canInteractComments ? handleCommentDelete : undefined}
                       isPostRendered={isCommentsRendered}
                       depth={1}
                     />
@@ -2197,11 +1599,19 @@
                 ></i>
               </summary>
               <div class="mt-4">
-                <ShopChangelogView
-                  shopId={shop.id}
-                  isSiteAdmin={data.user?.userType === 'site_admin' && canProtectedShopAction}
-                  onRollbackApplied={invalidateAll}
-                />
+                <!-- Keyed on the shop revision: a rollback navigates back to the
+                live page via `goto`, which is a same-route navigation — SvelteKit
+                reruns the load but reuses this component, so without the key the
+                changelog's onMount fetch would never re-run and the list would
+                go stale. Any revision (rollback, edit) remounts and refetches. -->
+                {#key shop.updatedAt}
+                  <ShopChangelogView
+                    shopId={shop.id}
+                    isSiteAdmin={data.user?.userType === 'site_admin' &&
+                      canProtectedShopAction &&
+                      !isPreview}
+                  />
+                {/key}
               </div>
             </details>
           </section>
@@ -2210,192 +1620,25 @@
     </div>
   </div>
 
-  <!-- Attendance Modal -->
-  <AttendanceModal
-    bind:isOpen={showAttendanceModal}
-    {shop}
-    {now}
-    onClose={() => (showAttendanceModal = false)}
-    onAttend={handleAttend}
-  />
-
-  <!-- Report Attendance Modal -->
-  {#if showReportAttendanceModal && selectedGameForReport}
-    <div class="modal modal-open">
-      <div class="modal-box">
-        <h3 class="mb-4 text-lg font-bold">
-          {m.report_current_attendance()}
-        </h3>
-
-        <div class="mb-4">
-          <p class="text-base-content/70 mb-2 flex items-center gap-2 text-sm">
-            <i class="fa-solid fa-gamepad"></i>
-            <span
-              ><strong>{selectedGameForReport.name}</strong> · {selectedGameForReport.version}</span
-            >
-          </p>
-          <p class="text-base-content/70 mb-4 text-sm">
-            {m.report_attendance_description()}
-          </p>
-
-          <label class="form-control w-full">
-            <div class="label">
-              <span class="label-text">{m.current_players()}</span>
-            </div>
-            <input
-              type="number"
-              min="0"
-              max="50"
-              bind:value={reportedAttendance}
-              class="input input-bordered w-full"
-              placeholder="1"
-            />
-          </label>
-        </div>
-
-        <div class="modal-action">
-          <button
-            class="btn btn-ghost"
-            onclick={() => {
-              showReportAttendanceModal = false;
-              selectedGameForReport = null;
-            }}
-            disabled={isLoading === 2}
-          >
-            {m.cancel()}
-          </button>
-          <button
-            class="btn btn-primary"
-            onclick={handleReportAttendance}
-            disabled={isLoading === 2 || reportedAttendance < 0}
-          >
-            {#if isLoading === 2}
-              <span class="loading loading-spinner loading-xs"></span>
-            {/if}
-            {m.submit()}
-          </button>
-        </div>
-      </div>
-      <div
-        class="modal-backdrop"
-        role="button"
-        tabindex="0"
-        onclick={() => {
-          showReportAttendanceModal = false;
-          selectedGameForReport = null;
-        }}
-        onkeydown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            showReportAttendanceModal = false;
-            selectedGameForReport = null;
-          }
-        }}
-      ></div>
-    </div>
-  {/if}
-
   <!-- Delete Request Modal -->
-  {#if showDeleteRequestModal && shop}
-    <div class="modal modal-open">
-      <div class="modal-box">
-        <h3 class="mb-4 text-lg font-bold">
-          <i class="fa-solid fa-trash-can text-warning mr-2"></i>
-          {m.request_delete_shop()}
-        </h3>
-
-        {#if deleteRequestError}
-          <div class="alert alert-error alert-soft mb-4">
-            <i class="fa-solid fa-exclamation-triangle"></i>
-            <span>{deleteRequestError}</span>
-          </div>
-        {/if}
-
-        <div class="form-control mb-4">
-          <label class="label" for="delete-request-reason">
-            <span class="label-text">{m.shop_delete_request_reason()}</span>
-          </label>
-          <textarea
-            id="delete-request-reason"
-            class="textarea textarea-bordered w-full rounded-xl"
-            rows="4"
-            placeholder={m.shop_delete_request_reason_placeholder()}
-            bind:value={deleteRequestReason}
-            disabled={isSubmittingDeleteRequest}
-          ></textarea>
-        </div>
-
-        <PhotoCarousel
-          bind:photos={deleteRequestAttachments}
-          currentUser={canProtectedShopAction ? data.user : undefined}
-          title={m.evidence_images()}
-          titleClass="label-text text-current/60"
-          uploadLabel={m.upload_image()}
-          uploadUrl={buildImageUploadUrl({
-            draftKind: 'shop-delete-request',
-            shopId: shop.id
-          })}
-          allowDeleteRequest={false}
-          showEmptyState={deleteRequestAttachments.length > 0}
-          onPhotoDeleted={(photo) => {
-            deleteRequestImageIds = deleteRequestImageIds.filter((imageId) => imageId !== photo.id);
-          }}
-        />
-
-        <div class="modal-action">
-          <button
-            class="btn btn-ghost"
-            onclick={() => {
-              resetDeleteRequestComposer(true);
-            }}
-            disabled={isSubmittingDeleteRequest}
-          >
-            {m.cancel()}
-          </button>
-          <button
-            class="btn btn-warning w-fit"
-            onclick={handleSubmitDeleteRequest}
-            disabled={isSubmittingDeleteRequest || !deleteRequestReason.trim()}
-          >
-            {#if isSubmittingDeleteRequest}
-              <span class="loading loading-spinner loading-xs"></span>
-            {:else}
-              <i class="fa-solid fa-paper-plane"></i>
-            {/if}
-            <span class="sm:hidden">{m.submit()}</span>
-            <span class="not-sm:hidden">{m.submit_delete_request()}</span>
-          </button>
-        </div>
-      </div>
-      <div
-        class="modal-backdrop"
-        role="button"
-        tabindex="0"
-        onclick={() => {
-          resetDeleteRequestComposer(true);
-        }}
-        onkeydown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            resetDeleteRequestComposer(true);
-          }
-        }}
-      ></div>
-    </div>
+  {#if !isPreview}
+    <DeleteRequestModal
+      bind:open={showDeleteRequestModal}
+      shopId={shop.id}
+      user={data.user}
+      onSubmitted={invalidateAll}
+    />
   {/if}
 
-  <!-- Delete Request Success Toast -->
-  {#if deleteRequestSuccess}
-    <div class="toast toast-end toast-bottom z-50">
-      <div class="alert alert-success">
-        <i class="fa-solid fa-circle-check"></i>
-        <span>{deleteRequestSuccess}</span>
-        <button
-          class="btn btn-ghost btn-xs"
-          onclick={() => (deleteRequestSuccess = '')}
-          aria-label={m.close()}
-        >
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-    </div>
+  <!-- Admin rollback from a time-point preview -->
+  {#if isTimePointPreview && data.timePointPreview}
+    <ShopRollbackDialog
+      bind:open={showRollbackDialog}
+      shopId={shop.id}
+      targetEntryId={data.timePointPreview.entryId}
+      authors={data.timePointPreview.authors}
+      photoCount={data.timePointPreview.photoCount}
+      onApplied={() => goto(resolve('/(main)/shops/[id]', { id: String(shop.id) }))}
+    />
   {/if}
 {/if}

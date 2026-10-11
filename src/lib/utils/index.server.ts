@@ -278,6 +278,19 @@ export const initDatabase = async (mongo: MongoClient) => {
       .collection('shop_changelog')
       .createIndex({ userId: 1, createdAt: -1 }, { name: 'userId_1_createdAt_-1' }),
 
+    // shop_changelog_snapshots — private reversal snapshots for rollback
+    // changelog entries. The public ledger must never carry full shop
+    // documents (its metadata is readable by anyone), so applyShopRollback
+    // stores the pre-rollback shop verbatim here, keyed by the rollback
+    // entry's id; only the reversal path in changelog.server.ts reads it.
+    // shopId + createdAt serves future cleanup and admin inspection.
+    db
+      .collection('shop_changelog_snapshots')
+      .createIndex({ entryId: 1 }, { name: 'entryId_1', unique: true }),
+    db
+      .collection('shop_changelog_snapshots')
+      .createIndex({ shopId: 1, createdAt: -1 }, { name: 'shopId_1_createdAt_-1' }),
+
     // deleted_shops — write-once archive of removed shops; each record keeps the
     // shop snapshot plus deletedAt/deletedBy/deleteRequestId. The admin browser
     // only ever reads "newest deletion first, narrowed by some dimension", so

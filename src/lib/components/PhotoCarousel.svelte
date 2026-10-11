@@ -30,6 +30,9 @@
     emptyHint?: string;
     showEmptyState?: boolean;
     viewAllHref?: string;
+    /** Renders a default `viewAllHref` to the shop's photos page when no
+     * explicit `viewAllHref` is given; set false to drop the link entirely. */
+    showViewAllLink?: boolean;
     viewAllLabel?: string;
     allowDeleteRequest?: boolean;
     onDeletePhoto?: (photo: ImageAsset) => Promise<boolean> | boolean;
@@ -60,6 +63,7 @@
     emptyHint = m.shop_photos_empty_hint(),
     showEmptyState = true,
     viewAllHref,
+    showViewAllLink = true,
     viewAllLabel = m.shop_photos_view_all(),
     allowDeleteRequest = shopId !== undefined,
     onDeletePhoto,
@@ -77,7 +81,7 @@
   );
   let resolvedViewAllHref = $derived(
     viewAllHref ??
-      (shopId !== undefined
+      (shopId !== undefined && showViewAllLink
         ? resolve('/(main)/shops/[id]/photos', { id: String(shopId) })
         : undefined)
   );

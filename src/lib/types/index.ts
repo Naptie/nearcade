@@ -421,6 +421,13 @@ export interface Notification {
   /** Coarse entity family (shop / comment / post / ...) — drives deep links. */
   kind?: UgcKind;
   /**
+   * Discriminates platform-generated SYSTEM notices beyond UGC removals:
+   * `'rollback'` = an admin rolled back the recipient's shop changes (and
+   * possibly removed their photos from that shop). Legacy rows and removal
+   * notices omit it and keep the content-removed rendering.
+   */
+  noticeKind?: 'rollback';
+  /**
    * Precise per-field content type that was moderated (e.g. `game_cost`,
    * `bio`). Rendered as the noun in system removal messages when present;
    * falls back to `kind` for legacy rows. `content` holds the (masked)
