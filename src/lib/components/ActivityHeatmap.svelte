@@ -160,6 +160,9 @@
     );
 
   const typeFilterActive = $derived(selectedTypes.size !== ALL_TYPES.length);
+  const selectedGroupCount = $derived(
+    TYPE_GROUPS.filter((group) => group.types.some((type) => selectedTypes.has(type))).length
+  );
 
   /** Per-day count restricted to the selected activity types. */
   const filteredCountOf = (day: HeatmapDay): number => {
@@ -457,15 +460,22 @@
       <div class="flex shrink-0 items-center gap-2">
         <!-- Activity type filter (grouped buckets) -->
         <div class="dropdown dropdown-end">
-          <div tabindex="0" role="button" class="btn btn-ghost btn-sm whitespace-nowrap">
-            <i class="fa-solid fa-filter"></i>
+          <div
+            tabindex="0"
+            role="button"
+            aria-label={typeFilterActive
+              ? m.activity_group_filter_n({ count: selectedGroupCount })
+              : m.heatmap_all_types()}
+            class="btn btn-ghost btn-sm whitespace-nowrap"
+          >
+            <i class="fa-solid fa-filter" aria-hidden="true"></i>
             {#if typeFilterActive}
-              {@const selectedGroups = TYPE_GROUPS.filter((group) =>
-                group.types.some((type) => selectedTypes.has(type))
-              ).length}
-              {m.activity_group_filter_n({ count: selectedGroups })}
+              <span class="sm:hidden" aria-hidden="true">{selectedGroupCount}</span>
+              <span class="hidden sm:inline">
+                {m.activity_group_filter_n({ count: selectedGroupCount })}
+              </span>
             {:else}
-              {m.heatmap_all_types()}
+              <span class="hidden sm:inline">{m.heatmap_all_types()}</span>
             {/if}
           </div>
           <div
@@ -501,9 +511,14 @@
 
         <!-- Date range filter -->
         <div class="dropdown dropdown-end">
-          <div tabindex="0" role="button" class="btn btn-ghost btn-sm whitespace-nowrap">
-            <i class="fa-solid fa-calendar"></i>
-            {rangeLabel}
+          <div
+            tabindex="0"
+            role="button"
+            aria-label={rangeLabel}
+            class="btn btn-ghost btn-sm whitespace-nowrap"
+          >
+            <i class="fa-solid fa-calendar" aria-hidden="true"></i>
+            <span class="hidden sm:inline">{rangeLabel}</span>
           </div>
           <div
             tabindex="0"
