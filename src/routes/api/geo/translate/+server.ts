@@ -1,25 +1,16 @@
 import { error, json } from '@sveltejs/kit';
 import { isAllowedCorsOrigin } from '$lib/utils/cors.server';
-import { translateToGcj02, type CoordSource } from '$lib/utils/geo.server';
+import { convertToMapProfile } from '$lib/utils/geo.server';
+import type { UnifiedGeoCoordinate } from '$lib/utils/unified-geo.server';
 import type { RequestHandler } from './$types';
 
 /**
- * Translate a coordinate into GCJ-02 ("Mars coordinates") for client code.
- *
- * GET /api/geo/translate?lat=..&lng=..&from=gps
- *
- * The provider chain (Tencent coord translate, SK-signed server-side → AMap
- * fallback) never runs locally, and results are memoized server-side so
- * repeated picks/idle events don't burn the Tencent daily quota. This endpoint
- * is quota-bearing, so cross-origin reads are restricted: only same-origin and
- * `CORS_ALLOWED_ORIGINS` clients get responses (everyone else gets 403 before
- * any provider is called).
+ * Normalize a point to the coordinate system chosen for its territory.
+ * `gps` is retained as an alias for WGS84; public coordinate systems remain
+ * WGS84 and GCJ02.
  */
-const SOURCES: readonly CoordSource[] = ['gps', 'baidu', 'mapbar'];
-
 export const GET: RequestHandler = async ({ url, request }) => {
-  const origin = request.headers.get('origin');
-  if (!isAllowedCorsOrigin(origin, url.origin)) {
+  if (!isAllowedCorsOrigin(request.headers.get('origin'), url.origin)) {
     error(403, 'Cross-origin coordinate translation is not allowed');
   }
 
@@ -35,17 +26,23 @@ export const GET: RequestHandler = async ({ url, request }) => {
   ) {
     error(400, 'Invalid coordinates');
   }
-  const fromParam = url.searchParams.get('from') ?? 'gps';
-  if (!(SOURCES as readonly string[]).includes(fromParam)) {
-    error(400, 'Invalid source coordinate system');
-  }
-  const from = fromParam as CoordSource;
 
-  const converted = await translateToGcj02(lng, lat, from, url.origin);
-  if (!converted) {
-    // Both providers unavailable — hand back the original coordinates so
-    // callers degrade gracefully instead of failing.
-    return json({ converted: false, lng, lat });
-  }
-  return json({ converted: true, lng: converted[0], lat: converted[1] });
+  const from = url.searchParams.get('from') ?? 'WGS84';
+  let coordinateSystem: UnifiedGeoCoordinate['coordinateSystem'];
+  if (from === 'gps' || from === 'WGS84') coordinateSystem = 'WGS84';
+  else if (from === 'GCJ02') coordinateSystem = 'GCJ02';
+  else error(400, 'Invalid coordinate system');
+
+  const normalized = await convertToMapProfile(lng, lat, coordinateSystem);
+  if (!normalized) return json({ converted: false, lng, lat, coordinateSystem });
+  const converted =
+    normalized.longitude !== lng ||
+    normalized.latitude !== lat ||
+    normalized.coordinateSystem !== coordinateSystem;
+  return json({
+    converted,
+    lng: normalized.longitude,
+    lat: normalized.latitude,
+    coordinateSystem: normalized.coordinateSystem
+  });
 };

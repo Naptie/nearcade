@@ -29,6 +29,21 @@ export function getBingLanguage(locale: string): string {
   return BING_MKT[locale] ?? BING_MKT.en;
 }
 
+/** Map an app locale to the style document's single-tag locale variant. */
+export function getStyleLocale(locale: string): 'zh-CN' | 'en-US' {
+  return locale.startsWith('zh') ? 'zh-CN' : 'en-US';
+}
+
+/**
+ * Datum of the map surface (and of stored shop coordinates) for a region id
+ * chain: GCJ02 on the mainland and in the SARs, WGS84 for Taiwan and abroad.
+ */
+export function regionDatum(regionIds: string[]): 'WGS84' | 'GCJ02' {
+  const isChina = regionIds.some((id) => id === 'CN' || id === 'HK' || id === 'MO');
+  const isTaiwan = regionIds.some((id) => id === 'TW' || id.startsWith('CN-71'));
+  return isChina || isTaiwan ? (isTaiwan ? 'WGS84' : 'GCJ02') : 'WGS84';
+}
+
 export function lngLatToTile(lng: number, lat: number, z: number): { x: number; y: number } {
   const scale = 1 << z;
   const x = Math.floor(((lng + 180) / 360) * scale);
@@ -140,10 +155,7 @@ function expandBingTileEndpoints(tiles: string[]): string[] {
   return result;
 }
 export function fixBingStyleUrls(style: StyleSpecification): StyleSpecification {
-  const raw = JSON.stringify(style)
-    .replaceAll('raster://', 'https://')
-    .replaceAll('{quadkey}', '{z}/{x}/{y}');
-  const result = JSON.parse(raw) as StyleSpecification;
+  const result = normalizeBingStyleUrls(style);
   // Remove background raster layers (globe uses 3D textures instead) but keep
   // the jk raster-label layer — it provides map labels (roads, place names)
   // that the globe's vector layers don't fully cover.
@@ -153,6 +165,19 @@ export function fixBingStyleUrls(style: StyleSpecification): StyleSpecification 
   if (result.sources.jk && 'bounds' in result.sources.jk) {
     delete result.sources.jk.bounds;
   }
+  return result;
+}
+
+/** Normalize the worldwide Bing CN style for a flat MapLibre map. */
+export function fixBingPickerStyleUrls(style: StyleSpecification): StyleSpecification {
+  return normalizeBingStyleUrls(style);
+}
+
+function normalizeBingStyleUrls(style: StyleSpecification): StyleSpecification {
+  const raw = JSON.stringify(style)
+    .replaceAll('raster://', 'https://')
+    .replaceAll('{quadkey}', '{z}/{x}/{y}');
+  const result = JSON.parse(raw) as StyleSpecification;
   for (const source of Object.values(result.sources)) {
     if ('attribution' in source && !source.attribution) source.attribution = BING_ATTRIBUTION;
     if ('tiles' in source && Array.isArray(source.tiles)) {

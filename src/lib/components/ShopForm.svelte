@@ -4,6 +4,7 @@
   import { toastError } from '$lib/notifications/toast.svelte';
   import { GAME_TITLES } from '$lib/constants';
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
+  import { regionDatum } from '$lib/utils/globe/bing';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
   import RegionCascadeSelect from '$lib/components/RegionCascadeSelect.svelte';
   import { getGameName } from '$lib/utils';
@@ -138,6 +139,7 @@
   let regionIds = $state<string[]>([]);
   let regionComplete = $state(false);
   let regionSectionTouched = $state(false);
+  let regionResetKey = $state(0);
 
   const initialRegionIds = untrack(() => {
     const addr = initialData.address;
@@ -146,9 +148,8 @@
   });
 
   // ---- Location → address resolution ----
-  // A picked/prefilled location is the primary source: the server reverse-
-  // geocodes it (AMap regeo for China) and we drive the region cascade + the
-  // detailed address from the result, so region/coords/detail always agree.
+  // A picked location carries its unified-geo region result; prefilled
+  // locations resolve through the same service to keep region and datum aligned.
 
   /** Region chain resolved from the last location pick (drives the cascade). */
   let resolvedRegionIds = $state<string[]>([]);
@@ -159,13 +160,17 @@
   /** Guards the one-shot auto-resolve for prefilled locations (e.g. from /globe). */
   let autoResolveAttempted = $state(false);
 
-  async function resolveFromLocation(coords: [number, number], fallbackAddress?: string) {
+  async function resolveFromLocation(
+    coords: [number, number],
+    fallbackAddress?: string,
+    coordinateSystem: 'WGS84' | 'GCJ02' = 'WGS84'
+  ) {
     resolvingLocation = true;
     resolveFailed = false;
     try {
       const [lng, lat] = coords;
       const response = await fetch(
-        `/api/regions/resolve?lat=${lat}&lng=${lng}&address=${encodeURIComponent(fallbackAddress ?? '')}`
+        `/api/regions/resolve?lat=${lat}&lng=${lng}&coordinateSystem=${coordinateSystem}&address=${encodeURIComponent(fallbackAddress ?? '')}`
       );
       const result = (await response.json().catch(() => null)) as {
         resolved: boolean;
@@ -485,6 +490,7 @@
           bind:regionComplete
           {initialRegionIds}
           {resolvedRegionIds}
+          resetKey={regionResetKey}
         />
       </div>
 
@@ -734,11 +740,22 @@
 
 <LocationPickerModal
   bind:isOpen={showLocationModal}
+  initialLocation={location && initialData.address?.region?.length
+    ? {
+        longitude: location.coordinates[0],
+        latitude: location.coordinates[1],
+        // Stored coordinates live in the region's surface datum (GCJ02 on the
+        // mainland and in the SARs, WGS84 for Taiwan and abroad).
+        coordinateSystem: regionDatum(initialData.address.region)
+      }
+    : null}
   onLocationSelected={(loc: {
     longitude: number;
     latitude: number;
     name: string;
     address: string;
+    region?: string[];
+    detailed?: string;
   }) => {
     hasUserEdited = true;
     onFirstEdit?.();
@@ -747,11 +764,12 @@
       coordinates: [loc.longitude, loc.latitude]
     };
     locationName = loc.name ?? '';
-    // The picked location now drives the address: resolve the region chain and
-    // the street-level detailed address server-side. The picker's own formatted
-    // address (which duplicates the hierarchy) is only a fallback when the
-    // reverse geocode fails and nothing was typed yet.
+    // Confirmation already returned the provider-resolved region chain, so the
+    // same upstream reverse-geocode result drives the selector and address.
     autoResolveAttempted = true;
-    void resolveFromLocation([loc.longitude, loc.latitude], loc.address ?? undefined);
+    resolvedRegionIds = loc.region ?? [];
+    resolveFailed = !loc.region?.length;
+    if (!loc.region?.length) regionResetKey++;
+    if (loc.detailed && !detailedTouchedManually) detailedAddress = loc.detailed;
   }}
 />

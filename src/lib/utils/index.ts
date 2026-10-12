@@ -1165,8 +1165,13 @@ export const isShopChinaBased = (shop: {
 }) => {
   const regions = shop.address.region;
   if (regions && regions.length > 0) {
-    const first = regions[0];
-    return typeof first === 'string' ? first === 'CN' : first.id === 'CN';
+    const ids = regions.map((region) => (typeof region === 'string' ? region : region.id));
+    // Taiwan is served by the China providers now: coordinates stay WGS84, but
+    // map display and routing go through China providers. TW markers on AMap
+    // surfaces carry a known ~500m offset until the MapLibre migration lands.
+    return ids.some(
+      (id) => id === 'TW' || id.startsWith('CN-71') || id === 'CN' || id === 'HK' || id === 'MO'
+    );
   }
   // Fallback: without region data, assume non-China (safe default for map links)
   return false;
@@ -1644,57 +1649,23 @@ export const getMyLocation = (): Promise<{ latitude: number; longitude: number }
   return promise;
 };
 
-/**
- * Convert GPS (WGS-84) coordinates to GCJ-02 ("Mars coordinates").
- *
- * Delegates to our own `/api/geo/translate` endpoint (Tencent coord translate,
- * SK-signed server-side, same-origin-gated) and falls back to the AMap JS SDK
- * when available. Conversion is never done locally — the provider owns the
- * datum.
- */
-export const convertCoordinates = (
-  location: { latitude: number; longitude: number },
-  amap?: typeof AMap
-) =>
-  fetch(`/api/geo/translate?lat=${location.latitude}&lng=${location.longitude}`)
-    .then(async (response) => {
-      const data = (await response.json()) as {
-        converted: boolean;
-        lng: number;
-        lat: number;
-      };
-      if (!response.ok) throw new Error('Coordinate translation failed');
-      location.longitude = data.lng;
-      location.latitude = data.lat;
-      return location;
-    })
-    .catch((err) => {
-      console.warn('Coordinate translation endpoint failed, falling back to AMap:', err);
-      if (amap && location.latitude !== undefined && location.longitude !== undefined) {
-        return new Promise<typeof location>((resolve, reject) => {
-          amap.convertFrom(
-            [location.longitude, location.latitude],
-            'gps',
-            (
-              status: string,
-              response: { info: string; locations: { lat: number; lng: number }[] }
-            ) => {
-              if (status === 'complete' && response.info === 'ok') {
-                const result = response.locations[0];
-                location.latitude = result.lat;
-                location.longitude = result.lng;
-                resolve(location);
-              } else {
-                console.error('AMap conversion failed:', status, response);
-                reject(new Error('AMap conversion failed'));
-              }
-            }
-          );
-        });
-      }
-      console.warn('AMap not available, using unconverted coordinates');
-      return location;
-    });
+/** Normalize coordinates to the map profile selected by unified-geo. */
+export const convertCoordinates = async <T extends { latitude: number; longitude: number }>(
+  location: T
+): Promise<T> => {
+  try {
+    const response = await fetch(
+      `/api/geo/translate?lat=${location.latitude}&lng=${location.longitude}&from=WGS84`
+    );
+    const data = (await response.json()) as { converted: boolean; lng: number; lat: number };
+    if (!response.ok) throw new Error('Coordinate normalization failed');
+    location.longitude = data.lng;
+    location.latitude = data.lat;
+  } catch (cause) {
+    console.warn('Unified geo coordinate routing failed; keeping original coordinates:', cause);
+  }
+  return location;
+};
 
 export const aggregateGames = <T extends { titleId: number; quantity: number }>(shop: {
   games: T[];

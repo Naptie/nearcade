@@ -10,7 +10,7 @@
   import SiteTitle from '$lib/components/SiteTitle.svelte';
   import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
   import { m } from '$lib/paraglide/messages';
-  import type { AMapContext, Campus, University } from '$lib/types';
+  import type { Campus, University } from '$lib/types';
   import {
     adaptiveNewTab,
     convertCoordinates,
@@ -21,7 +21,7 @@
   } from '$lib/utils';
   import { fromPath } from '$lib/utils/scoped';
   import { viewport } from '$lib/utils/viewport.svelte';
-  import { getContext, onMount } from 'svelte';
+  import { onMount } from 'svelte';
   import type { PageData } from './$types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import { fade, slide } from 'svelte/transition';
@@ -79,7 +79,6 @@
   let isLoading = $state(false);
   let locationError = $state('');
   let isLocationPickerOpen = $state(false);
-  let amap: typeof AMap | undefined = $state(getContext<AMapContext>('amap')?.amap);
 
   let universityQuery = $state('');
   let universities = $state<University[]>([]);
@@ -183,7 +182,7 @@
     isLoading = true;
 
     if (convert) {
-      await convertCoordinates(location, amap);
+      await convertCoordinates(location);
     }
 
     const params = new SvelteURLSearchParams({
@@ -198,10 +197,6 @@
     }
 
     goto(resolve('/(main)/discover') + `?${params.toString()}`);
-  };
-
-  const assignAMap = (event: CustomEventInit<typeof AMap>) => {
-    amap = event.detail;
   };
 
   const handleLeave = async (shop: { id: number }) => {
@@ -225,7 +220,6 @@
   };
 
   onMount(() => {
-    window.addEventListener('amap-loaded', assignAMap);
     const interval = setInterval(() => {
       now = new Date();
     }, 1000);
@@ -269,7 +263,6 @@
     document.addEventListener('keydown', handleKeydown);
 
     return () => {
-      window.removeEventListener('amap-loaded', assignAMap);
       window.removeEventListener('scroll', handleNavbarScroll);
       if (navbarScrollRaf !== null) cancelAnimationFrame(navbarScrollRaf);
       document.removeEventListener('pointerdown', handleDocumentPointerDown);

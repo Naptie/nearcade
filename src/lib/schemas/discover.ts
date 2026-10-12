@@ -44,12 +44,12 @@ export const discoverGameSchema = shopApiSchema.shape.games.element.extend({
 export const convertFromSchema = z
   .string()
   .optional()
-  .transform((v) => v || undefined)
-  .pipe(z.enum(['gps', 'mapbar', 'baidu']).optional())
+  .transform((value) => (value === 'gps' ? 'WGS84' : value || undefined))
+  .pipe(z.enum(['WGS84', 'GCJ02']).optional())
   .describe(
     bilingual(
-      '原始坐标系。可选值：gps（WGS-84）、mapbar、baidu。',
-      'Source coordinate system to convert from. Options: gps (WGS-84), mapbar, baidu.'
+      '坐标系。可选值：WGS84、GCJ02；gps 仍作为 WGS84 的旧别名接受。',
+      'Coordinate system to normalize from. Options: WGS84, GCJ02; gps remains a legacy alias for WGS84.'
     )
   );
 

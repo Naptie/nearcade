@@ -24,8 +24,7 @@
   } from '$lib/utils';
   import { canonicalizeOpeningHourPair } from '$lib/utils/shops/derived';
   import { ATTENDANCE_RADIUS_KM, GAME_TITLES } from '$lib/constants';
-  import { getContext } from 'svelte';
-  import type { AMapContext, QueueRecord, QueuePosition, QueueMember } from '$lib/types';
+  import type { QueueRecord, QueuePosition, QueueMember } from '$lib/types';
   import { browser } from '$app/environment';
   import type { AttendanceData, AttendanceReport } from '$lib/types';
   import { fromPath } from '$lib/utils/scoped';
@@ -199,8 +198,6 @@
   let radius = $state(10);
 
   // Location checking for attendance
-  const amapContext = getContext<AMapContext>('amap');
-  let amap = $derived(amapContext?.amap);
   let distance = $state<number | null>(null); // Distance to shop
   let isUserNearShop = $state<boolean | null>(null); // null = checking, true/false = result
   let locationError = $state<string | null>(null);
@@ -310,11 +307,7 @@
       // Get user's current location
       const location = await getMyLocation();
 
-      // Convert coordinates using AMap if available
-      let convertedLocation = { ...location };
-      if (amap) {
-        convertedLocation = await convertCoordinates(convertedLocation, amap);
-      }
+      const convertedLocation = await convertCoordinates({ ...location });
 
       // Calculate distance to shop
       const shopCoords = shop.location.coordinates;

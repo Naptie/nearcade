@@ -12,7 +12,7 @@ import {
   type DiscoverResponse
 } from '$lib/schemas/discover';
 import { parseQueryOrError } from '$lib/utils/validation.server';
-import { translateToGcj02 } from '$lib/utils/geo.server';
+import { convertToMapProfile } from '$lib/utils/geo.server';
 import {
   METRO_ENTRY_OVERHEAD_SECONDS,
   METRO_EXIT_OVERHEAD_SECONDS,
@@ -70,15 +70,14 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
       : []
     : [];
 
-  // Convert coordinates from a non-GCJ-02 system if requested.
-  // Tencent coord translate first (per-feature daily quota); AMap remains the
-  // fallback so discovery degrades gracefully if Tencent is unavailable.
+  // Normalize the origin to the coordinate system selected for its territory.
   if (convertFrom) {
-    const converted = await translateToGcj02(longitude, latitude, convertFrom, url.origin);
+    const converted = await convertToMapProfile(longitude, latitude, convertFrom);
     if (converted) {
-      [longitude, latitude] = converted;
+      longitude = converted.longitude;
+      latitude = converted.latitude;
     } else {
-      console.error('Coordinate translation failed for all providers; using original coords');
+      console.error('Unified geo coordinate routing failed; using original coordinates');
     }
   }
 

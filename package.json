@@ -131,6 +131,9 @@
     "xml2js": "^0.6.2",
     "zod": "^4.4.3"
   },
+  "optionalDependencies": {
+    "unified-geo-client": "github:Naptie/unified-geo#client"
+  },
   "overrides": {
     "vite-plugin-devtools-json": {
       "vite": "$vite"
