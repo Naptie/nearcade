@@ -34,7 +34,7 @@ interface UnifiedGeoClientSurface {
     search: { post: (body: unknown) => Promise<unknown> };
   };
   maps: {
-    route: { post: (body: unknown) => Promise<unknown> };
+    profile: { post: (body: unknown) => Promise<unknown> };
   };
 }
 
@@ -44,7 +44,7 @@ const unifiedGeoClientRoutes: Record<string, UnifiedGeoClientCall> = {
   '/geo/convert': (client, body) => client.geo.convert.post(body),
   '/geo/reverse': (client, body) => client.geo.reverse.post(body),
   '/geo/search': (client, body) => client.geo.search.post(body),
-  '/maps/route': (client, body) => client.maps.route.post(body)
+  '/maps/profile': (client, body) => client.maps.profile.post(body)
 };
 
 // Cached typed client; `null` marks "package unavailable in this process" so a

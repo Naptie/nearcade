@@ -383,12 +383,18 @@
           void surfacePromise?.then((selection) => {
             if (cancelled || userInteracted || !map || !selection) return;
             setSelection(selection);
-            map.flyTo({
-              center: [selection.longitude, selection.latitude],
-              zoom: 15,
-              duration: 0
-            });
+            // Applied as soon as the frame after the marker exists — before
+            // the basemap finishes its first tile render, so there is no
+            // visible jump from the default center.
+            map.jumpTo({ center: [selection.longitude, selection.latitude], zoom: 15 });
           });
+        });
+        // The device fix usually resolves while tiles are still streaming;
+        // apply it the moment it lands instead of waiting for the load event.
+        void surfacePromise?.then((selection) => {
+          if (cancelled || userInteracted || !map || !selection) return;
+          setSelection(selection);
+          map.jumpTo({ center: [selection.longitude, selection.latitude], zoom: 15 });
         });
       } catch (error) {
         console.error('Failed to initialize the location picker map:', error);

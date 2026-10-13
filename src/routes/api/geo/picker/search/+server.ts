@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
   // the mainland, WGS84 in Taiwan and overseas). Resolve the zone datum once
   // and search in it: result pins then align with the basemap and match the
   // stored shop datum without further conversion.
-  const profile = await requestUnifiedGeo<MapProfileResponse>('/maps/route', {
+  const profile = await requestUnifiedGeo<MapProfileResponse>('/maps/profile', {
     coordinate: { longitude, latitude, coordinateSystem: 'WGS84' }
   });
   const response = await requestUnifiedGeo<PlaceSearchResponse>('/geo/search', {

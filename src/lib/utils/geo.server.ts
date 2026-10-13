@@ -20,7 +20,7 @@ export async function convertToMapProfile(
 ): Promise<{ longitude: number; latitude: number; coordinateSystem: CoordinateSystem } | null> {
   const coordinate: UnifiedGeoCoordinate = { longitude, latitude, coordinateSystem };
   try {
-    const profile = await requestUnifiedGeo<MapRouteResponse>('/maps/route', { coordinate });
+    const profile = await requestUnifiedGeo<MapRouteResponse>('/maps/profile', { coordinate });
     if (profile.coordinateSystem === coordinateSystem) {
       return { longitude, latitude, coordinateSystem };
     }

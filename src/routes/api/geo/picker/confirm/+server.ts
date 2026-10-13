@@ -42,7 +42,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
   let inputDatum = parsed.data.coordinateSystem;
   if (!inputDatum) {
     // Resolve the datum the map surface implies for this point (zone-based).
-    const profile = await requestUnifiedGeo<MapProfileResponse>('/maps/route', {
+    const profile = await requestUnifiedGeo<MapProfileResponse>('/maps/profile', {
       coordinate: { longitude, latitude, coordinateSystem: 'WGS84' }
     });
     inputDatum = profile.coordinateSystem;
