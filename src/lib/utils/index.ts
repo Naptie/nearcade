@@ -1649,24 +1649,6 @@ export const getMyLocation = (): Promise<{ latitude: number; longitude: number }
   return promise;
 };
 
-/** Normalize coordinates to the map profile selected by unified-geo. */
-export const convertCoordinates = async <T extends { latitude: number; longitude: number }>(
-  location: T
-): Promise<T> => {
-  try {
-    const response = await fetch(
-      `/api/geo/translate?lat=${location.latitude}&lng=${location.longitude}&from=WGS84`
-    );
-    const data = (await response.json()) as { converted: boolean; lng: number; lat: number };
-    if (!response.ok) throw new Error('Coordinate normalization failed');
-    location.longitude = data.lng;
-    location.latitude = data.lat;
-  } catch (cause) {
-    console.warn('Unified geo coordinate routing failed; keeping original coordinates:', cause);
-  }
-  return location;
-};
-
 export const aggregateGames = <T extends { titleId: number; quantity: number }>(shop: {
   games: T[];
 }) => {

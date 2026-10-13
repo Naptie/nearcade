@@ -28,6 +28,7 @@
   import ShopFilterPanel from '$lib/components/ShopFilterPanel.svelte';
   import { viewport } from '$lib/utils/viewport.svelte';
   import { isTouchscreen, getCachedLocation } from '$lib/utils';
+  import { getIpOrigin } from '$lib/utils/index.client';
   import type { GlobeShop } from '$lib/types';
   import {
     GlobeVisualsLayer,
@@ -641,23 +642,12 @@
     if (originFallbackRequested) return;
     originFallbackRequested = true;
 
-    void fetch(`${base}/api/globe/origin`)
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Origin fallback failed (${response.status})`);
-        return (await response.json()) as {
-          origin: { lat: number; lng: number; source: 'ip-region' } | null;
-        };
-      })
-      .then(({ origin }) => {
-        if (origin && !sidebarOrigin) {
-          sidebarOrigin = { lat: origin.lat, lng: origin.lng };
-        }
-        originFallbackResolved = true;
-      })
-      .catch((error) => {
-        console.warn('Failed to resolve Globe IP-region origin:', error);
-        originFallbackResolved = true;
-      });
+    void getIpOrigin().then((origin) => {
+      if (origin && !sidebarOrigin) {
+        sidebarOrigin = { lat: origin.latitude, lng: origin.longitude };
+      }
+      originFallbackResolved = true;
+    });
   });
 
   // Region is no longer a server-side filter of its own: it is part of

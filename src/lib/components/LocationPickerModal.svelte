@@ -6,8 +6,9 @@
   import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { getMyLocation } from '$lib/utils';
+  import { getMyLocation, getCachedLocation } from '$lib/utils';
   import { fromPath, isDarkMode } from '$lib/utils/scoped';
+  import { getIpOrigin } from '$lib/utils/index.client';
   import {
     bingTransformRequest,
     fixBingPickerStyleUrls,
@@ -49,6 +50,9 @@
   };
 
   const DEFAULT_CENTER: [number, number] = [116.4074, 39.9042];
+  // Budget for resolving the initial view (cached fix → IP origin). Past it
+  // the map opens on DEFAULT_CENTER instead of waiting.
+  const INITIAL_VIEW_DEADLINE_MS = 4000;
 
   let {
     isOpen = $bindable(false),
@@ -228,6 +232,40 @@
     }
   };
 
+  /**
+   * Initial view when the caller pinned no location. Priority: last in-session
+   * device fix (marks + centers the user), else the IP-derived city/province
+   * center (centers only — a coarse origin must not look like a personal
+   * fix), else the DEFAULT_CENTER constant. No geolocation permission prompt:
+   * the locate button remains the one explicit GPS trigger.
+   */
+  const resolveInitialView = async (): Promise<{
+    center: [number, number];
+    zoom: number;
+    selection: MapSelection | null;
+  }> => {
+    const cached = getCachedLocation();
+    if (cached) {
+      const selection = await translateToSurface(cached);
+      if (selection)
+        return { center: [selection.longitude, selection.latitude], zoom: 15, selection };
+    }
+    const origin = await getIpOrigin();
+    if (origin) {
+      const selection = await translateToSurface(origin);
+      if (selection) {
+        // City center reads at street-adjacent zoom; a province/state match
+        // only justifies a wide overview of its center.
+        return {
+          center: [selection.longitude, selection.latitude],
+          zoom: origin.level === 'city' ? 12 : 9,
+          selection: null
+        };
+      }
+    }
+    return { center: DEFAULT_CENTER, zoom: 15, selection: null };
+  };
+
   const locateMe = async () => {
     const map = mapInstance;
     if (!map) return;
@@ -326,13 +364,7 @@
     let cancelled = false;
     let userInteracted = false;
     let map: maplibregl.Map | undefined;
-    // Prefetch device geolocation while the style loads; only when the caller
-    // did not pin an initial location.
-    const surfacePromise = initialLocation
-      ? null
-      : getMyLocation()
-          .then((location) => translateToSurface(location))
-          .catch(() => undefined);
+    let viewDeadline: ReturnType<typeof setTimeout> | undefined;
 
     void (async () => {
       try {
@@ -343,21 +375,41 @@
         const styleUrl = fromPath(
           `/api/geo/style?provider=bing-cn&theme=${theme}&locale=${getStyleLocale(getLocale())}`
         );
-        const response = await fetch(styleUrl);
-        if (!response.ok) throw new Error(`Map style request failed: ${response.status}`);
+        // Style and initial view resolve in parallel; the map is constructed
+        // once, at the resolved center — no default-center flash to fix up
+        // with a later jump. A deadline keeps a slow origin lookup from
+        // holding the modal blank: past it, open on the static default.
+        const [styleResponse, initialView] = await Promise.all([
+          fetch(styleUrl),
+          initialLocation
+            ? Promise.resolve({
+                center: [initialLocation.longitude, initialLocation.latitude] as [number, number],
+                zoom: 15,
+                selection: null
+              })
+            : Promise.race([
+                resolveInitialView(),
+                new Promise<{ center: [number, number]; zoom: number; selection: null }>(
+                  (resolve) => {
+                    viewDeadline = setTimeout(
+                      () => resolve({ center: DEFAULT_CENTER, zoom: 15, selection: null }),
+                      INITIAL_VIEW_DEADLINE_MS
+                    );
+                  }
+                )
+              ])
+        ]);
+        if (!styleResponse.ok) throw new Error(`Map style request failed: ${styleResponse.status}`);
         const style = fixBingPickerStyleUrls(
-          (await response.json()) as maplibregl.StyleSpecification
+          (await styleResponse.json()) as maplibregl.StyleSpecification
         );
         if (cancelled || !mapContainer) return;
 
-        const startCenter: [number, number] | [number, number] = initialLocation
-          ? [initialLocation.longitude, initialLocation.latitude]
-          : DEFAULT_CENTER;
         map = new maplibregl.Map({
           container: mapContainer,
           style,
-          center: startCenter,
-          zoom: 15,
+          center: initialView.center,
+          zoom: initialView.zoom,
           transformRequest: bingTransformRequest
         });
         mapInstance = map;
@@ -380,21 +432,7 @@
             });
             return;
           }
-          void surfacePromise?.then((selection) => {
-            if (cancelled || userInteracted || !map || !selection) return;
-            setSelection(selection);
-            // Applied as soon as the frame after the marker exists — before
-            // the basemap finishes its first tile render, so there is no
-            // visible jump from the default center.
-            map.jumpTo({ center: [selection.longitude, selection.latitude], zoom: 15 });
-          });
-        });
-        // The device fix usually resolves while tiles are still streaming;
-        // apply it the moment it lands instead of waiting for the load event.
-        void surfacePromise?.then((selection) => {
-          if (cancelled || userInteracted || !map || !selection) return;
-          setSelection(selection);
-          map.jumpTo({ center: [selection.longitude, selection.latitude], zoom: 15 });
+          if (initialView.selection && !userInteracted) setSelection(initialView.selection);
         });
       } catch (error) {
         console.error('Failed to initialize the location picker map:', error);
@@ -404,6 +442,7 @@
 
     return () => {
       cancelled = true;
+      clearTimeout(viewDeadline);
       selectionMarker?.remove();
       selectionMarker = null;
       map?.remove();

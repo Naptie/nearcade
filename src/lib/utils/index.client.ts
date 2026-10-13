@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
+import { fromPath } from './scoped';
 
 export const IS_IOS = (() => {
   const iosQuirkPresent = () => {
@@ -59,6 +60,59 @@ export const HAS_DISCRETE_GPU = (() => {
   }
   return false;
 })();
+
+export interface IpOrigin {
+  latitude: number;
+  longitude: number;
+  /** Hierarchy level the point was borrowed from: 'city' or 'province'. */
+  level: 'city' | 'province';
+}
+
+let ipOriginRequest: Promise<IpOrigin | null> | null = null;
+
+/**
+ * Coarse origin from the visitor's IP (city/province center of the regions
+ * hierarchy), via /api/geo/me. Not a personal fix — callers must not mark a
+ * selection from it. The result is session-stable, so concurrent callers
+ * share one request and repeats reuse it for the page's lifetime.
+ */
+export const getIpOrigin = (): Promise<IpOrigin | null> => {
+  ipOriginRequest ??= fetch(fromPath('/api/geo/me'), { signal: AbortSignal.timeout(3000) })
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`IP origin lookup failed (${response.status})`);
+      const data = (await response.json()) as {
+        origin: { lat: number; lng: number; level: 'city' | 'province' } | null;
+      };
+      return data.origin
+        ? { latitude: data.origin.lat, longitude: data.origin.lng, level: data.origin.level }
+        : null;
+    })
+    .catch((cause) => {
+      console.warn('IP origin lookup failed:', cause);
+      // Allow a retry on the next call instead of caching the failure.
+      ipOriginRequest = null;
+      return null;
+    });
+  return ipOriginRequest;
+};
+
+/** Normalize coordinates to the map profile selected by unified-geo. */
+export const convertCoordinates = async <T extends { latitude: number; longitude: number }>(
+  location: T
+): Promise<T> => {
+  try {
+    const response = await fetch(
+      fromPath(`/api/geo/translate?lat=${location.latitude}&lng=${location.longitude}&from=WGS84`)
+    );
+    const data = (await response.json()) as { converted: boolean; lng: number; lat: number };
+    if (!response.ok) throw new Error('Coordinate normalization failed');
+    location.longitude = data.lng;
+    location.latitude = data.lat;
+  } catch (cause) {
+    console.warn('Unified geo coordinate routing failed; keeping original coordinates:', cause);
+  }
+  return location;
+};
 
 export type ModalQueryValue = 'qq' | 'donate';
 

@@ -13,12 +13,12 @@
   import type { Campus, University } from '$lib/types';
   import {
     adaptiveNewTab,
-    convertCoordinates,
     formatRegionLabel,
     formatShopAddress,
     getMyLocation,
     isShopCurrentlyOpen
   } from '$lib/utils';
+  import { convertCoordinates } from '$lib/utils/index.client';
   import { fromPath } from '$lib/utils/scoped';
   import { viewport } from '$lib/utils/viewport.svelte';
   import { onMount } from 'svelte';

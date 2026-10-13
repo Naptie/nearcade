@@ -6,7 +6,6 @@
     adaptiveNewTab,
     aggregateGames,
     calculateDistance,
-    convertCoordinates,
     formatDateTime,
     formatHourLiteral,
     formatOpeningHourLiteral,
@@ -28,6 +27,7 @@
   import { browser } from '$app/environment';
   import type { AttendanceData, AttendanceReport } from '$lib/types';
   import { fromPath } from '$lib/utils/scoped';
+  import { convertCoordinates } from '$lib/utils/index.client';
   import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
