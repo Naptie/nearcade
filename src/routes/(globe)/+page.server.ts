@@ -64,8 +64,8 @@ const getAttendanceData = async (
   }
 };
 
-export const load: PageServerLoad = async ({ parent }) => {
-  const { session } = await parent();
+export const load: PageServerLoad = async (event) => {
+  const { session } = await event.parent();
   const state = await getViewerAnnouncementReadState(event);
   const latestPinnedAnnouncement = await findLatestUnreadPinnedAnnouncement({ state });
 
