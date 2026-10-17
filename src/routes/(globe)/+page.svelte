@@ -24,6 +24,7 @@
   import { onMount } from 'svelte';
   import type { PageData } from './$types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
+  import InlineAlert from '$lib/components/InlineAlert.svelte';
   import { fade, slide } from 'svelte/transition';
   import HomeContent from '$lib/components/home/HomeContent.svelte';
   import NavigationBar from '$lib/components/NavigationBar.svelte';
@@ -340,6 +341,18 @@
         class="xs:w-[97vw] ss:w-[90vw] pointer-events-auto flex w-screen flex-col gap-6 px-8 py-6 transition-all duration-600 sm:max-w-3xl"
         class:mt-72={showGlobe}
       >
+        {#if data.latestPinnedAnnouncement}
+          <InlineAlert type="info" soft icon="fa-bullhorn" class="w-full text-left">
+            <a
+              href={resolve('/(main)/announcements/[id]', {
+                id: data.latestPinnedAnnouncement.id
+              })}
+              class="link-hover font-semibold"
+            >
+              {m.pinned_announcement()}: {data.latestPinnedAnnouncement.title}
+            </a>
+          </InlineAlert>
+        {/if}
         <SiteTitle
           class="title xs:text-5xl ss:text-6xl text-4xl sm:text-8xl xl:text-9xl {showGlobe
             ? 'title-base-content'
