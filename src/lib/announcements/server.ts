@@ -184,9 +184,7 @@ export const findLatestUnreadPinnedAnnouncement = async ({
     .sort({ publishedAt: -1, createdAt: -1 })
     .toArray();
 
-  const announcement = candidates.find((candidate) =>
-    isAnnouncementUnread(candidate, state, now)
-  );
+  const announcement = candidates.find((candidate) => isAnnouncementUnread(candidate, state, now));
   return announcement ? toPlainObject(announcement) : null;
 };
 
