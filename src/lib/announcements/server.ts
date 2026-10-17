@@ -169,6 +169,27 @@ export const countUnreadAnnouncements = async (state: AnnouncementReadState, now
   return candidates.filter((announcement) => isAnnouncementUnread(announcement, state, now)).length;
 };
 
+export const findLatestUnreadPinnedAnnouncement = async ({
+  state,
+  now = new Date()
+}: {
+  state: AnnouncementReadState;
+  now?: Date;
+}) => {
+  const candidates = await announcementCollection()
+    .find({
+      ...publicAnnouncementFilter(now, false),
+      isPinned: true
+    })
+    .sort({ publishedAt: -1, createdAt: -1 })
+    .toArray();
+
+  const announcement = candidates.find((candidate) =>
+    isAnnouncementUnread(candidate, state, now)
+  );
+  return announcement ? toPlainObject(announcement) : null;
+};
+
 export const applyAnnouncementRead = async (
   event: { cookies: Cookies; locals: App.Locals },
   input: {

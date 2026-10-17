@@ -6,6 +6,10 @@ import redis, { ensureConnected } from '$lib/db/redis.server';
 import { expandShopsRegions } from '$lib/utils/region.server';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import type { AuthSession } from '$lib/auth/types';
+import {
+  findLatestUnreadPinnedAnnouncement,
+  getViewerAnnouncementReadState
+} from '$lib/announcements/server';
 
 const getAttendanceData = async (
   shops: Shop[],
@@ -62,11 +66,14 @@ const getAttendanceData = async (
 
 export const load: PageServerLoad = async ({ parent }) => {
   const { session } = await parent();
+  const state = await getViewerAnnouncementReadState(event);
+  const latestPinnedAnnouncement = await findLatestUnreadPinnedAnnouncement({ state });
 
   if (!session || !session.user) {
     return {
       starredShops: [],
-      joinedClubsStarredShops: []
+      joinedClubsStarredShops: [],
+      latestPinnedAnnouncement
     };
   }
 
@@ -194,13 +201,15 @@ export const load: PageServerLoad = async ({ parent }) => {
     const shopsWithRegions = await expandShopsRegions(shopsWithAttendance);
 
     return {
-      starredShops: toPlainArray(shopsWithRegions)
+      starredShops: toPlainArray(shopsWithRegions),
+      latestPinnedAnnouncement
     };
   } catch (error) {
     console.error('Failed to load starred shops:', error);
     return {
       starredShops: [],
-      joinedClubsStarredShops: []
+      joinedClubsStarredShops: [],
+      latestPinnedAnnouncement
     };
   }
 };
