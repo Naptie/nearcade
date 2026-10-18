@@ -81,7 +81,7 @@ function createAuth() {
           baseURL: {
             allowedHosts,
             fallback: allowedOrigins[0],
-            protocol: 'auto'
+            protocol: 'https'
           }
         }
       : {}),
