@@ -53,6 +53,8 @@
 
   let regionLevels = $state<RegionLevel[]>([]);
   let regionPrefilled = $state(false);
+  // Invalidate in-flight requests whenever a newer selection or reset wins.
+  let selectionVersion = 0;
 
   // Derive outputs from internal state.
   $effect(() => {
@@ -101,14 +103,14 @@
   // ---- Selection handling ----
 
   async function handleRegionSelect(levelIndex: number, value: string) {
+    const version = ++selectionVersion;
     const truncated = regionLevels
       .slice(0, levelIndex + 1)
       .map((l, i) => (i === levelIndex ? { ...l, selectedId: value } : l));
 
-    if (!value) {
-      regionLevels = truncated;
-      return;
-    }
+    // Publish the selection immediately so Apply can use it while children load.
+    regionLevels = truncated;
+    if (!value) return;
 
     const level = truncated[levelIndex];
     const selected = level.options.find((o) => o.value === value);
@@ -116,13 +118,12 @@
     if (selected?.hasChildren) {
       try {
         const childOptions = await fetchRegionOptions(value);
+        if (version !== selectionVersion) return;
         regionLevels = [...truncated, { options: childOptions, selectedId: '' }];
       } catch (err) {
+        if (version !== selectionVersion) return;
         console.error(err);
-        regionLevels = truncated;
       }
-    } else {
-      regionLevels = truncated;
     }
   }
 
@@ -130,6 +131,7 @@
 
   /** Re-resolve the cascade levels from a full region-ID chain. */
   async function applyRegionIds(ids: string[]) {
+    const version = ++selectionVersion;
     const response = await fetch(`${REGIONS_ENDPOINT}/${ids.join('/')}?locale=${getLocale()}`);
     if (!response.ok) throw new Error('Failed to resolve region hierarchy');
 
@@ -152,6 +154,7 @@
       levels.push({ options: childOptions, selectedId: '' });
     }
 
+    if (version !== selectionVersion) return;
     regionLevels = levels;
   }
 
@@ -171,8 +174,8 @@
     if (!ids || ids.length === 0) return;
     const key = ids.join('/');
     if (key === lastResolvedKey) return;
-    lastResolvedKey = key;
     if (regionLevels.length === 0 || regionLevels[0].options.length === 0) return;
+    lastResolvedKey = key;
     applyRegionIds(ids).catch(console.error);
   });
 
@@ -183,6 +186,7 @@
     if (key === undefined || key === lastResetKey) return;
     lastResetKey = key;
     if (regionLevels.length === 0) return;
+    selectionVersion += 1;
     // Reuse the already-loaded top level; only the selection is dropped.
     regionLevels = [{ ...regionLevels[0], selectedId: '' }];
   });
