@@ -55,7 +55,7 @@
     "@tailwindcss/vite": "^4.3.2",
     "@types/fontkit": "^2.0.9",
     "@types/geojson": "^7946.0.16",
-    "@types/google.maps": "^3.65.2",
+    "@types/google.maps": "^3.66.7",
     "@types/node": "^25.9.5",
     "@types/three": "^0.184.1",
     "@types/xml2js": "^0.4.14",
