@@ -134,6 +134,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     timeout-minutes: 25
+    # The deployment record and its status are written through the GitHub API.
+    permissions:
+      contents: read
+      deployments: write
     env:
       DEPLOY_TIMEOUT_SECONDS: 900
     steps:
