@@ -180,12 +180,22 @@ jobs:
           body=$(cat webhook-response.txt 2>/dev/null || true)
           echo "The deployment webhook answered with ${http_code}: ${body}"
 
+          # An accepted request answers 200 with an empty body, so the body is
+          # only inspected for a rejection. Whether the deployment succeeded is
+          # the verdict step's question.
           case "${body}" in
-            *"hook triggered successfully"*)
+            *"Hook rules were not satisfied"*)
+              echo "::error::the deployment webhook rejected the token"
+              exit 1
+              ;;
+          esac
+
+          case "${http_code}" in
+            2*)
               echo "The deployment was triggered."
               ;;
             *)
-              echo "::error::the deployment webhook did not accept the request"
+              echo "::error::the deployment webhook answered HTTP ${http_code}"
               exit 1
               ;;
           esac
