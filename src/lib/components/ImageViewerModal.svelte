@@ -2,7 +2,8 @@
   import { portal } from '$lib/actions/portal';
   import { m } from '$lib/paraglide/messages';
   import { fade, fly, scale } from 'svelte/transition';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { isApiError } from '$lib/utils/api-error';
   import type { ImageAsset } from '$lib/types';
   import type { User } from '$lib/auth/types';
   import { buildImageUploadUrl } from '$lib/utils/image';
@@ -22,9 +23,6 @@
     onBlockedAction?: (reason: string) => void;
     allowDeleteRequest?: boolean;
     deletePhoto?: (photo: ImageAsset) => Promise<boolean> | boolean;
-    getDeleteUrl?: (photo: ImageAsset) => string;
-    getDeleteRequestUrl?: (photo: ImageAsset) => string | null;
-    getDeleteRequestBody?: (photo: ImageAsset, reason: string, imageIds: string[]) => unknown;
     onClose?: () => void;
     onDelete?: (photo: ImageAsset) => void;
   }
@@ -39,9 +37,6 @@
     onBlockedAction,
     allowDeleteRequest = false,
     deletePhoto,
-    getDeleteUrl,
-    getDeleteRequestUrl,
-    getDeleteRequestBody,
     onClose,
     onDelete
   }: Props = $props();
@@ -69,15 +64,6 @@
   let deleteRequestAttachments = $state<ImageAsset[]>([]);
 
   let currentPhoto = $derived(photos[currentIndex] ?? null);
-  let currentDeleteRequestUrl = $derived.by(() => {
-    if (!currentPhoto) return null;
-    return (
-      getDeleteRequestUrl?.(currentPhoto) ??
-      (currentPhoto.shopId !== undefined
-        ? fromPath(`/api/shops/${currentPhoto.shopId}/delete-request`)
-        : null)
-    );
-  });
   let isOwnerOrAdmin = $derived(
     !!currentPhoto && !!currentUser?.id && (isAdmin || currentPhoto.uploadedBy === currentUser?.id)
   );
@@ -88,28 +74,37 @@
       !!currentUser?.id &&
       !isOwnerOrAdmin &&
       allowDeleteRequest &&
-      !!currentDeleteRequestUrl
+      currentPhoto.shopId !== undefined
   );
   let canRequestDeletion = $derived(showDeleteRequestAction && canManagePhotos);
   let showDisabledDeleteRequestAction = $derived(showDeleteRequestAction && !canManagePhotos);
 
-  const resolveDeleteUrl = (photo: ImageAsset) =>
-    getDeleteUrl?.(photo) ??
-    (photo.shopId !== undefined
-      ? fromPath(`/api/shops/${photo.shopId}/photos/${photo.id}`)
-      : fromPath(`/api/images/${photo.id}`));
+  /**
+   * Delete a photo through the endpoint that owns it.
+   *
+   * A shop photo belongs to the shop's photo collection, every other image is
+   * a plain image asset.
+   */
+  const deletePhotoByApi = async (photo: ImageAsset) => {
+    try {
+      if (photo.shopId !== undefined) {
+        await orpc.shops.deletePhoto({ id: photo.shopId, photoId: photo.id });
+      } else {
+        await orpc.images.remove({ imageId: photo.id });
+      }
 
-  const resolveDeleteRequestBody = (photo: ImageAsset, reason: string) =>
-    getDeleteRequestBody?.(photo, reason, deleteRequestImageIds) ??
-    (photo.shopId !== undefined
-      ? { reason, photoId: photo.id, images: deleteRequestImageIds }
-      : { reason, images: deleteRequestImageIds });
+      return true;
+    } catch (error) {
+      console.error('Failed to delete photo:', error);
+      return false;
+    }
+  };
 
   const cleanupDeleteRequestDrafts = async () => {
     await Promise.all(
       deleteRequestImageIds.map(async (imageId) => {
         try {
-          await fetch(fromPath(`/api/images/${imageId}`), { method: 'DELETE' });
+          await orpc.images.remove({ imageId });
         } catch (error) {
           console.error('Failed to delete draft delete request image:', error);
         }
@@ -132,10 +127,7 @@
 
   const handleDeleteRequestImageDelete = async (image: ImageAsset) => {
     try {
-      const response = await fetch(fromPath(`/api/images/${image.id}`), { method: 'DELETE' });
-      if (!response.ok) {
-        return false;
-      }
+      await orpc.images.remove({ imageId: image.id });
 
       return true;
     } catch (error) {
@@ -170,7 +162,7 @@
     try {
       const deleted = deletePhoto
         ? await deletePhoto(currentPhoto)
-        : await fetch(resolveDeleteUrl(currentPhoto), { method: 'DELETE' }).then((res) => res.ok);
+        : await deletePhotoByApi(currentPhoto);
 
       if (deleted) {
         onDelete?.(currentPhoto);
@@ -189,26 +181,23 @@
     if (!currentPhoto || isSubmittingDeleteRequest) return;
     const reason = deleteRequestReason.trim();
     if (!reason) return;
-    if (!currentDeleteRequestUrl) return;
+    if (currentPhoto.shopId === undefined) return;
     isSubmittingDeleteRequest = true;
     deleteRequestError = '';
     try {
-      const res = await fetch(currentDeleteRequestUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(resolveDeleteRequestBody(currentPhoto, reason))
+      await orpc.shops.createDeleteRequest({
+        id: currentPhoto.shopId,
+        reason,
+        photoId: currentPhoto.id,
+        images: deleteRequestImageIds
       });
-      if (res.ok) {
-        deleteRequestSuccess = true;
-        deleteRequestReason = '';
-        deleteRequestImageIds = [];
-        deleteRequestAttachments = [];
-      } else {
-        const data = (await res.json()) as { message?: string };
-        deleteRequestError = data.message || m.error_occurred();
-      }
-    } catch {
-      deleteRequestError = m.network_error_try_again();
+
+      deleteRequestSuccess = true;
+      deleteRequestReason = '';
+      deleteRequestImageIds = [];
+      deleteRequestAttachments = [];
+    } catch (error) {
+      deleteRequestError = isApiError(error) ? error.message : m.network_error_try_again();
     } finally {
       isSubmittingDeleteRequest = false;
     }

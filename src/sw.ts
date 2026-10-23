@@ -9,6 +9,7 @@ import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute } from 'workbox-precaching';
 import { registerRoute, setDefaultHandler } from 'workbox-routing';
 import { NetworkFirst, StaleWhileRevalidate, CacheFirst } from 'workbox-strategies';
+import { API_MOUNT, RPC_PATH_SEGMENT } from '$lib/api/paths';
 
 declare let self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string; revision?: string }>;
@@ -25,8 +26,14 @@ registerRoute(
   new NetworkFirst({ cacheName: 'pages', networkTimeoutSeconds: 5 })
 );
 
+// The typed RPC surface is excluded: it carries the caller's own identity and
+// its responses are per-session, so a cached entry could be replayed to the
+// next caller. The mount is read from the contract's path module rather than
+// repeated here, so moving the surface cannot silently start caching it.
 registerRoute(
-  ({ url }: RouteContext) => url.pathname.startsWith('/api/'),
+  ({ url }: RouteContext) =>
+    url.pathname.startsWith(`${API_MOUNT}/`) &&
+    !url.pathname.startsWith(`${API_MOUNT}${RPC_PATH_SEGMENT}/`),
   new NetworkFirst({ cacheName: 'api-cache', networkTimeoutSeconds: 10 })
 );
 

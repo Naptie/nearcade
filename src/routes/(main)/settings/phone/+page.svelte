@@ -2,6 +2,8 @@
   import { invalidateAll } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
+  import { orpc } from '$lib/api/client';
+  import { isApiError } from '$lib/utils/api-error';
   import { pageTitle } from '$lib/utils';
   import { toast } from '$lib/notifications/toast.svelte';
   import { slide } from 'svelte/transition';
@@ -13,6 +15,23 @@
   };
 
   type Region = PhonePageData['regions'][number];
+
+  /**
+   * The error body the API answers a failed phone request with.
+   *
+   * The endpoint reports its fine-grained reason (`phone_already_yours`,
+   * `cooldown`, `captcha_failed`, …) as a JSON payload; the API layer carries
+   * it in the error message, so it is read back from there.
+   */
+  const phoneErrorBody = (error: unknown): { error?: string; retryAfter?: number } => {
+    if (!isApiError(error)) return {};
+    try {
+      const parsed = JSON.parse(error.message) as { error?: string; retryAfter?: number };
+      return typeof parsed === 'object' && parsed !== null ? parsed : {};
+    } catch {
+      return {};
+    }
+  };
 
   let { data }: { data: PhonePageData } = $props();
 
@@ -361,20 +380,7 @@
 
   async function pollTelegramStatus(sessionId: string) {
     try {
-      const res = await fetch(
-        `/api/phone/status/${encodeURIComponent(sessionId)}?locale=${getLocale()}`
-      );
-
-      if (!res.ok) {
-        stopTelegramPolling();
-        telegramSession = null;
-        toast(m.phone_settings_error(), { type: 'error' });
-        return;
-      }
-
-      const body = (await res.json()) as {
-        status: 'pending' | 'verified' | 'expired';
-      };
+      const body = await orpc.phone.status({ sessionId, locale: getLocale() });
 
       if (body.status === 'verified') {
         stopTelegramPolling();
@@ -391,7 +397,13 @@
         return;
       }
       // 'pending' — keep polling
-    } catch {
+    } catch (error) {
+      if (isApiError(error)) {
+        stopTelegramPolling();
+        telegramSession = null;
+        toast(m.phone_settings_error(), { type: 'error' });
+        return;
+      }
       // Transient network error — keep polling.
     }
   }
@@ -433,76 +445,17 @@
     isSending = true;
 
     try {
-      const res = await fetch('/api/phone/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phoneNumber: trimmedPhone,
-          dialCode: trimmedDialCode,
-          locale: getLocale(),
-          ...(activeCaptchaProvider
-            ? {
-                captchaProvider: activeCaptchaProvider,
-                captchaToken: activeCaptchaToken
-              }
-            : {})
-        })
+      const body = await orpc.phone.send({
+        phoneNumber: trimmedPhone,
+        dialCode: trimmedDialCode,
+        locale: getLocale(),
+        ...(activeCaptchaProvider
+          ? {
+              captchaProvider: activeCaptchaProvider,
+              captchaToken: activeCaptchaToken
+            }
+          : {})
       });
-
-      if (res.status === 409) {
-        const body = await res.json().catch(() => ({}));
-        if (body.error === 'phone_already_yours') {
-          toast(m.phone_settings_already_yours(), { type: 'error' });
-        } else {
-          toast(m.phone_settings_taken(), { type: 'error' });
-        }
-        resetActiveCaptcha();
-        return;
-      }
-
-      if (res.status === 429) {
-        const body = await res.json().catch(() => ({}));
-        if (body.error === 'cooldown') {
-          startCooldown(body.retryAfter ?? 60);
-          toast(m.phone_settings_cooldown({ seconds: body.retryAfter ?? 60 }), { type: 'error' });
-        } else {
-          toast(m.phone_settings_daily_limit(), { type: 'error' });
-        }
-        resetActiveCaptcha();
-        return;
-      }
-
-      if (res.status === 400) {
-        const body = await res.json().catch(() => ({}));
-        if (
-          body.error === 'turnstile_failed' ||
-          body.error === 'turnstile_missing' ||
-          body.error === 'captcha_failed' ||
-          body.error === 'captcha_missing' ||
-          body.error === 'captcha_provider_invalid'
-        ) {
-          toast(m.phone_settings_captcha_failed(), { type: 'error' });
-          resetActiveCaptcha();
-          return;
-        }
-      }
-
-      if (!res.ok) {
-        toast(m.phone_settings_error(), { type: 'error' });
-        resetActiveCaptcha();
-        return;
-      }
-
-      const body = (await res.json()) as
-        | { success: true; method: 'sms' }
-        | {
-            success: true;
-            method: 'telegram';
-            sessionId: string;
-            deepLink: string;
-            expiresAt: string;
-            ttl: number;
-          };
 
       if (body.method === 'telegram') {
         // Start the Telegram verification flow: hand the deep link to the
@@ -521,7 +474,44 @@
         codeSent = true;
       }
       startCooldown(60);
-    } catch {
+    } catch (error) {
+      const status = isApiError(error) ? error.status : 0;
+      const body = phoneErrorBody(error);
+
+      if (status === 409) {
+        if (body.error === 'phone_already_yours') {
+          toast(m.phone_settings_already_yours(), { type: 'error' });
+        } else {
+          toast(m.phone_settings_taken(), { type: 'error' });
+        }
+        resetActiveCaptcha();
+        return;
+      }
+
+      if (status === 429) {
+        if (body.error === 'cooldown') {
+          startCooldown(body.retryAfter ?? 60);
+          toast(m.phone_settings_cooldown({ seconds: body.retryAfter ?? 60 }), { type: 'error' });
+        } else {
+          toast(m.phone_settings_daily_limit(), { type: 'error' });
+        }
+        resetActiveCaptcha();
+        return;
+      }
+
+      if (
+        status === 400 &&
+        (body.error === 'turnstile_failed' ||
+          body.error === 'turnstile_missing' ||
+          body.error === 'captcha_failed' ||
+          body.error === 'captcha_missing' ||
+          body.error === 'captcha_provider_invalid')
+      ) {
+        toast(m.phone_settings_captcha_failed(), { type: 'error' });
+        resetActiveCaptcha();
+        return;
+      }
+
       toast(m.phone_settings_error(), { type: 'error' });
       resetActiveCaptcha();
     } finally {
@@ -539,23 +529,13 @@
     isVerifying = true;
 
     try {
-      const res = await fetch('/api/phone/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phoneNumber: phoneNumber.trim(),
-          dialCode: countryCode.trim(),
-          code: trimmedCode,
-          locale: getLocale()
-        })
+      const body = await orpc.phone.verify({
+        phoneNumber: phoneNumber.trim(),
+        dialCode: countryCode.trim(),
+        code: trimmedCode,
+        locale: getLocale()
       });
 
-      if (!res.ok) {
-        toast(m.phone_settings_error_invalid(), { type: 'error' });
-        return;
-      }
-
-      const body = await res.json();
       if (!body.verified) {
         toast(m.phone_settings_error_invalid(), { type: 'error' });
         return;
@@ -578,12 +558,7 @@
     isRemoving = true;
 
     try {
-      const res = await fetch('/api/phone', { method: 'DELETE' });
-
-      if (!res.ok) {
-        toast(m.phone_settings_error(), { type: 'error' });
-        return;
-      }
+      await orpc.phone.remove();
 
       toast(m.phone_settings_unbind_success(), { type: 'success' });
       stopTelegramPolling();

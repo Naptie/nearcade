@@ -1,7 +1,9 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import type { InviteLink } from '$lib/types';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { toastError } from '$lib/notifications/toast.svelte';
+  import { isApiError } from '$lib/utils/api-error';
   import CopyField from './CopyField.svelte';
 
   let { isOpen = $bindable(false), type = 'university', targetId = '', targetName = '' } = $props();
@@ -18,30 +20,18 @@
     isGenerating = true;
 
     try {
-      const response = await fetch(fromPath('/api/invites'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type,
-          targetId,
-          title,
-          description,
-          expiresAt: expiresAt ? new Date(expiresAt) : null,
-          maxUses,
-          requireApproval
-        })
+      const data = await orpc.invites.create({
+        type,
+        targetId,
+        title,
+        description,
+        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+        maxUses,
+        requireApproval
       });
-
-      if (response.ok) {
-        const data = (await response.json()) as { invite: InviteLink };
-        generatedLink = data.invite;
-      } else {
-        console.error('Failed to generate invite');
-      }
+      generatedLink = data.invite;
     } catch (error) {
-      console.error('Error generating invite:', error);
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isGenerating = false;
     }

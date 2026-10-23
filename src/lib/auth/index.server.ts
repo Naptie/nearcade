@@ -21,6 +21,7 @@ import { getCachedOAuthProfile } from './profile-cache';
 import { registerOAuthProviders, getTrustedOAuthProviders } from './providers';
 import { OAUTH_SCOPES } from './oauth/scopes';
 import { purgeUgcEntities } from '$lib/ugc/entries.server';
+import { API_TOKEN_PREFIX } from '$lib/api-tokens';
 
 const lastActiveUpdates = new Map<string, number>();
 const LAST_ACTIVE_DEBOUNCE_MS = 60_000;
@@ -216,10 +217,17 @@ function createAuth() {
           oauthConsent: { modelName: 'oauth_consent' },
           oauthAccessToken: { modelName: 'oauth_access_token' },
           oauthRefreshToken: { modelName: 'oauth_refresh_token' }
-        }
+        },
+        // Pinned explicitly, even though it is the plugin default (1.6.30,
+        // `dist/index.mjs:2799`). `verify.server.ts` re-implements this exact
+        // transform by hand — SHA-256, base64url, unpadded — because the
+        // plugin does not export `getStoredToken`. Setting the option here
+        // makes the coupling explicit: if anyone ever changes it, that lookup
+        // silently stops matching and every OAuth request 401s.
+        storeTokens: 'hashed'
       }),
       apiKey({
-        defaultPrefix: 'nk_',
+        defaultPrefix: API_TOKEN_PREFIX,
         defaultKeyLength: 42,
         enableMetadata: true,
         maximumNameLength: 50,

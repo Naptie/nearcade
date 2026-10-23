@@ -2,7 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import { ObjectId } from 'mongodb';
 import type { PageServerLoad, Actions } from './$types';
 import mongo from '$lib/db/index.server';
-import type { NotificationType } from '$lib/types';
+import type { NotificationType } from '$lib/types/index.server';
 import { m } from '$lib/paraglide/messages';
 import type { SocialPlatform } from '$lib/constants';
 import { SOCIAL_PLATFORMS } from '$lib/constants';

@@ -33,7 +33,6 @@
   <article class="bg-base-100 rounded-2xl p-6 shadow">
     <PostCreateForm
       variant="announcement"
-      submitUrl="/api/announcements"
       currentUser={data.user ?? undefined}
       cancelHref={backUrl}
       bind:wideMode

@@ -1,7 +1,8 @@
 import { IMAGE_STORAGE_PREFIX } from '$lib/constants';
 import { deleteFile, uploadFile } from '$lib/oss/index';
 import type { User } from '$lib/auth/types';
-import type { Club, Comment, ImageAsset, Post, ShopDeleteRequest, University } from '$lib/types';
+import type { Club, Comment, ImageAsset, University } from '$lib/types';
+import type { Post, ShopDeleteRequest } from '$lib/types/index.server';
 import { protect } from '$lib/utils';
 import { stripPostImageMarkdownByIds } from '$lib/utils/image';
 import { nanoid } from 'nanoid';

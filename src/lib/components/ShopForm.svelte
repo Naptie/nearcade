@@ -8,6 +8,7 @@
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
   import RegionCascadeSelect from '$lib/components/RegionCascadeSelect.svelte';
   import { getGameName } from '$lib/utils';
+  import { orpc } from '$lib/api/client';
   import { canonicalizeOpeningHours } from '$lib/utils/shops/derived';
   import { unsavedChanges } from '$lib/actions/unsaved-changes';
   import {
@@ -169,15 +170,13 @@
     resolveFailed = false;
     try {
       const [lng, lat] = coords;
-      const response = await fetch(
-        `/api/regions/resolve?lat=${lat}&lng=${lng}&coordinateSystem=${coordinateSystem}&address=${encodeURIComponent(fallbackAddress ?? '')}`
-      );
-      const result = (await response.json().catch(() => null)) as {
-        resolved: boolean;
-        region?: string[];
-        detailed?: string;
-      } | null;
-      if (!response.ok || !result?.resolved) {
+      const result = await orpc.regions.resolve({
+        lat,
+        lng,
+        coordinateSystem,
+        address: fallbackAddress ?? ''
+      });
+      if (!result.resolved) {
         resolveFailed = true;
         return;
       }

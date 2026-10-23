@@ -1,4 +1,4 @@
-import { fromPath } from '$lib/utils/scoped';
+import { apiUrl } from '$lib/api/urls';
 import { APP_NAME } from '$lib/constants';
 
 const POST_IMAGE_MARKER_PREFIX = `${APP_NAME}-post-image:`;
@@ -33,14 +33,15 @@ export const stripPostImageMarkdownByIds = (content: string, imageIds: string[])
 
 export const buildImageUploadUrl = (
   params: Record<string, string | number | null | undefined> = {}
-) => {
-  const searchParams = new URLSearchParams();
+) => apiUrl('postImages', {}, params);
 
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === '') continue;
-    searchParams.set(key, String(value));
-  }
-
-  const query = searchParams.toString();
-  return query ? `${fromPath('/api/images')}?${query}` : fromPath('/api/images');
-};
+/**
+ * The URL a shop's photo upload goes to.
+ *
+ * The upload endpoints cannot be called through the typed client — a multipart
+ * upload needs the browser's progress events — so their URLs are built from
+ * the contract. They live here, with the other upload URL, so a component
+ * that opens an upload never has to know an operation id.
+ */
+export const buildShopPhotoUploadUrl = (shopId: number | string) =>
+  apiUrl('postShopsByIdPhotos', { id: shopId });

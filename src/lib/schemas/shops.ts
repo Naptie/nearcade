@@ -4,6 +4,7 @@ import {
   bilingual,
   dateTimeSchema,
   locationSchema,
+  mongoIdSchema,
   openingHoursSchema,
   optionalBooleanString,
   paginationQuerySchema,
@@ -448,8 +449,6 @@ export const shopApiSchema = z.object({
   updatedAt: dateTimeSchema(bilingual('更新时间。', 'Update time.'))
 });
 
-export type ShopApiInput = z.input<typeof shopApiSchema>;
-
 export const shopsListQuerySchema = paginationQuerySchema.extend({
   q: z.string().optional().default('').describe(bilingual('查询字符串。', 'Search query string.')),
   regionId: z
@@ -650,6 +649,31 @@ export const queuePositionSchema = z.object({
   members: z
     .array(queueMemberSchema)
     .describe(bilingual('成员列表。', 'Members in this queue position.'))
+});
+
+/**
+ * One game's queue as it is *stored*.
+ *
+ * The shapes above are the wire shapes — what a client sends and what a
+ * response carries, with an ISO-string timestamp and no database identity. This
+ * and {@link queueRecordSchema} are the row itself: a MongoDB `_id` and a real
+ * `Date`. They live here, beside the wire schemas, for the same reason
+ * `shopDocumentSchema` sits beside `shopApiSchema`, rather than in a module of
+ * their own — a separate module would restate the members and positions above
+ * and quietly drift from them.
+ */
+export const queueGameEntrySchema = z.object({
+  gameId: z.number(),
+  queue: z.array(queuePositionSchema)
+});
+
+/** A shop's stored queue record. */
+export const queueRecordSchema = z.object({
+  _id: mongoIdSchema,
+  shopId: z.number(),
+  games: z.array(queueGameEntrySchema),
+  updatedAt: z.date(),
+  updatedBy: z.string()
 });
 
 export const queueReportRequestSchema = z.object({

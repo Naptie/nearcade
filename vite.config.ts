@@ -33,46 +33,22 @@ export default defineConfig({
       filename: 'sw.ts',
       strategies: 'injectManifest',
       useCredentials: true,
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,avif,jpg,jpeg,gif,woff,woff2}'],
-        runtimeCaching: [
-          {
-            // API calls
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 10,
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 }
-            }
-          },
-          // fonts (local hashed & external)
-          {
-            urlPattern: /.*\.(?:woff2?|ttf|otf)$/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'font-cache',
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] }
-            }
-          },
-          // static assets (scripts, styles)
-          {
-            urlPattern: ({ request }) =>
-              ['script', 'style', 'worker'].includes(request.destination),
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'static-resources' }
-          },
-          // images
-          {
-            urlPattern: ({ request }) => request.destination === 'image',
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'image-cache',
-              expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 30 }
-            }
-          }
-        ]
+      // `injectManifest` — not `workbox` — is the block workbox-build reads:
+      // under the injectManifest strategy vite-plugin-pwa forwards only this
+      // object, and the service worker source (`src/sw.ts`) owns the runtime
+      // routes and the precache manifest.
+      //
+      // There is deliberately no `workbox` key here, because it would be dead
+      // config: vite-plugin-pwa reads `workbox` only under the `generateSW`
+      // strategy (v1.3.0, `dist/index.js:354`), so a `globPatterns` or
+      // `runtimeCaching` entry added there would silently never take effect.
+      // The runtime caching now lives in `src/sw.ts`.
+      injectManifest: {
+        // The API reference bundle is a multi-megabyte developer tool. Precaching
+        // it would tax every visitor's service-worker install for no benefit.
+        // It is still picked up at runtime by the script rule in `src/sw.ts`, so
+        // the reference keeps working offline once it has been opened.
+        globIgnores: ['**/api-reference.js']
       },
       // auto-generate manifest
       manifest: {

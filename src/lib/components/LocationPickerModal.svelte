@@ -7,7 +7,8 @@
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import { getMyLocation, getCachedLocation } from '$lib/utils';
-  import { fromPath, isDarkMode } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { isDarkMode } from '$lib/utils/scoped';
   import { getIpOrigin } from '$lib/utils/index.client';
   import {
     bingTransformRequest,
@@ -133,19 +134,13 @@
     isSearchingPlaces = true;
     searchFailed = false;
     try {
-      const response = await fetch(fromPath('/api/geo/picker/search'), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          query,
-          longitude: center.lng,
-          latitude: center.lat,
-          language: getLocale()
-        })
+      const result = await orpc.geo.pickerSearch({
+        query,
+        longitude: center.lng,
+        latitude: center.lat,
+        language: getLocale()
       });
-      if (!response.ok) throw new Error(`Place search failed: ${response.status}`);
-      const data = (await response.json()) as { places: Place[] };
-      if (requestId === searchRequestId) places = data.places ?? [];
+      if (requestId === searchRequestId) places = result.places ?? [];
     } catch (error) {
       console.error('Error searching places:', error);
       if (requestId === searchRequestId) {
@@ -199,19 +194,10 @@
     latitude: number;
   }): Promise<MapSelection | undefined> => {
     try {
-      const response = await fetch(
-        fromPath(
-          `/api/geo/translate?lat=${location.latitude}&lng=${location.longitude}&from=WGS84`
-        ),
+      const translated = await orpc.geo.translate(
+        { lat: location.latitude, lng: location.longitude, from: 'WGS84' },
         { signal: AbortSignal.timeout(2500) }
       );
-      if (!response.ok) throw new Error(`translate failed: ${response.status}`);
-      const translated = (await response.json()) as {
-        converted: boolean;
-        lng: number;
-        lat: number;
-        coordinateSystem: CoordinateSystem;
-      };
       return {
         name: '',
         address: '',
@@ -303,28 +289,14 @@
     pickerError = '';
 
     try {
-      const response = await fetch(fromPath('/api/geo/picker/confirm'), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          longitude: selection.longitude,
-          latitude: selection.latitude,
-          language: getLocale(),
-          name: selection.name,
-          address: selection.address,
-          ...(selection.coordinateSystem ? { coordinateSystem: selection.coordinateSystem } : {})
-        })
+      const result = await orpc.geo.pickerConfirm({
+        longitude: selection.longitude,
+        latitude: selection.latitude,
+        language: getLocale(),
+        name: selection.name,
+        address: selection.address,
+        ...(selection.coordinateSystem ? { coordinateSystem: selection.coordinateSystem } : {})
       });
-      if (!response.ok) throw new Error(`Location confirmation failed: ${response.status}`);
-      const result = (await response.json()) as {
-        location: { longitude: number; latitude: number; coordinateSystem: CoordinateSystem };
-        serviceArea: 'china' | 'international';
-        region?: string[];
-        detailed?: string;
-        name: string;
-        address: string;
-        city?: string;
-      };
       if (session !== pickerSession) return;
 
       onLocationSelected({
@@ -372,15 +344,16 @@
         // The Bing CN style document is served by unified-geo (bearer-authed
         // server proxy); the local fixups below still apply to the served
         // style (raster:// pseudo-URLs, quadkeys, glyphs).
-        const styleUrl = fromPath(
-          `/api/geo/style?provider=bing-cn&theme=${theme}&locale=${getStyleLocale(getLocale())}`
-        );
         // Style and initial view resolve in parallel; the map is constructed
         // once, at the resolved center — no default-center flash to fix up
         // with a later jump. A deadline keeps a slow origin lookup from
         // holding the modal blank: past it, open on the static default.
-        const [styleResponse, initialView] = await Promise.all([
-          fetch(styleUrl),
+        const [styleResult, initialView] = await Promise.all([
+          orpc.geo.style({
+            provider: 'bing-cn',
+            theme,
+            locale: getStyleLocale(getLocale())
+          }),
           initialLocation
             ? Promise.resolve({
                 center: [initialLocation.longitude, initialLocation.latitude] as [number, number],
@@ -399,10 +372,7 @@
                 )
               ])
         ]);
-        if (!styleResponse.ok) throw new Error(`Map style request failed: ${styleResponse.status}`);
-        const style = fixBingPickerStyleUrls(
-          (await styleResponse.json()) as maplibregl.StyleSpecification
-        );
+        const style = fixBingPickerStyleUrls(styleResult.body as maplibregl.StyleSpecification);
         if (cancelled || !mapContainer) return;
 
         map = new maplibregl.Map({

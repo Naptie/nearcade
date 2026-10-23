@@ -7,7 +7,7 @@ import { shopApiSchema, shopChangelogEntrySchema, shopDeleteRequestVoteTypeSchem
 import {
   bilingual,
   dateTimeSchema,
-  objectIdSchema,
+  mongoIdSchema,
   positiveIntegerQueryParamSchema,
   positiveIntegerString,
   socialLinkSchema,
@@ -202,10 +202,7 @@ const activityTargetTypeSchema = z
 
 export const activitySchema = z
   .object({
-    _id: z
-      .union([z.string(), objectIdSchema])
-      .optional()
-      .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
+    _id: mongoIdSchema,
     id: z.string().describe(bilingual('活动 ID。', 'Activity ID.')),
     type: activityTypeSchema,
     createdAt: dateTimeSchema(bilingual('活动时间。', 'Activity time.')),

@@ -4,6 +4,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import type { PageData } from './$types';
   import { resolve } from '$app/paths';
+  import { apiUrl } from '$lib/api/urls';
   import { PostReadability, PostWritability } from '$lib/types';
   import { pageTitle } from '$lib/utils';
   import { toastError } from '$lib/notifications/toast.svelte';
@@ -413,7 +414,7 @@
 
 <UploadModal
   bind:isOpen={isAvatarUploadOpen}
-  uploadUrl="/api/universities/{data.university.id}/avatar"
+  uploadUrl={apiUrl('postUniversitiesByIdAvatar', { id: data.university.id })}
   title={m.upload_avatar()}
   confirmLabel={m.upload_avatar()}
   onSuccess={(result) => {

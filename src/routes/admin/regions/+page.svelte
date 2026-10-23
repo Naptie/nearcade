@@ -7,6 +7,8 @@
   import type { PageData } from './$types';
   import type { Region, AdminRegionNode, AdminRegionSearchHit } from '$lib/regions/types';
   import { adaptiveNewTab } from '$lib/utils';
+  import { orpc } from '$lib/api/client';
+  import { apiErrorMessage } from '$lib/utils/api-error';
   import RegionTreeNode from '$lib/components/admin/RegionTreeNode.svelte';
   import RegionEditModal from '$lib/components/admin/RegionEditModal.svelte';
   import AdminPage from '$lib/components/admin/AdminPage.svelte';
@@ -46,9 +48,7 @@
     const seq = ++searchSeq;
     const timer = setTimeout(async () => {
       try {
-        const response = await fetch(`/api/admin/regions?q=${encodeURIComponent(query)}`);
-        if (!response.ok) throw new Error('Region search failed');
-        const result = (await response.json()) as { regions: AdminRegionSearchHit[] };
+        const result = await orpc.admin.listRegions({ q: query });
         if (seq === searchSeq) {
           searchResults = result.regions;
         }
@@ -69,9 +69,7 @@
 
   const loadChildren = async (parentId: string) => {
     try {
-      const response = await fetch(`/api/admin/regions?parentId=${encodeURIComponent(parentId)}`);
-      if (!response.ok) throw new Error('Failed to load region children');
-      const result = (await response.json()) as { regions: AdminRegionNode[] };
+      const result = await orpc.admin.listRegions({ parentId });
       childrenMap[parentId] = result.regions;
     } catch (err) {
       console.error('Error loading region children:', err);
@@ -95,7 +93,7 @@
     if (!hit.location) return '';
     const zoomMap: Record<string, number> = { country: 6, province: 8, city: 10, county: 12 };
     const chain = [
-      ...hit.ancestors.map((a) => ({ id: a.id, name: a.name })),
+      ...(hit.ancestors ?? []).map((a) => ({ id: a.id, name: a.name })),
       { id: hit.id, name: hit.name }
     ];
     const [lng, lat] = hit.location.coordinates;
@@ -124,19 +122,12 @@
     if (!confirm(m.region_delete_confirm())) return;
     deleteError = '';
     try {
-      const response = await fetch(`/api/admin/regions/${region.id}`, {
-        method: 'DELETE'
-      });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        deleteError = result.error ?? m.region_delete_failed();
-        return;
-      }
+      await orpc.admin.deleteRegion({ id: region.id });
       resetTree();
       await goto(page.url, { invalidateAll: true });
     } catch (err) {
       console.error('Error deleting region:', err);
-      deleteError = m.region_delete_failed();
+      deleteError = apiErrorMessage(err, m.region_delete_failed());
     }
   };
 
@@ -177,9 +168,9 @@
         <ul class="divide-base-200 divide-y">
           {#each searchResults ?? [] as hit (hit.id)}
             <li class="hover:bg-base-200/50 px-3 py-2 transition-colors">
-              {#if hit.ancestors.length > 0}
+              {#if (hit.ancestors ?? []).length > 0}
                 <div class="text-base-content/50 mb-1 flex flex-wrap items-center gap-1 text-xs">
-                  {#each hit.ancestors as ancestor (ancestor.id)}
+                  {#each hit.ancestors ?? [] as ancestor (ancestor.id)}
                     <span>{nameFor(ancestor.name)}</span>
                     <i class="fa-solid fa-chevron-right text-[0.6rem]"></i>
                   {/each}

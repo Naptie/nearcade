@@ -1,7 +1,5 @@
 import type { ObjectId } from 'mongodb';
 import type {
-  RADIUS_OPTIONS,
-  LIMIT_OPTIONS,
   GAME_TITLES,
   RANKING_RADIUS_OPTIONS,
   METRO_RANKING_RADIUS_OPTIONS
@@ -11,7 +9,8 @@ import type { PublicUser } from '$lib/auth/types';
 import { z } from 'zod';
 import { activitySchema } from '$lib/schemas/users';
 import { commentSchema, commentVoteSchema } from '$lib/schemas/comments';
-import { imageAssetSchema } from '$lib/schemas/images';
+import { imageAssetSchema, imageStorageProviderSchema } from '$lib/schemas/images';
+import type { locationSchema, openingHourTimeSchema } from '$lib/schemas/common';
 import type {
   campusSchema,
   clubMemberSchema,
@@ -20,19 +19,28 @@ import type {
   universityMemberSchema,
   universitySchema
 } from '$lib/schemas/organizations';
-import type { postSchema, postVoteSchema, postWithAuthorSchema } from '$lib/schemas/posts';
+import type { postWithAuthorSchema } from '$lib/schemas/posts';
 import type { announcementSchema, announcementWithAuthorSchema } from '$lib/schemas/announcements';
 import type {
   gameSchema,
+  shopApiAddressSchema,
   shopApiSchema,
-  shopDeleteRequestSchema,
   shopDeleteRequestVoteSchema,
+  shopDeleteRequestVoteTypeSchema,
   shopDocumentSchema,
   shopPhotoSchema
 } from '$lib/schemas/shops';
-import { shopChangelogActionSchema, shopChangelogEntrySchema } from '$lib/schemas/shops';
+import { shopChangelogEntrySchema } from '$lib/schemas/shops';
 import type { AddressRegionEntry } from '$lib/regions/types';
 import type { UgcContentType, UgcKind, UgcTranslationMap } from '$lib/ugc/types';
+import type {
+  RankingMetrics,
+  RegionLevel,
+  RegionRankingData,
+  RegionRankingResponse,
+  UniversityRankingData,
+  UniversityRankingResponse
+} from '$lib/schemas/rankings';
 
 /**
  * Server loaders attach cached UGC translations to entities as
@@ -43,15 +51,9 @@ export type UgcAttachable = {
   _t?: UgcTranslationMap;
 };
 
-export interface Location {
-  type: 'Point';
-  coordinates: [number, number]; // [longitude, latitude]
-}
+export type Location = z.infer<typeof locationSchema>;
 
-export interface OpeningHourTime {
-  hour: number;
-  minute: number;
-}
+export type OpeningHourTime = z.infer<typeof openingHourTimeSchema>;
 
 /**
  * The persisted shop document (MongoDB / Meilisearch). Carries `_id` and the
@@ -71,15 +73,16 @@ export type Shop = UgcAttachable &
  * with IDs and the requested locale's names. Stored shops keep IDs only — see
  * `shopAddressSchema` and `toShopApiAddress`.
  */
-export interface ShopApiAddress {
-  general: string[];
-  detailed: string;
-  region: AddressRegionEntry[];
-}
+export type ShopApiAddress = z.infer<typeof shopApiAddressSchema>;
 
 /**
- * The public shop shape shared by every API response. Contains only
- * user-authored facts plus the per-request `timezone` / `isOpen` computation.
+ * A shop as the API returns it, plus the UGC decorations a page may attach.
+ *
+ * This is the browser-facing shop type: the public projection of the Mongo
+ * document (`shopApiSchema`), with the optional UGC fields merged into the shop
+ * and into each game. It is the only `ShopApi` in the codebase — a second,
+ * differently-shaped alias used to live next to `shopApiSchema` and an import
+ * could silently pick up the narrower one.
  */
 type ShopApiBase = z.infer<typeof shopApiSchema>;
 
@@ -111,94 +114,26 @@ export type Campus = z.infer<typeof campusSchema>;
 
 export type University = UgcAttachable & z.infer<typeof universitySchema>;
 
-export interface UniversityRankingResponse {
-  data: UniversityRankingData[];
-  totalCount: number;
-  hasMore: boolean;
-  nextCursor: string | null;
-  cached: boolean;
-  cacheTime: Date;
-  stale: boolean;
-  calculating: boolean;
-}
-
-export interface UniversityRankingData {
-  id: string;
-  universityName: string;
-  campusName: string | null;
-  fullName: string;
-  type: string;
-  majorCategory: string | null;
-  natureOfRunning: string | null;
-  affiliation: string;
-  is985: boolean | null;
-  is211: boolean | null;
-  isDoubleFirstClass: boolean | null;
-  province: string;
-  city: string;
-  district: string | null;
-  address: string;
-  location: Location;
-  rankings: RankingMetrics[];
-  /** Global tied rank for the requested sort key and radius; null when the cache predates the field. */
-  rank?: number | null;
-}
-
-export interface RankingMetrics {
-  radius: number; // in kilometers
-  shopCount: number;
-  totalMachines: number;
-  areaDensity: number | null; // machines per km² (null when region area is unavailable)
-  machinesPerCapita: number | null; // machines per 10,000 people; null when population is unavailable
-  gameSpecificMachines: {
-    name: string;
-    quantity: number;
-  }[];
-}
+/**
+ * The ranking row, metric and response shapes belong to the API, so they are
+ * re-exported from the schema instead of restated here. They used to be
+ * hand-written interfaces that the contracts described as "mirrors" of their
+ * schemas, with nothing keeping the two in step — and they had drifted:
+ * `cacheTime` was `Date` on the campus response and `string` on the region one,
+ * while the schema (and the published document) say `string | null`.
+ */
+export type {
+  RankingMetrics,
+  RegionLevel,
+  RegionRankingData,
+  RegionRankingResponse,
+  UniversityRankingData,
+  UniversityRankingResponse
+};
 
 export interface RankingsTableItem {
   id: string;
   rankings: RankingMetrics[];
-}
-
-export type RegionLevel = 'country' | 'province' | 'city' | 'county' | 'street';
-export interface RegionRankingData {
-  id: string; // region ID from globe-cn hierarchy
-  level: RegionLevel;
-  name: string;
-  country: string | null; // country region ID (not name)
-  province: string | null; // province region ID
-  city: string | null; // city region ID
-  county: string | null; // county region ID
-  /** Full region hierarchy (root → self) with multilingual names, populated by API. */
-  regionChain?: { id: string; name: Record<string, string> }[];
-  location: Location;
-  area: number | null; // km² from region document
-  population: number | null; // from region document
-  shopCount: number;
-  totalMachines: number;
-  areaDensity: number | null; // machines per km² (null when region area is unavailable)
-  machinesPerCapita: number | null; // machines per 10,000 people; null when population is unavailable
-  gameSpecificMachines: { name: string; quantity: number }[];
-  /** Global tied rank for the requested sort key; null when the cache predates the field. */
-  rank?: number | null;
-}
-
-export interface RegionRankingResponse {
-  data: RegionRankingData[];
-  totalCount: number;
-  hasMore: boolean;
-  nextCursor: string | null;
-  cached: boolean;
-  cacheTime: string;
-  stale: boolean;
-  calculating?: boolean;
-}
-
-export interface RegionRankingCache {
-  createdAt: Date;
-  expiresAt: Date;
-  data: RegionRankingData[];
 }
 
 export type SortCriteria =
@@ -215,16 +150,9 @@ export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'dr
 /** Methods computed by the AMap plugins (all of them — `undefined` means none). */
 export type AMapTransportMethod = Exclude<TransportMethod, undefined>;
 
-export const isAMapTransportMethod = (method: TransportMethod): method is AMapTransportMethod =>
-  method !== undefined;
-
-export type RadiusFilter = (typeof RADIUS_OPTIONS)[number];
-
 export type RankingRadiusFilter = (typeof RANKING_RADIUS_OPTIONS)[number];
 
 export type MetroRankingRadiusFilter = (typeof METRO_RANKING_RADIUS_OPTIONS)[number];
-
-export type LimitFilter = (typeof LIMIT_OPTIONS)[number];
 
 // Post permission enums
 export enum PostReadability {
@@ -249,15 +177,6 @@ export type UserType =
   | 'club_admin'
   | 'club_moderator'
   | 'site_admin';
-
-export type NotificationType =
-  | 'COMMENTS'
-  | 'REPLIES'
-  | 'POST_VOTES'
-  | 'COMMENT_VOTES'
-  | 'JOIN_REQUESTS'
-  | 'SHOP_DELETE_REQUESTS'
-  | 'SYSTEM';
 
 export type Club = UgcAttachable & z.infer<typeof clubSchema>;
 
@@ -296,25 +215,15 @@ export interface UniversityMemberWithUser extends Omit<UniversityMember, 'verifi
   user: PublicUser | undefined;
 }
 
-export type ShopDeleteRequest = z.infer<typeof shopDeleteRequestSchema>;
-
-export type ShopDeleteRequestVoteType = 'favor' | 'against';
+export type ShopDeleteRequestVoteType = z.infer<typeof shopDeleteRequestVoteTypeSchema>;
 
 export type ShopDeleteRequestVote = z.infer<typeof shopDeleteRequestVoteSchema>;
 
-export interface ShopDeleteRequestVoteSummary {
-  favorVotes: number;
-  againstVotes: number;
-  userVote?: ShopDeleteRequestVoteType | null;
-}
-
-export type ImageStorageProvider = 's3' | 'leancloud';
+export type ImageStorageProvider = z.infer<typeof imageStorageProviderSchema>;
 
 export type ImageAsset = z.infer<typeof imageAssetSchema>;
 
 export type ShopPhoto = z.infer<typeof shopPhotoSchema>;
-
-export type ShopChangelogAction = z.infer<typeof shopChangelogActionSchema>;
 
 export type ShopChangelogEntry = z.infer<typeof shopChangelogEntrySchema>;
 
@@ -342,25 +251,19 @@ export interface JoinRequestWithUser extends JoinRequest {
 
 export type ChangelogEntry = z.infer<typeof organizationChangelogEntrySchema>;
 
-export interface ChangelogEntryWithUser extends ChangelogEntry {
-  user: {
-    id: string;
-    name: string | null;
-    displayName?: string | null;
-    image: string | null;
-  };
-}
-
-// Posts feature types
-export type Post = z.infer<typeof postSchema> & UgcAttachable;
+/**
+ * A changelog entry together with the author it was written by.
+ *
+ * The author comes from the same schema as the entry itself, so the typed API
+ * client returns exactly this shape — the lookup may leave it absent.
+ */
+export type ChangelogEntryWithUser = ChangelogEntry;
 
 export type PostWithAuthor = z.infer<typeof postWithAuthorSchema> & UgcAttachable;
 
 export type Announcement = z.infer<typeof announcementSchema> & UgcAttachable;
 
 export type AnnouncementWithAuthor = z.infer<typeof announcementWithAuthorSchema> & UgcAttachable;
-
-export type PostVote = z.infer<typeof postVoteSchema>;
 
 export type Comment = z.infer<typeof commentSchema> & UgcAttachable;
 
@@ -445,11 +348,20 @@ export interface Notification {
   clubName?: string;
 }
 
+/**
+ * The user summary the attendance endpoints return.
+ *
+ * The API contract documents exactly these four fields, so the browser and the
+ * server share this shape.
+ */
+export type AttendanceUser = Pick<PublicUser, 'id' | 'name' | 'displayName' | 'image'>;
+
 export type AttendanceData = Array<{
   userId?: string;
-  user?: PublicUser;
-  attendedAt: string;
-  plannedLeaveAt: string;
+  user?: AttendanceUser;
+  /** An ISO timestamp on the server, a `Date` once the typed client decoded it. */
+  attendedAt: string | Date;
+  plannedLeaveAt: string | Date;
   gameId: number;
 }>;
 
@@ -457,29 +369,10 @@ export type AttendanceReport = Array<{
   gameId: number;
   currentAttendances?: number;
   reportedBy: string;
-  reporter?: PublicUser;
-  reportedAt: string;
+  reporter?: AttendanceUser;
+  reportedAt: string | Date;
   comment: string | null;
 }>;
-
-// Interface for attendance records in MongoDB
-export interface AttendanceRecord {
-  _id?: string;
-  userId: string;
-  games: { gameId: number; name: string; version: string }[];
-  attendedAt: Date;
-  leftAt: Date;
-  shopId: number;
-}
-
-export interface AttendanceReportRecord {
-  _id?: string | ObjectId;
-  shopId: number;
-  games: { gameId: number; name: string; version: string; currentAttendances: number }[];
-  comment: string | null;
-  reportedBy: string; // User ID
-  reportedAt: Date;
-}
 
 // Extended types for directions
 export interface CachedRouteData {
@@ -498,17 +391,6 @@ export interface WindowMessage {
   payload?: string;
 }
 
-// Extended Shop type with attendance data
-export interface ShopWithAttendance extends Shop {
-  totalAttendance?: number;
-  currentReportedAttendance?: {
-    reportedAt: string;
-    reportedBy: PublicUser;
-    comment: string | null;
-  } | null;
-  isInAttendance?: boolean;
-}
-
 // Kiosk machine for queue management
 export interface Machine {
   _id?: string | ObjectId;
@@ -521,42 +403,6 @@ export interface Machine {
   isActivated: boolean;
   createdAt: Date;
   updatedAt: Date;
-}
-
-// Queue status for players
-export type QueueStatus = 'playing' | 'queued' | 'deferred';
-
-// Queue member (player slot)
-export interface QueueMember {
-  slotIndex: string;
-  userId: string | null;
-}
-
-// Queue position (can have multiple players for multi-seat games)
-export interface QueuePosition {
-  machineName: string;
-  position: number;
-  isPublic: boolean;
-  status: QueueStatus;
-  members: QueueMember[];
-}
-
-// Queue record for a specific game in a shop
-export interface QueueRecord {
-  _id?: string | ObjectId;
-  shopId: number;
-  games: { gameId: number; queue: QueuePosition[] }[];
-  updatedAt: Date;
-  updatedBy: string;
-}
-
-// Attendance registration token stored in Redis
-export interface AttendanceRegistration {
-  shopId: string;
-  machineId: string;
-  slotIndex: string;
-  expiresAt: string;
-  userId?: string;
 }
 
 export interface ParsedShopOpeningHours {

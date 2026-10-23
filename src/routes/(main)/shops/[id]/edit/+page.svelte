@@ -3,6 +3,8 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { hasBoundPhone } from '$lib/utils';
+  import { orpc } from '$lib/api/client';
+  import { isApiError } from '$lib/utils/api-error';
   import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import VerifiedContactPrompt from '$lib/components/VerifiedContactPrompt.svelte';
   import { pageTitle } from '$lib/utils';
@@ -48,15 +50,12 @@
       return;
     }
 
-    const response = await fetch(`/api/shops/${shop.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    });
-
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(body?.message ?? body?.error ?? 'Failed to update shop');
+    try {
+      await orpc.shops.update({ id: shop.id, ...formData });
+    } catch (error) {
+      throw new Error(isApiError(error) ? error.message : 'Failed to update shop', {
+        cause: error
+      });
     }
 
     successMessage = m.shop_updated_successfully();

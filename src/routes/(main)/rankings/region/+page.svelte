@@ -5,15 +5,10 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { getGameName, formatAddressParts } from '$lib/utils';
   import InlineAlert from '$lib/components/InlineAlert.svelte';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import { onMount, onDestroy } from 'svelte';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
-  import type {
-    RegionRankingData,
-    SortCriteria,
-    RegionLevel,
-    RegionRankingResponse
-  } from '$lib/types';
+  import type { RegionRankingData, SortCriteria, RegionLevel } from '$lib/types';
   import { PAGINATION, REGION_LEVELS, GAME_TITLES } from '$lib/constants';
   import { competitionRanks } from '$lib/utils/rankings';
   import { emptyShopFilterState } from '$lib/schemas/shop-filter';
@@ -56,23 +51,16 @@
     if (!isLoadingMore && hasMore && nextCursor) {
       isLoadingMore = true;
       try {
-        const apiUrl = new URL(fromPath('/api/rankings/region'), window.location.origin);
-        apiUrl.searchParams.set('sortBy', sortBy);
-        apiUrl.searchParams.set('level', level);
-        apiUrl.searchParams.set('after', nextCursor);
-        apiUrl.searchParams.set('limit', PAGINATION.RANKING_PAGE_SIZE.toString());
-
-        const response = await fetch(apiUrl.toString());
-
-        if (!response.ok) {
-          throw new Error(`Failed to load more results: ${response.status}`);
-        }
-
-        const result = (await response.json()) as RegionRankingResponse;
+        const result = await orpc.rankings.region({
+          sortBy,
+          level,
+          after: nextCursor,
+          limit: PAGINATION.RANKING_PAGE_SIZE.toString()
+        });
 
         displayedRankings = [...displayedRankings, ...result.data];
         hasMore = result.hasMore;
-        nextCursor = result.nextCursor;
+        nextCursor = result.nextCursor ?? null;
       } catch (error) {
         console.error('Error loading more region results:', error);
       } finally {

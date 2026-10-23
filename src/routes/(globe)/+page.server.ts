@@ -1,5 +1,6 @@
 import type { PageServerLoad } from './$types';
-import type { ClubMember, Shop, ShopWithAttendance } from '$lib/types';
+import type { ClubMember, Shop } from '$lib/types';
+import type { ShopWithAttendance } from '$lib/types/index.server';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';

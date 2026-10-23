@@ -14,7 +14,10 @@
   import PhotoCarousel from '$lib/components/PhotoCarousel.svelte';
   import type { ImageAsset, ShopDeleteRequestVoteType } from '$lib/types';
   import type { PageData } from './$types';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { discardDraftImages } from '$lib/api/draft-images';
+  import { removeComment, updateComment, voteComment } from '$lib/comments/client';
+  import { isApiError } from '$lib/utils/api-error';
 
   let { data }: { data: PageData } = $props();
 
@@ -58,21 +61,9 @@
     newCommentAttachments = [];
   };
 
-  const cleanupDraftImages = async (imageIds: string[]) => {
-    await Promise.all(
-      imageIds.map(async (imageId) => {
-        try {
-          await fetch(fromPath(`/api/images/${imageId}`), { method: 'DELETE' });
-        } catch (error) {
-          console.error('Failed to delete draft image:', error);
-        }
-      })
-    );
-  };
-
   const resetReplyComposer = (cleanupDrafts = false) => {
     if (cleanupDrafts && replyImageIds.length > 0) {
-      void cleanupDraftImages(replyImageIds);
+      void discardDraftImages(replyImageIds);
     }
 
     replyingTo = null;
@@ -91,20 +82,10 @@
     isSubmittingVote = voteType;
     voteError = '';
     try {
-      const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}/vote`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voteType })
-      });
-
-      if (response.ok) {
-        invalidateAll();
-      } else {
-        const err = (await response.json()) as { message?: string };
-        voteError = err.message || m.error_occurred();
-      }
-    } catch {
-      voteError = m.network_error_try_again();
+      await orpc.shops.voteDeleteRequest({ id: req.id, voteType });
+      invalidateAll();
+    } catch (error) {
+      voteError = isApiError(error) ? error.message : m.network_error_try_again();
     } finally {
       isSubmittingVote = null;
     }
@@ -121,21 +102,16 @@
     isSubmittingComment = true;
 
     try {
-      const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}/comments`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newCommentContent.trim(), images: newCommentImageIds })
+      await orpc.shops.createDeleteRequestComment({
+        id: req.id,
+        content: newCommentContent.trim(),
+        images: newCommentImageIds
       });
 
-      if (response.ok) {
-        resetNewCommentComposer();
-        invalidateAll();
-      } else {
-        const errorData = (await response.json()) as { message?: string };
-        toastError(errorData.message || m.failed_to_post_comment());
-      }
-    } catch {
-      toastError(m.network_error_try_again());
+      resetNewCommentComposer();
+      invalidateAll();
+    } catch (error) {
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isSubmittingComment = false;
     }
@@ -145,15 +121,7 @@
     if (!canParticipate) return;
 
     try {
-      const response = await fetch(fromPath(`/api/comments/${commentId}/vote`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voteType })
-      });
-
-      if (response.ok) {
-        invalidateAll();
-      }
+      await voteComment(commentId, voteType);
     } catch (error) {
       console.error('Error voting on comment:', error);
     }
@@ -163,7 +131,7 @@
     if (!canParticipate) return;
 
     if (replyImageIds.length > 0) {
-      void cleanupDraftImages(replyImageIds);
+      void discardDraftImages(replyImageIds);
     }
 
     replyingTo = commentId;
@@ -184,25 +152,17 @@
     isSubmittingReply = true;
 
     try {
-      const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}/comments`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: replyContent.trim(),
-          images: replyImageIds,
-          parentCommentId: replyingTo
-        })
+      await orpc.shops.createDeleteRequestComment({
+        id: req.id,
+        content: replyContent.trim(),
+        images: replyImageIds,
+        parentCommentId: replyingTo
       });
 
-      if (response.ok) {
-        resetReplyComposer();
-        invalidateAll();
-      } else {
-        const errorData = (await response.json()) as { message?: string };
-        toastError(errorData.message || m.failed_to_post_comment());
-      }
-    } catch {
-      toastError(m.network_error_try_again());
+      resetReplyComposer();
+      invalidateAll();
+    } catch (error) {
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isSubmittingReply = false;
     }
@@ -212,21 +172,13 @@
     if (!canParticipate) return;
 
     try {
-      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newContent, images: imageIds })
-      });
-
-      if (!response.ok) {
-        const errorData = (await response.json()) as { message?: string };
-        throw new Error(errorData.message || 'Failed to edit comment');
-      }
-
-      invalidateAll();
+      await updateComment(commentId, newContent, imageIds);
     } catch (error) {
       console.error('Error editing comment:', error);
-      throw error;
+      throw new Error(
+        isApiError(error) ? error.message || 'Failed to edit comment' : 'Failed to edit comment',
+        { cause: error }
+      );
     }
   };
 
@@ -234,19 +186,10 @@
     if (!canParticipate) return;
 
     try {
-      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        const errorData = (await response.json()) as { message?: string };
-        alert(errorData.message || 'Failed to delete comment');
-      } else {
-        invalidateAll();
-      }
+      await removeComment(commentId);
     } catch (error) {
       console.error('Error deleting comment:', error);
-      alert(m.network_error_try_again());
+      alert(isApiError(error) ? error.message : m.network_error_try_again());
     }
   };
 
@@ -255,20 +198,15 @@
     isProcessing = true;
     processError = '';
     try {
-      const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, reviewNote: reviewNote.trim() || null })
+      await orpc.shops.reviewDeleteRequest({
+        id: req.id,
+        action,
+        reviewNote: reviewNote.trim() || null
       });
-      if (response.ok) {
-        reviewNote = '';
-        invalidateAll();
-      } else {
-        const err = (await response.json()) as { message?: string };
-        processError = err.message || m.error_occurred();
-      }
-    } catch {
-      processError = m.network_error_try_again();
+      reviewNote = '';
+      invalidateAll();
+    } catch (error) {
+      processError = isApiError(error) ? error.message : m.network_error_try_again();
     } finally {
       isProcessing = false;
     }
@@ -280,17 +218,10 @@
     isProcessing = true;
     processError = '';
     try {
-      const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}`), {
-        method: 'DELETE'
-      });
-      if (response.ok) {
-        await goto(resolve('/(main)/shops/delete-requests'));
-      } else {
-        const err = (await response.json()) as { message?: string };
-        processError = err.message || m.error_occurred();
-      }
-    } catch {
-      processError = m.network_error_try_again();
+      await orpc.shops.deleteDeleteRequest({ id: req.id });
+      await goto(resolve('/(main)/shops/delete-requests'));
+    } catch (error) {
+      processError = isApiError(error) ? error.message : m.network_error_try_again();
     } finally {
       isProcessing = false;
     }
@@ -301,17 +232,10 @@
     isDeleting = true;
     processError = '';
     try {
-      const response = await fetch(fromPath(`/api/shops/delete-requests/${req.id}`), {
-        method: 'DELETE'
-      });
-      if (response.ok) {
-        await goto(resolve('/(main)/shops/delete-requests'));
-      } else {
-        const err = (await response.json()) as { message?: string };
-        processError = err.message || m.error_occurred();
-      }
-    } catch {
-      processError = m.network_error_try_again();
+      await orpc.shops.deleteDeleteRequest({ id: req.id });
+      await goto(resolve('/(main)/shops/delete-requests'));
+    } catch (error) {
+      processError = isApiError(error) ? error.message : m.network_error_try_again();
     } finally {
       isDeleting = false;
     }

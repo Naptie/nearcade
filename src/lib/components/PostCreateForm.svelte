@@ -4,7 +4,8 @@
   import type { User } from '$lib/auth/types';
   import { buildImageUploadUrl } from '$lib/utils/image';
   import { getDefaultPostReadability } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { isApiError } from '$lib/utils/api-error';
   import { PostReadability, type ImageAsset } from '$lib/types';
   import { onDestroy } from 'svelte';
 
@@ -15,7 +16,6 @@
     organizationReadability?: PostReadability;
     canManage?: boolean;
     variant?: 'organization' | 'announcement';
-    submitUrl?: string;
     currentUser?: User | undefined;
     cancelHref: string;
     wideMode?: boolean;
@@ -29,7 +29,6 @@
     organizationReadability = PostReadability.PUBLIC,
     canManage = false,
     variant = 'organization',
-    submitUrl,
     currentUser = undefined,
     cancelHref,
     wideMode = $bindable(false),
@@ -75,7 +74,7 @@
     const draftIds = imageIds.filter((imageId) => !publishedImageIds.includes(imageId));
     if (draftIds.length > 0) {
       void Promise.all(
-        draftIds.map((imageId) => fetch(fromPath(`/api/images/${imageId}`), { method: 'DELETE' }))
+        draftIds.map((imageId) => orpc.images.remove({ imageId }).catch(() => undefined))
       );
     }
   };
@@ -94,48 +93,39 @@
     error = '';
 
     try {
-      const endpoint = fromPath(
-        submitUrl ||
-          `/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts`
-      );
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(
-          isAnnouncement
-            ? {
-                title: title.trim(),
-                content: content.trim(),
-                images: imageIds,
-                publish: publishNow || Boolean(publishAtLocal),
-                publishAt:
-                  !publishNow && publishAtLocal ? new Date(publishAtLocal).toISOString() : null,
-                expiresAt: expiresAtLocal ? new Date(expiresAtLocal).toISOString() : null
-              }
-            : {
-                title: title.trim(),
-                content: content.trim(),
-                readability,
-                images: imageIds
-              }
-        )
-      });
+      let result: { postId?: string; announcementId?: string };
 
-      if (response.ok) {
-        const result = (await response.json()) as { postId?: string; announcementId?: string };
-        publishedImageIds = [...imageIds];
-        reset();
-        if (onCreated) {
-          onCreated(result.announcementId || result.postId || '');
-        }
+      if (isAnnouncement) {
+        const announcement = await orpc.announcements.create({
+          title: title.trim(),
+          content: content.trim(),
+          images: imageIds,
+          publish: publishNow || Boolean(publishAtLocal),
+          publishAt: !publishNow && publishAtLocal ? new Date(publishAtLocal).toISOString() : null,
+          expiresAt: expiresAtLocal ? new Date(expiresAtLocal).toISOString() : null
+        });
+        result = { announcementId: announcement.announcementId };
       } else {
-        const errorData = (await response.json()) as { message: string };
-        error = errorData.message || 'Failed to create post';
+        const post = {
+          title: title.trim(),
+          content: content.trim(),
+          readability,
+          images: imageIds
+        };
+
+        result =
+          organizationType === 'university'
+            ? await orpc.universities.createPost({ id: organizationId, ...post })
+            : await orpc.clubs.createPost({ id: organizationId, ...post });
       }
-    } catch {
-      error = m.network_error_try_again();
+
+      publishedImageIds = [...imageIds];
+      reset();
+      if (onCreated) {
+        onCreated(result.announcementId || result.postId || '');
+      }
+    } catch (e) {
+      error = isApiError(e) ? e.message || 'Failed to create post' : m.network_error_try_again();
     } finally {
       isSubmitting = false;
     }

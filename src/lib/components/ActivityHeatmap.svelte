@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import ActivityItem from '$lib/components/ActivityItem.svelte';
   import type { Activity, ActivityType } from '$lib/types';
   import { activityTypeSchema } from '$lib/schemas/users';
-  import { SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
+  import { orpc } from '$lib/api/client';
+  import { SvelteSet } from 'svelte/reactivity';
   import { addDays, eachMonthOfInterval, format, getYear, startOfDay, subMonths } from 'date-fns';
   import { SITE_FOUNDING_YEAR } from '$lib/constants';
 
@@ -29,14 +29,6 @@
     date: string;
     total: number;
     byType: Partial<Record<ActivityType, number>>;
-  }
-
-  interface HeatmapResponse {
-    days: HeatmapDay[];
-    total: number;
-    from: string;
-    to: string;
-    timezone: string;
   }
 
   /**
@@ -322,16 +314,12 @@
     isLoading = true;
     loadError = null;
     try {
-      const params = new SvelteURLSearchParams({ timezone: viewerTimezone });
-      if (rangeFrom) params.set('from', rangeFrom);
-      if (rangeTo) params.set('to', rangeTo);
-      const response = await fetch(
-        `${resolve('/api/users/[id]/activities/heatmap', { id: userId })}?${params}`
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to load activity heatmap (${response.status})`);
-      }
-      const result = (await response.json()) as HeatmapResponse;
+      const result = await orpc.users.activityHeatmap({
+        id: userId,
+        timezone: viewerTimezone,
+        ...(rangeFrom ? { from: rangeFrom } : {}),
+        ...(rangeTo ? { to: rangeTo } : {})
+      });
       days = new Map(result.days.map((day) => [day.date, day]));
       rangeFrom = result.from;
       rangeTo = result.to;
@@ -391,22 +379,14 @@
     dayError = null;
     dayActivities = [];
     try {
-      const params = new SvelteURLSearchParams({
+      const result = await orpc.users.activities({
+        id: userId,
         from: date,
         to: date,
-        limit: '50',
-        timezone: viewerTimezone
+        limit: 50,
+        timezone: viewerTimezone,
+        ...(typeFilterActive ? { types: Array.from(selectedTypes).join(',') } : {})
       });
-      if (typeFilterActive) {
-        params.set('types', Array.from(selectedTypes).join(','));
-      }
-      const response = await fetch(
-        `${resolve('/api/users/[id]/activities', { id: userId })}?${params}`
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to load activities (${response.status})`);
-      }
-      const result = (await response.json()) as { activities: Activity[] };
       dayActivities = result.activities;
     } catch (err) {
       dayError = err instanceof Error ? err.message : 'Failed to load activities';

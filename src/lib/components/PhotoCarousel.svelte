@@ -7,7 +7,7 @@
   import ImageViewerModal from './ImageViewerModal.svelte';
   import UploadModal from './UploadModal.svelte';
   import type { ImageAsset } from '$lib/types';
-  import { fromPath } from '$lib/utils/scoped';
+  import { buildShopPhotoUploadUrl } from '$lib/utils/image';
   import type { User } from '$lib/auth/types';
   import { getDisplayName } from '$lib/utils';
 
@@ -36,9 +36,6 @@
     viewAllLabel?: string;
     allowDeleteRequest?: boolean;
     onDeletePhoto?: (photo: ImageAsset) => Promise<boolean> | boolean;
-    getDeleteUrl?: (photo: ImageAsset) => string;
-    getDeleteRequestUrl?: (photo: ImageAsset) => string | null;
-    getDeleteRequestBody?: (photo: ImageAsset, reason: string) => unknown;
     /** Called after a photo is deleted so the parent can refresh */
     onPhotoDeleted?: (photo: ImageAsset) => void;
     /** Called after a photo is uploaded */
@@ -67,9 +64,6 @@
     viewAllLabel = m.shop_photos_view_all(),
     allowDeleteRequest = shopId !== undefined,
     onDeletePhoto,
-    getDeleteUrl,
-    getDeleteRequestUrl,
-    getDeleteRequestBody,
     onPhotoDeleted,
     onPhotoUploaded,
     showUploadButton = true,
@@ -77,7 +71,7 @@
   }: Props = $props();
 
   let resolvedUploadUrl = $derived(
-    uploadUrl ?? (shopId !== undefined ? fromPath(`/api/shops/${shopId}/photos`) : undefined)
+    uploadUrl ?? (shopId !== undefined ? buildShopPhotoUploadUrl(shopId) : undefined)
   );
   let resolvedViewAllHref = $derived(
     viewAllHref ??
@@ -225,9 +219,6 @@
     {onBlockedAction}
     {allowDeleteRequest}
     deletePhoto={onDeletePhoto}
-    {getDeleteUrl}
-    {getDeleteRequestUrl}
-    {getDeleteRequestBody}
     onDelete={handleDelete}
   />
 {/key}

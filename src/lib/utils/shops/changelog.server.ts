@@ -2,11 +2,11 @@ import type { Document, Filter, MongoClient, ObjectId } from 'mongodb';
 import type {
   Game,
   Shop,
-  ShopChangelogAction,
   ShopChangelogEntry,
   ShopChangelogEntryWithUser,
   ShopPhoto
 } from '$lib/types';
+import type { ShopChangelogAction } from '$lib/types/index.server';
 import { nanoid } from 'nanoid';
 import { resolveShopAddress } from '$lib/utils/region.server';
 import { syncShopDocument } from '$lib/db/meili.server';

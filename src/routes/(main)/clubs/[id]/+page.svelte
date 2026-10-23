@@ -8,12 +8,14 @@
   import JoinRequestModal from '$lib/components/JoinRequestModal.svelte';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import PostsList from '$lib/components/PostsList.svelte';
-  import { PAGINATION } from '$lib/constants';
-  import type { ClubMemberWithUser, Shop } from '$lib/types';
+  import type { ShopApi } from '$lib/types';
+  import type { ClubMemberListEntry } from '$lib/schemas/organizations';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { adaptiveNewTab, aggregateGames, formatDate, pageTitle } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { toastError } from '$lib/notifications/toast.svelte';
+  import { isApiError } from '$lib/utils/api-error';
   import { invalidateAll } from '$app/navigation';
   import { getLocale } from '$lib/paraglide/runtime';
   import JsonLd from '$lib/components/JsonLd.svelte';
@@ -83,25 +85,26 @@
   let showRevokeModeratorModal = $state(false);
   let showGrantAdminModal = $state(false);
   let showTransferAdminModal = $state(false);
-  let selectedMember = $state<ClubMemberWithUser | null>(null);
+  let selectedMember = $state<ClubMemberListEntry | null>(null);
 
   // Infinite scrolling state for members
   let displayedMembers = $derived(clubDataResolved?.members || []);
   let isLoadingMoreMembers = $state(false);
-  let hasMoreMembers = $derived((clubDataResolved?.members?.length || 0) >= PAGINATION.PAGE_SIZE);
+  // `hasMore` comes from the procedure, which owns the page size. Guessing it
+  // as `members.length >= PAGE_SIZE` was wrong for the final page and hid the
+  // "load more" control whenever a filtered page came back short.
+  let hasMoreMembers = $derived(clubDataResolved?.membersHasMore ?? false);
   let currentMembersPage = $state(1);
 
   // Infinite scrolling state for starred arcades
   let displayedArcades = $derived(clubDataResolved?.starredArcades || []);
   let isLoadingMoreArcades = $state(false);
-  let hasMoreArcades = $derived(
-    (clubDataResolved?.starredArcades?.length || 0) >= PAGINATION.PAGE_SIZE
-  );
+  let hasMoreArcades = $derived(clubDataResolved?.arcadesHasMore ?? false);
   let currentArcadesPage = $state(1);
 
   // Arcade search state
   let searchQuery = $state('');
-  let searchResults = $state<Shop[]>([]);
+  let searchResults = $state<ShopApi[]>([]);
   let isSearching = $state(false);
   let searchTimeout: ReturnType<typeof setTimeout> | undefined = $state(undefined);
   let showAddArcadeModal = $state(false);
@@ -163,27 +166,18 @@
     isLoadingMoreMembers = true;
     try {
       const nextPage = currentMembersPage + 1;
-      const response = await fetch(
-        fromPath(
-          `/api/clubs/${clubDataResolved.club.slug || clubDataResolved.club.id}/members?page=${nextPage}`
-        )
-      );
+      const result = await orpc.clubs.members({
+        id: clubDataResolved.club.slug || clubDataResolved.club.id,
+        page: nextPage
+      });
 
-      if (response.ok) {
-        const result = (await response.json()) as {
-          members: typeof clubDataResolved.members;
-          hasMore: boolean;
-          page: number;
-        };
-        const newMembers = result.members;
-        displayedMembers = [...displayedMembers, ...newMembers];
-        hasMoreMembers = result.hasMore;
-        currentMembersPage = nextPage;
-      } else {
-        console.error('Failed to load more members:', response.statusText);
-      }
+      // The first page and the pages loaded after it come from the same
+      // contract, so they are the same shape and need no reconciliation.
+      displayedMembers = [...displayedMembers, ...result.members];
+      hasMoreMembers = result.hasMore;
+      currentMembersPage = nextPage;
     } catch (error) {
-      console.error('Error loading more members:', error);
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isLoadingMoreMembers = false;
     }
@@ -196,27 +190,18 @@
     isLoadingMoreArcades = true;
     try {
       const nextPage = currentArcadesPage + 1;
-      const response = await fetch(
-        fromPath(
-          `/api/clubs/${clubDataResolved.club.slug || clubDataResolved.club.id}/arcades?page=${nextPage}`
-        )
-      );
+      const result = await orpc.clubs.arcades({
+        id: clubDataResolved.club.slug || clubDataResolved.club.id,
+        page: nextPage
+      });
 
-      if (response.ok) {
-        const result = (await response.json()) as {
-          arcades: typeof clubDataResolved.starredArcades;
-          hasMore: boolean;
-          page: number;
-        };
-        const newArcades = result.arcades;
-        displayedArcades = [...displayedArcades, ...newArcades];
-        hasMoreArcades = result.hasMore;
-        currentArcadesPage = nextPage;
-      } else {
-        console.error('Failed to load more arcades:', response.statusText);
-      }
+      // The first page and the pages loaded after it come from the same
+      // contract, so they are the same shape and need no reconciliation.
+      displayedArcades = [...displayedArcades, ...result.arcades];
+      hasMoreArcades = result.hasMore;
+      currentArcadesPage = nextPage;
     } catch (error) {
-      console.error('Error loading more arcades:', error);
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isLoadingMoreArcades = false;
     }
@@ -231,15 +216,8 @@
 
     isSearching = true;
     try {
-      const response = await fetch(
-        fromPath(`/api/shops?q=${encodeURIComponent(query)}&includeTimeInfo=false`)
-      );
-      if (response.ok) {
-        const results = (await response.json()) as { shops: Shop[] };
-        searchResults = results.shops || [];
-      } else {
-        searchResults = [];
-      }
+      const results = await orpc.shops.list({ q: query, includeTimeInfo: false });
+      searchResults = results.shops || [];
     } catch (error) {
       console.error('Error searching arcades:', error);
       searchResults = [];
@@ -296,27 +274,27 @@
   };
 
   // Role management functions
-  const openRemoveMemberModal = (member: ClubMemberWithUser) => {
+  const openRemoveMemberModal = (member: ClubMemberListEntry) => {
     selectedMember = member;
     showRemoveMemberModal = true;
   };
 
-  const openGrantModeratorModal = (member: ClubMemberWithUser) => {
+  const openGrantModeratorModal = (member: ClubMemberListEntry) => {
     selectedMember = member;
     showGrantModeratorModal = true;
   };
 
-  const openRevokeModeratorModal = (member: ClubMemberWithUser) => {
+  const openRevokeModeratorModal = (member: ClubMemberListEntry) => {
     selectedMember = member;
     showRevokeModeratorModal = true;
   };
 
-  const openGrantAdminModal = (member: ClubMemberWithUser) => {
+  const openGrantAdminModal = (member: ClubMemberListEntry) => {
     selectedMember = member;
     showGrantAdminModal = true;
   };
 
-  const openTransferAdminModal = (member: ClubMemberWithUser) => {
+  const openTransferAdminModal = (member: ClubMemberListEntry) => {
     selectedMember = member;
     showTransferAdminModal = true;
   };
@@ -360,7 +338,7 @@
   };
 
   // Check what actions current user can perform on a member
-  const canManageMember = (member: ClubMemberWithUser) => {
+  const canManageMember = (member: ClubMemberListEntry) => {
     if (!userPrivileges.canManage || !member.user || member.user.id === data.user?.id)
       return {
         remove: false,

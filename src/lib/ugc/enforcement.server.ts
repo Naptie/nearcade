@@ -1,6 +1,7 @@
 import mongo from '$lib/db/index.server';
 import { ObjectId } from 'mongodb';
-import type { Club, Comment, CommentVote, Post, PostVote, University } from '$lib/types';
+import type { Club, Comment, CommentVote, University } from '$lib/types';
+import type { Post, PostVote } from '$lib/types/index.server';
 import { notify } from '$lib/notifications/index.server';
 import { deleteImagesByIds } from '$lib/images/index.server';
 import { normalizeUgcText, ugcTextHash } from './hash';

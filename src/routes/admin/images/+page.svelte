@@ -3,7 +3,7 @@
   import type { ImageAsset } from '$lib/types';
   import type { PageData } from './$types';
   import { getDisplayName } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import ImageViewerModal from '$lib/components/ImageViewerModal.svelte';
   import AdminPage from '$lib/components/admin/AdminPage.svelte';
   import AdminStats from '$lib/components/admin/AdminStats.svelte';
@@ -29,8 +29,12 @@
   };
 
   const handleDeleteRequest = async (image: ImageAsset) => {
-    const response = await fetch(fromPath(`/api/images/${image.id}`), { method: 'DELETE' });
-    return response.ok;
+    try {
+      await orpc.images.remove({ imageId: image.id });
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const handleDelete = (image: ImageAsset) => {

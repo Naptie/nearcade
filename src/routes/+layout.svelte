@@ -20,6 +20,7 @@
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
   import { fromPath, isDarkMode } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import { getDisplayName } from '$lib/utils';
   import { m } from '$lib/paraglide/messages';
   import { page } from '$app/state';
@@ -33,7 +34,7 @@
   import BannerRegion from '$lib/components/BannerRegion.svelte';
   import { resetUgcClientState } from '$lib/ugc/client';
 
-  const noindexPaths = ['/admin', '/settings', '/auth', '/oauth'];
+  const noindexPaths = ['/admin', '/settings', '/auth', '/oauth', '/api'];
   const shouldNoIndex = $derived(
     noindexPaths.some(
       (p) =>
@@ -208,11 +209,7 @@
             serviceWorkerRegistration: registration
           });
           if (token) {
-            await fetch(resolve('/api/notifications/fcm/token'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ token, action: 'store' })
-            });
+            await orpc.notifications.fcmToken({ token, action: 'store' });
 
             onMessage(messaging, (payload) => {
               invalidateAll();

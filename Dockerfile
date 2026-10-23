@@ -1,4 +1,6 @@
-FROM node:lts-alpine3.21
+# The base image is pinned so that a rebuild of this container produces the
+# same runtime; Dependabot opens the pull request that moves the pin.
+FROM node:24.22.1-alpine3.23
 
 WORKDIR /app
 

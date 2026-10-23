@@ -791,6 +791,20 @@ export const getDisplayName = (
   );
 };
 
+/**
+ * Whether a value is the Extended JSON form of a date.
+ *
+ * The seed files are written with `BSON.EJSON.stringify`, which writes a date
+ * as `{"$date": "…"}`. A document that carries that form instead of a date
+ * does not satisfy the date schema of the contract, and a list endpoint that
+ * answers with it turns one malformed record into a 500 for the whole list.
+ */
+const isExtendedJsonDate = (value: unknown): value is { $date: string } =>
+  typeof value === 'object' &&
+  value !== null &&
+  !Array.isArray(value) &&
+  typeof (value as { $date?: unknown }).$date === 'string';
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const toPlainObject = <T extends Record<string, any> | null>(
   doc: T,
@@ -807,6 +821,10 @@ export const toPlainObject = <T extends Record<string, any> | null>(
     if (value === null || value === undefined) return value;
     if (Array.isArray(value)) return value.map(plainify);
     if (value instanceof Date) return value.toISOString();
+    if (isExtendedJsonDate(value)) {
+      const parsed = new Date(value.$date);
+      return Number.isNaN(parsed.getTime()) ? value.$date : parsed.toISOString();
+    }
     if (typeof value === 'object') {
       const result: Record<string, unknown> = {};
       for (const [key, val] of Object.entries(value)) {

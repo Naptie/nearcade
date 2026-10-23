@@ -1,8 +1,8 @@
 import { error } from '@sveltejs/kit';
-import { ZodError, type z } from 'zod';
+import { type z } from 'zod';
+import { formatZodError } from './validation';
 
-export const formatZodError = (err: ZodError) =>
-  err.issues.map((issue) => `${issue.path.join('.') || 'value'}: ${issue.message}`).join('; ');
+export { formatZodError };
 
 export const parseOrError = <Schema extends z.ZodTypeAny>(schema: Schema, value: unknown) => {
   const result = schema.safeParse(value);

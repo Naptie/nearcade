@@ -28,6 +28,7 @@
   import ShopFilterPanel from '$lib/components/ShopFilterPanel.svelte';
   import { viewport } from '$lib/utils/viewport.svelte';
   import { isTouchscreen, getCachedLocation } from '$lib/utils';
+  import { orpc } from '$lib/api/client';
   import { getIpOrigin } from '$lib/utils/index.client';
   import type { GlobeShop } from '$lib/types';
   import {
@@ -72,8 +73,6 @@
   let syncGradientToScrollRef: (() => void) | null = null;
 
   // ---- Globe layer/source IDs ----
-  const GLOBE_MARKERS_ENDPOINT = `${base}/api/globe/markers`;
-  const GLOBE_SHOPS_ENDPOINT = `${base}/api/globe/shops`;
   const SHOPS_SOURCE_ID = 'shops';
   const SHOPS_LAYER_ID = 'shops-circles';
   const SHOPS_ACTIVE_LAYER_ID = 'shops-circles-active';
@@ -353,34 +352,30 @@
     }
     sidebarPageLoading = true;
 
-    const queryParts = origin
-      ? [`lat=${origin.lat}`, `lng=${origin.lng}`, `offset=${offset}`]
-      : [`offset=${offset}`];
-    if (hasStructuredFilter) {
-      queryParts.push(
-        `f=${encodeURIComponent(serializeShopFilterState($state.snapshot(filterState)))}`
-      );
-    }
-
     try {
-      const res = await fetch(`${GLOBE_SHOPS_ENDPOINT}?${queryParts.join('&')}`);
-      if (!res.ok) throw new Error(`Sidebar fetch failed (${res.status})`);
-      const data = (await res.json()) as {
-        shops: GlobeShop[];
-        hasMore: boolean;
-        totalCount: number;
-        approximateTotal?: boolean;
-      };
+      const data = await orpc.globe.shops({
+        ...(origin ? { lat: origin.lat, lng: origin.lng } : {}),
+        offset,
+        ...(hasStructuredFilter
+          ? { f: serializeShopFilterState($state.snapshot(filterState)) }
+          : {})
+      });
       if (requestId !== sidebarDetailsRequestId) return;
 
+      // `globe.shops` answers with the paged shape unless it was given `ids`,
+      // and this call never sends `ids` — so in practice the paged branch is
+      // the only one that can arrive here. The union is part of the published
+      // contract, so it is still narrowed rather than cast, and the fallbacks
+      // below only cover the branch this request cannot produce.
+      const page = 'hasMore' in data ? data : null;
       for (const shop of data.shops) {
         shopDetailsCache.set(shop.id, shop);
       }
       const entries = toShopEntries(data.shops);
       shops = append ? [...(shops ?? []), ...entries] : entries;
-      sidebarHasMore = data.hasMore;
-      sidebarTotalCount = data.totalCount;
-      sidebarApproximateTotal = data.approximateTotal ?? false;
+      sidebarHasMore = page?.hasMore ?? false;
+      sidebarTotalCount = page?.totalCount ?? data.shops.length;
+      sidebarApproximateTotal = page?.approximateTotal ?? false;
     } catch (e) {
       if (requestId !== sidebarDetailsRequestId) return;
       console.error('Failed to load sidebar shop details:', e);
@@ -395,32 +390,20 @@
 
   const fetchMarkers = () => {
     if (!lazyMarkersPromise) {
-      lazyMarkersPromise = fetch(GLOBE_MARKERS_ENDPOINT)
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error(`Failed to load globe markers (${response.status})`);
-          }
-          return (await response.json()) as GlobeMarkersResponse;
-        })
-        .catch((error) => {
-          lazyMarkersPromise = null;
-          throw error;
-        });
+      lazyMarkersPromise = orpc.globe.markers({}).catch((error) => {
+        lazyMarkersPromise = null;
+        throw error;
+      });
     }
     return lazyMarkersPromise;
   };
 
   const fetchFilteredMarkerIds = async (filter: ShopFilterState) => {
-    const params = new SvelteURLSearchParams();
-    if (countActiveFilters(filter) > 0) {
-      params.set('f', serializeShopFilterState($state.snapshot(filter)));
-    }
-
-    const response = await fetch(`${GLOBE_MARKERS_ENDPOINT}?${params.toString()}`);
-    if (!response.ok) {
-      throw new Error(`Filtered marker fetch failed (${response.status})`);
-    }
-    const data = (await response.json()) as GlobeMarkersResponse;
+    const data = await orpc.globe.markers({
+      ...(countActiveFilters(filter) > 0
+        ? { f: serializeShopFilterState($state.snapshot(filter)) }
+        : {})
+    });
     return new Set(data.shops.map((shop) => shop.id));
   };
 
@@ -428,9 +411,7 @@
     const cached = shopDetailsCache.get(id);
     if (cached) return cached;
     try {
-      const res = await fetch(`${GLOBE_SHOPS_ENDPOINT}?ids=${id}`);
-      if (!res.ok) return null;
-      const data = (await res.json()) as { shops: GlobeShop[] };
+      const data = await orpc.globe.shops({ ids: String(id) });
       if (data.shops.length > 0) {
         shopDetailsCache.set(id, data.shops[0]);
         return data.shops[0];

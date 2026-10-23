@@ -2,12 +2,11 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import mongo from '$lib/db/index.server';
-import type { AttendanceRegistration, Shop } from '$lib/types';
+import type { Shop } from '$lib/types';
+import type { AttendanceRegistration } from '$lib/types/index.server';
 import { m } from '$lib/paraglide/messages';
 import { loginRedirect } from '$lib/utils/scoped';
-import { isUserQueued } from '$lib/utils/machine.server';
-
-const REGISTRATION_KEY_PREFIX = 'nearcade:registration:';
+import { isUserQueued, registrationKey } from '$lib/utils/machine.server';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
   const { id } = params;
@@ -33,7 +32,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 
   // Get registration from Redis
   await ensureConnected();
-  const registrationStr = await redis.get(`${REGISTRATION_KEY_PREFIX}${token}`);
+  const registrationStr = await redis.get(registrationKey(token));
 
   if (!registrationStr) {
     // Token expired or invalid
@@ -88,7 +87,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
   registration.userId = session.user.id;
 
   // Update Redis with userId
-  await redis.setEx(`${REGISTRATION_KEY_PREFIX}${token}`, 5 * 60, JSON.stringify(registration));
+  await redis.setEx(registrationKey(token), 5 * 60, JSON.stringify(registration));
 
   return {
     status: 'success' as const,

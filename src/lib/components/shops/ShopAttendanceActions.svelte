@@ -1,12 +1,14 @@
 <script module lang="ts">
   import type { User } from '$lib/auth/types';
+  import type { AttendanceUser } from '$lib/types';
 
   /** A merged reported-attendance entry, used to prefill the report modal. */
   export interface ReportedAttendanceSummary {
     id: number;
     count: number | undefined;
-    reportedBy: User | undefined;
-    reportedAt: string;
+    reportedBy: AttendanceUser | undefined;
+    /** An ISO timestamp on the server, a `Date` once the typed client decoded it. */
+    reportedAt: string | Date;
     comment: string | null;
   }
 </script>
@@ -16,7 +18,9 @@
   import type { Shop, AttendanceData } from '$lib/types';
   import AttendanceModal from '$lib/components/AttendanceModal.svelte';
   import { formatDistance, formatTime } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { toastError } from '$lib/notifications/toast.svelte';
+  import { isApiError } from '$lib/utils/api-error';
 
   interface Props {
     shop: Shop;
@@ -76,25 +80,15 @@
 
     isAttending = true;
     try {
-      const response = await fetch(fromPath(`/api/shops/${shop.id}/attendance`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          games: games.map((id) => ({ id })),
-          plannedLeaveAt: plannedLeaveAt.toISOString()
-        })
+      await orpc.shops.reportAttendance({
+        id: shop.id,
+        games: games.map((id) => ({ id })),
+        plannedLeaveAt: plannedLeaveAt.toISOString()
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to attend');
-      }
 
       await onChanged();
     } catch (error) {
-      console.error('Error attending:', error);
-      // TODO: Show error toast
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isAttending = false;
     }
@@ -105,18 +99,11 @@
 
     isAttending = true;
     try {
-      const response = await fetch(fromPath(`/api/shops/${shop.id}/attendance`), {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to leave');
-      }
+      await orpc.shops.leaveAttendance({ id: shop.id });
 
       await onChanged();
     } catch (error) {
-      console.error('Error leaving:', error);
-      // TODO: Show error toast
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isAttending = false;
     }
@@ -127,29 +114,22 @@
 
     isReporting = true;
     try {
-      const response = await fetch(fromPath(`/api/shops/${shop.id}/attendance`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          games: [
-            {
-              id: selectedGameForReport.id,
-              currentAttendances: reportedAttendance
-            }
-          ]
-        })
+      await orpc.shops.reportAttendance({
+        id: shop.id,
+        games: [
+          {
+            id: selectedGameForReport.id,
+            currentAttendances: reportedAttendance
+          }
+        ]
       });
 
-      if (response.ok) {
-        await onChanged();
-        showReportModal = false;
-        selectedGameForReport = null;
-        reportedAttendance = 0;
-      }
+      await onChanged();
+      showReportModal = false;
+      selectedGameForReport = null;
+      reportedAttendance = 0;
     } catch (err) {
-      console.error('Error reporting attendance:', err);
+      toastError(isApiError(err) ? err.message : m.network_error_try_again());
     } finally {
       isReporting = false;
     }

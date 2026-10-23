@@ -1,23 +1,10 @@
 import { error, fail, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import {
-  type Club,
-  type University,
-  type Shop,
-  type ClubMember,
-  type UniversityMember
-} from '$lib/types';
-import {
-  getClubMembersWithUserData,
-  checkClubPermission,
-  canWriteClubPosts,
-  toPlainArray,
-  toPlainObject
-} from '$lib/utils';
-import { PAGINATION } from '$lib/constants';
+import { type Club, type University, type Shop } from '$lib/types';
+import { checkClubPermission, canWriteClubPosts, toPlainObject } from '$lib/utils';
+import { createServerApiClient } from '$lib/api/server-client';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
-import { expandShopsRegions } from '$lib/utils/region.server';
 import { m } from '$lib/paraglide/messages';
 import { ugcFieldsForUser, withUgcTranslations } from '$lib/ugc/translate.server';
 import { getLocale } from '$lib/paraglide/runtime';
@@ -59,53 +46,33 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   // Stream heavier/secondary data for fast first paint
   const clubData = (async () => {
     try {
-      const db = mongo.db();
-      const membersCollection = db.collection<ClubMember>('club_members');
-      const universityMembersCollection = db.collection<UniversityMember>('university_members');
-      const shopsCollection = db.collection<Shop>('shops');
-
       // Check user permissions if authenticated
       const userPermissions = session?.user
         ? await checkClubPermission(session.user, club, mongo)
         : { canEdit: false, canManage: false, canJoin: 0 as const };
 
-      // Get university membership if user is authenticated
-      const universityMembership = session?.user
-        ? await universityMembersCollection.findOne({
-            universityId: club.universityId,
-            userId: session.user.id
-          })
-        : null;
-
-      // Get member statistics
-      const totalMembers = await membersCollection.countDocuments({ clubId: club.id });
-
-      const members = await getClubMembersWithUserData(club.id, mongo, {
-        limit: PAGINATION.PAGE_SIZE,
-        userFilter: universityMembership?.memberType
-          ? {}
-          : {
-              isUniversityPublic: true
-            }
-      });
+      // The member list comes from the contract, so the first page and the
+      // pages the browser loads later are the same shape — one source, one
+      // type. The contract applies the same visibility filter this load used
+      // to apply by hand: a viewer who is not a member of the university only
+      // sees members whose university profile is public.
+      //
+      // `totalMembers` and `hasMore` come from that same answer rather than
+      // from a second count and a guess at the page size in the browser.
+      const memberPage = await createServerApiClient().clubs.members({ id, page: 1 });
+      const { members, hasMore: membersHasMore, totalMembers } = memberPage;
 
       // Get starred arcades with pagination
-      let starredArcades: Shop[] = [];
-      if (club.starredArcades && club.starredArcades.length > 0) {
-        // Convert string IDs to numbers for shop queries
-        const arcades = club.starredArcades.filter((arcade) => !isNaN(arcade));
-
-        if (arcades.length > 0) {
-          starredArcades = await shopsCollection
-            .find({
-              id: { $in: arcades }
-            })
-            .limit(PAGINATION.PAGE_SIZE)
-            .toArray();
-          starredArcades = await expandShopsRegions(starredArcades);
-          starredArcades = toPlainArray(starredArcades);
-        }
-      }
+      //
+      // The list comes from the contract, so the first page and the pages the
+      // browser loads later are the same shape — one source, one type. The
+      // contract keeps the club's own ordering and resolves the regions of
+      // every shop, exactly as this load used to do by hand.
+      const { arcades: starredArcades, hasMore: arcadesHasMore } =
+        await createServerApiClient().clubs.arcades({
+          id,
+          page: 1
+        });
 
       // Update calculated fields
       club.membersCount = totalMembers;
@@ -114,7 +81,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
         club: toPlainObject(club),
         university: toPlainObject(university),
         members,
+        membersHasMore,
         starredArcades,
+        arcadesHasMore,
         stats: {
           totalMembers
         },

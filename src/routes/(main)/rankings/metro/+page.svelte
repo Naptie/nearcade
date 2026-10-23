@@ -4,22 +4,21 @@
   import { m } from '$lib/paraglide/messages';
   import { adaptiveNewTab, pageTitle } from '$lib/utils';
   import InlineAlert from '$lib/components/InlineAlert.svelte';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import { onMount, onDestroy } from 'svelte';
   import RankingsHeader from '$lib/components/rankings/RankingsHeader.svelte';
   import RankingsTable from '$lib/components/rankings/RankingsTable.svelte';
   import { getMetroBadgeTextColor, getMetroLocalizedName } from '$lib/utils/metro.client';
   import { getLocale } from '$lib/paraglide/runtime';
-  import type {
-    MetroRankingResponse,
-    MetroRankingItem,
-    MetroStationRanking
-  } from '$lib/schemas/metro';
+  import type { MetroRankingItem, MetroStationRanking } from '$lib/schemas/metro';
   import type { SortCriteria, MetroRankingRadiusFilter, RankingsTableItem } from '$lib/types';
   import { PAGINATION, METRO_RANKING_RADIUS_OPTIONS, POI_SORT_CRITERIA } from '$lib/constants';
   import { browser } from '$app/environment';
 
   let { data } = $props();
+
+  /** The metro rankings do not offer the per-capita criterion. */
+  type MetroSortBy = NonNullable<Parameters<typeof orpc.rankings.metro>[0]>['sortBy'];
 
   let sortBy: SortCriteria = $derived(data.sortBy);
   let radiusFilter: MetroRankingRadiusFilter = $derived(data.radius);
@@ -59,20 +58,13 @@
     if (!isLoadingMore && hasMore && nextCursor) {
       isLoadingMore = true;
       try {
-        const apiUrl = new URL(fromPath('/api/rankings/metro'), window.location.origin);
-        apiUrl.searchParams.set('sortBy', sortBy);
-        apiUrl.searchParams.set('radius', radiusFilter.toString());
-        if (networkId) apiUrl.searchParams.set('networkId', networkId);
-        apiUrl.searchParams.set('after', nextCursor);
-        apiUrl.searchParams.set('limit', PAGINATION.RANKING_PAGE_SIZE.toString());
-
-        const response = await fetch(apiUrl.toString());
-
-        if (!response.ok) {
-          throw new Error(`Failed to load more results: ${response.status}`);
-        }
-
-        const result = (await response.json()) as MetroRankingResponse;
+        const result = await orpc.rankings.metro({
+          sortBy: sortBy as MetroSortBy,
+          radius: radiusFilter.toString(),
+          ...(networkId ? { networkId } : {}),
+          after: nextCursor,
+          limit: PAGINATION.RANKING_PAGE_SIZE.toString()
+        });
 
         // A rebuilt ranking invalidates old global-rank cursors; drop stale pages.
         if (result.cacheTime !== data.cacheTime?.toISOString()) return;

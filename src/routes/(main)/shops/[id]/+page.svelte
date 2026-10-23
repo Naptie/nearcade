@@ -23,10 +23,11 @@
   } from '$lib/utils';
   import { canonicalizeOpeningHourPair } from '$lib/utils/shops/derived';
   import { ATTENDANCE_RADIUS_KM, GAME_TITLES } from '$lib/constants';
-  import type { QueueRecord, QueuePosition, QueueMember } from '$lib/types';
   import { browser } from '$app/environment';
   import type { AttendanceData, AttendanceReport } from '$lib/types';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { removeComment, updateComment, voteComment } from '$lib/comments/client';
+  import { isApiError } from '$lib/utils/api-error';
   import { convertCoordinates } from '$lib/utils/index.client';
   import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
@@ -37,7 +38,6 @@
   import { hasBoundPhone } from '$lib/utils';
   import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import FancyButton from '$lib/components/FancyButton.svelte';
-  import type { User } from '$lib/auth/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import JsonLd from '$lib/components/JsonLd.svelte';
   import {
@@ -182,12 +182,9 @@
   let costs: Record<string, string> = $state({});
 
   // Queue data for claimed shops
-  type EnrichedQueueMember = QueueMember & { user?: User | null };
-  type EnrichedQueuePosition = Omit<QueuePosition, 'members'> & { members: EnrichedQueueMember[] };
-  type EnrichedQueueRecord = Omit<QueueRecord['games'][number], 'queue'> & {
-    queue: EnrichedQueuePosition[];
-  };
-  let queueData = $state<EnrichedQueueRecord[]>([]);
+  /** One game of the queue, as the API returns it. */
+  type QueueGame = Awaited<ReturnType<typeof orpc.shops.queues>>['queues'][number];
+  let queueData = $state<QueueGame[]>([]);
 
   let isChangelogOpen = $derived(page.url.hash === '#changelog');
 
@@ -207,34 +204,27 @@
   const getAttendanceData = async () => {
     if (!shop || shop.isClaimed) return;
     try {
-      const attendanceResponse = await fetch(fromPath(`/api/shops/${shop.id}/attendance`));
-      if (attendanceResponse.ok) {
-        const result = (await attendanceResponse.json()) as {
-          total: number;
-          registered: AttendanceData;
-          reported: AttendanceReport;
-        };
-        totalAttendance = result.total || 0;
-        attendanceData = result.registered || [];
-        attendanceReport = result.reported || [];
-        reportedAttendances = shop.games
-          .map((g) => {
-            const reportedAttendance = getGameReportedAttendance(g.gameId);
-            if (!reportedAttendance) return undefined;
-            return {
-              ...reportedAttendance,
-              id: g.gameId,
-              count:
-                (reportedAttendance.count || 0) +
-                attendanceData.filter(
-                  (a) =>
-                    a.gameId === g.gameId &&
-                    new Date(a.attendedAt) > new Date(reportedAttendance.reportedAt)
-                ).length
-            };
-          })
-          .filter((r) => r !== undefined) as typeof reportedAttendances;
-      }
+      const result = await orpc.shops.attendance({ id: shop.id });
+      totalAttendance = result.total || 0;
+      attendanceData = result.registered || [];
+      attendanceReport = result.reported || [];
+      reportedAttendances = shop.games
+        .map((g) => {
+          const reportedAttendance = getGameReportedAttendance(g.gameId);
+          if (!reportedAttendance) return undefined;
+          return {
+            ...reportedAttendance,
+            id: g.gameId,
+            count:
+              (reportedAttendance.count || 0) +
+              attendanceData.filter(
+                (a) =>
+                  a.gameId === g.gameId &&
+                  new Date(a.attendedAt) > new Date(reportedAttendance.reportedAt)
+              ).length
+          };
+        })
+        .filter((r) => r !== undefined) as typeof reportedAttendances;
     } catch (err) {
       console.warn('Failed to load attendance data:', err);
     }
@@ -243,14 +233,8 @@
   const getQueueData = async () => {
     if (!shop || !shop.isClaimed) return;
     try {
-      const queueResponse = await fetch(fromPath(`/api/shops/${shop.id}/queues`));
-      if (queueResponse.ok) {
-        const result = (await queueResponse.json()) as {
-          success: boolean;
-          queues: EnrichedQueueRecord[];
-        };
-        queueData = result.queues || [];
-      }
+      const result = await orpc.shops.queues({ id: shop.id });
+      queueData = result.queues || [];
     } catch (err) {
       console.warn('Failed to load queue data:', err);
     }
@@ -568,15 +552,7 @@
     if (!canComment) return;
 
     try {
-      const response = await fetch(fromPath(`/api/comments/${commentId}/vote`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voteType })
-      });
-
-      if (response.ok) {
-        invalidateAll();
-      }
+      await voteComment(commentId, voteType);
     } catch (error) {
       console.error('Error voting on comment:', error);
     }
@@ -592,21 +568,13 @@
     if (!canComment) return;
 
     try {
-      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newContent, images: imageIds })
-      });
-
-      if (!response.ok) {
-        const errorData = (await response.json()) as { message: string };
-        throw new Error(errorData.message || 'Failed to edit comment');
-      }
-
-      invalidateAll();
+      await updateComment(commentId, newContent, imageIds);
     } catch (error) {
       console.error('Error editing comment:', error);
-      throw error;
+      throw new Error(
+        isApiError(error) ? error.message || 'Failed to edit comment' : 'Failed to edit comment',
+        { cause: error }
+      );
     }
   };
 
@@ -614,19 +582,10 @@
     if (!canComment) return;
 
     try {
-      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        const errorData = (await response.json()) as { message: string };
-        alert(errorData.message || 'Failed to delete comment');
-      } else {
-        invalidateAll();
-      }
+      await removeComment(commentId);
     } catch (error) {
       console.error('Error deleting comment:', error);
-      alert(m.network_error_try_again());
+      alert(isApiError(error) ? error.message : m.network_error_try_again());
     }
   };
 </script>

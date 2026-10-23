@@ -3,7 +3,7 @@
   import { m } from '$lib/paraglide/messages';
   import type { User } from '$lib/auth/types';
   import type { ImageAsset } from '$lib/types';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import { buildPostImageMarkdown, stripPostImageMarkdownByIds } from '$lib/utils/image';
   import { render } from '$lib/utils/markdown';
   import PhotoCarousel from './PhotoCarousel.svelte';
@@ -69,10 +69,7 @@
   const handleAttachmentDelete = async (photo: ImageAsset) => {
     if (!persistedImageIds.includes(photo.id)) {
       try {
-        const response = await fetch(fromPath(`/api/images/${photo.id}`), { method: 'DELETE' });
-        if (!response.ok) {
-          return false;
-        }
+        await orpc.images.remove({ imageId: photo.id });
       } catch (error) {
         console.error('Failed to delete draft image:', error);
         return false;

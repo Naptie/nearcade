@@ -1,7 +1,5 @@
 import type { MongoClient } from 'mongodb';
 import {
-  type Post,
-  type PostVote,
   type Comment,
   type CommentVote,
   type ChangelogEntry,
@@ -11,14 +9,18 @@ import {
   type UniversityMember,
   type ClubMember,
   type Shop,
-  type ShopDeleteRequest,
   type ShopDeleteRequestVote,
   PostReadability,
-  type AttendanceRecord,
-  type AttendanceReportRecord,
   type ShopChangelogEntry,
   type ActivityType
 } from '$lib/types';
+import type {
+  Post,
+  PostVote,
+  ShopDeleteRequest,
+  AttendanceRecord,
+  AttendanceReportRecord
+} from '$lib/types/index.server';
 import type { User } from '$lib/auth/types';
 import { ATTENDANCE_REPORT_HISTORY_VISIBILITY_DAYS } from '$lib/constants';
 import { canViewFootprints, getDisplayName, protect } from '.';

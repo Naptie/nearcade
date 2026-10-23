@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { invalidateAll } from '$app/navigation';
-  import { resolve } from '$app/paths';
+  import { orpc } from '$lib/api/client';
   import type { PageData } from './$types';
   import { page } from '$app/state';
   import { adaptiveNewTab, formatDate } from '$lib/utils';
@@ -70,21 +70,9 @@
   const selectionCount = $derived(selectedOccurrences.size);
 
   const postAction = async (payload: Record<string, unknown>): Promise<number> => {
-    const response = await fetch(resolve('/api/admin/ugc-entries'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (!response.ok) {
-      let message = '';
-      try {
-        message = ((await response.json()) as { message?: string }).message ?? '';
-      } catch {
-        // ignore parse failure
-      }
-      throw new Error(message || m.internal_server_error());
-    }
-    const body = (await response.json()) as { affected?: number };
+    const body = await orpc.admin.ugcEntryAction(
+      payload as Parameters<typeof orpc.admin.ugcEntryAction>[0]
+    );
     return body.affected ?? 0;
   };
 

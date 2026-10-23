@@ -17,8 +17,7 @@
   import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import { PAGINATION, GAME_TITLES } from '$lib/constants';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
-  import type { PublicUser } from '$lib/auth/types';
-  import type { Shop, ShopApiAddress } from '$lib/types';
+  import type { Shop, ShopApiAddress, AttendanceUser } from '$lib/types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import ShopFilterPanel from '$lib/components/ShopFilterPanel.svelte';
   import T from '$lib/ugc/components/T.svelte';
@@ -40,8 +39,8 @@
     nameHl?: string;
     currentAttendance?: number;
     currentReportedAttendance?: {
-      reportedAt: string;
-      reportedBy: PublicUser;
+      reportedAt: string | Date;
+      reportedBy: AttendanceUser;
       comment: string | null;
     } | null;
   };

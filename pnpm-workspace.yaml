@@ -4,7 +4,23 @@ allowBuilds:
   esbuild: true
   protobufjs: true
   sharp: true
+  # Transitive dependency of @floating-ui/vue; its postinstall only picks the
+  # Vue 2 or Vue 3 entry point. Without this, `pnpm i --frozen-lockfile` fails
+  # with ERR_PNPM_IGNORED_BUILDS.
+  vue-demi: true
   workerd: true
+catalogs:
+  # The oRPC packages are version-coupled: the contract, the server and the
+  # client have to be the same release. The version is therefore written once
+  # — the anchor is the single place it exists, and every package refers to it,
+  # so it is structurally impossible to bump one of them and leave the others.
+  orpc:
+    '@orpc/client': &orpc 1.15.7
+    '@orpc/contract': *orpc
+    '@orpc/openapi': *orpc
+    '@orpc/openapi-client': *orpc
+    '@orpc/server': *orpc
+    '@orpc/zod': *orpc
 patchedDependencies:
   '@inlang/paraglide-js@2.19.0': patches/@inlang__paraglide-js@2.19.0.patch
   better-auth@1.6.23: patches/better-auth@1.6.23.patch

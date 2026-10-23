@@ -14,7 +14,8 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { formatDistanceToNow } from 'date-fns';
   import { getDisplayName, getFnsLocale } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { apiErrorMessage } from '$lib/utils/api-error';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
 
@@ -193,18 +194,7 @@
     }
 
     try {
-      const response = await fetch(
-        fromPath(`/api/shops/${shopId}/changelog?page=${page}&limit=${ITEMS_PER_PAGE}`)
-      );
-      if (!response.ok) throw new Error('Failed to load changelog');
-
-      const data = (await response.json()) as {
-        entries: ShopChangelogEntryWithUser[];
-        hasMore: boolean;
-        total: number;
-        page: number;
-        limit: number;
-      };
+      const data = await orpc.shops.changelog({ id: shopId, page, limit: ITEMS_PER_PAGE });
 
       entries = append ? [...entries, ...data.entries] : data.entries;
       hasMore = data.hasMore;
@@ -226,12 +216,13 @@
   const deleteEntry = async (entry: ShopChangelogEntryWithUser) => {
     if (!confirm(m.shop_changelog_rollback_delete_confirm())) return;
 
-    const response = await fetch(fromPath(`/api/shops/${shopId}/changelog/${entry.id}`), {
-      method: 'DELETE'
-    });
-
-    if (!response.ok) {
-      error = m.failed_to_fetch_changelog_entries();
+    try {
+      await orpc.shops.deleteChangelogEntry({ id: shopId, entryId: entry.id });
+    } catch (err) {
+      // The failure is a delete, not a fetch — reporting
+      // `failed_to_fetch_changelog_entries` sent the reader looking for a
+      // loading problem that did not happen.
+      error = apiErrorMessage(err, m.failed_to_delete_changelog_entry());
       return;
     }
 

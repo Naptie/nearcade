@@ -25,7 +25,10 @@
   import { stripPostImageMarkdownByIds } from '$lib/utils/image';
   import { buildImageUploadUrl } from '$lib/utils/image';
   import { getDisplayName, getFnsLocale, pageTitle, userRouteId } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { discardDraftImages } from '$lib/api/draft-images';
+  import { removeComment, updateComment, voteComment } from '$lib/comments/client';
+  import { isApiError } from '$lib/utils/api-error';
   import { getLocale } from '$lib/paraglide/runtime';
   import { page } from '$app/state';
   import JsonLd from './JsonLd.svelte';
@@ -178,9 +181,6 @@
   let resolvedBackLabel = $derived(
     backLabel || (announcementMode ? m.back_to_announcements() : m.back_to_posts())
   );
-  let interactionEndpoint = $derived(
-    announcementMode ? `/api/announcements/${post.id}` : `/api/posts/${post.id}`
-  );
 
   const readabilityOptions = $derived([
     { value: PostReadability.PUBLIC, label: m.post_readability_public() },
@@ -196,21 +196,9 @@
     newCommentAttachments = [];
   };
 
-  const cleanupDraftImages = async (imageIds: string[]) => {
-    await Promise.all(
-      imageIds.map(async (imageId) => {
-        try {
-          await fetch(fromPath(`/api/images/${imageId}`), { method: 'DELETE' });
-        } catch (error) {
-          console.error('Failed to delete draft image:', error);
-        }
-      })
-    );
-  };
-
   const resetReplyComposer = (cleanupDrafts = false) => {
     if (cleanupDrafts && replyImageIds.length > 0) {
-      void cleanupDraftImages(replyImageIds);
+      void discardDraftImages(replyImageIds);
     }
 
     replyingTo = null;
@@ -242,21 +230,10 @@
 
     isVoting = true;
     try {
-      const response = await fetch(fromPath(`/api/posts/${post.id}/vote`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ voteType })
-      });
-
-      if (response.ok) {
-        invalidateAll();
-      } else {
-        console.error('Failed to vote');
-      }
+      await orpc.posts.vote({ postId: post.id, voteType });
+      invalidateAll();
     } catch (error) {
-      console.error('Error voting:', error);
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isVoting = false;
     }
@@ -273,26 +250,16 @@
     isSubmittingComment = true;
 
     try {
-      const response = await fetch(fromPath(`/api/posts/${post.id}/comments`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          content: newCommentContent.trim(),
-          images: newCommentImageIds
-        })
+      await orpc.posts.comment({
+        postId: post.id,
+        content: newCommentContent.trim(),
+        images: newCommentImageIds
       });
 
-      if (response.ok) {
-        resetNewCommentComposer();
-        invalidateAll();
-      } else {
-        const errorData = (await response.json()) as { message: string };
-        toastError(errorData.message || m.failed_to_post_comment());
-      }
-    } catch {
-      toastError(m.network_error_try_again());
+      resetNewCommentComposer();
+      invalidateAll();
+    } catch (error) {
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isSubmittingComment = false;
     }
@@ -302,27 +269,15 @@
     if (!currentUserId) return;
 
     try {
-      const response = await fetch(fromPath(`/api/comments/${commentId}/vote`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ voteType })
-      });
-
-      if (response.ok) {
-        invalidateAll();
-      } else {
-        console.error('Failed to vote on comment');
-      }
+      await voteComment(commentId, voteType);
     } catch (error) {
-      console.error('Error voting on comment:', error);
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     }
   };
 
   const handleCommentReply = (commentId: string) => {
     if (replyImageIds.length > 0) {
-      void cleanupDraftImages(replyImageIds);
+      void discardDraftImages(replyImageIds);
     }
 
     replyingTo = commentId;
@@ -343,27 +298,17 @@
     isSubmittingReply = true;
 
     try {
-      const response = await fetch(fromPath(`/api/posts/${post.id}/comments`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          content: replyContent.trim(),
-          images: replyImageIds,
-          parentCommentId: replyingTo
-        })
+      await orpc.posts.comment({
+        postId: post.id,
+        content: replyContent.trim(),
+        images: replyImageIds,
+        parentCommentId: replyingTo
       });
 
-      if (response.ok) {
-        resetReplyComposer();
-        invalidateAll();
-      } else {
-        const errorData = (await response.json()) as { message: string };
-        toastError(errorData.message || m.failed_to_post_comment());
-      }
-    } catch {
-      toastError(m.network_error_try_again());
+      resetReplyComposer();
+      invalidateAll();
+    } catch (error) {
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isSubmittingReply = false;
     }
@@ -373,23 +318,13 @@
     if (!currentUserId) return;
 
     try {
-      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ content: newContent, images: imageIds })
-      });
-
-      if (response.ok) {
-        await invalidateAll();
-      } else {
-        const errorData = (await response.json()) as { message: string };
-        throw new Error(errorData.message || 'Failed to edit comment');
-      }
+      await updateComment(commentId, newContent, imageIds);
     } catch (error) {
       console.error('Error editing comment:', error);
-      throw error; // Re-throw so the component can handle it
+      // Re-throw so the component can handle it
+      throw new Error(isApiError(error) ? error.message : 'Failed to edit comment', {
+        cause: error
+      });
     }
   };
 
@@ -397,19 +332,10 @@
     if (!currentUserId) return;
 
     try {
-      const response = await fetch(fromPath(`/api/comments/${commentId}`), {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        await invalidateAll();
-      } else {
-        const errorData = (await response.json()) as { message: string };
-        alert(errorData.message || 'Failed to delete comment');
-      }
+      await removeComment(commentId);
     } catch (error) {
       console.error('Error deleting comment:', error);
-      alert(m.network_error_try_again());
+      alert(isApiError(error) ? error.message : m.network_error_try_again());
     }
   };
 
@@ -418,49 +344,38 @@
     if (!canManagePost) return;
 
     try {
-      const response = await fetch(fromPath(interactionEndpoint), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ isPinned: !localPost.isPinned })
-      });
-
-      if (response.ok) {
-        localPost = { ...localPost, isPinned: !localPost.isPinned };
-        showManageMenu = false;
+      if (announcementMode) {
+        await orpc.announcements.update({
+          announcementId: post.id,
+          isPinned: !localPost.isPinned
+        });
       } else {
-        const errorData = (await response.json()) as { message: string };
-        alert(errorData.message || 'Failed to update post');
+        await orpc.posts.update({ postId: post.id, isPinned: !localPost.isPinned });
       }
+
+      localPost = { ...localPost, isPinned: !localPost.isPinned };
+      showManageMenu = false;
     } catch (error) {
       console.error('Error updating post:', error);
-      alert(m.network_error_try_again());
+      alert(isApiError(error) ? error.message : m.network_error_try_again());
     }
   };
 
   const toggleLockPost = async () => {
-    if (!canManagePost) return;
+    // The lock control is only rendered for posts — an announcement has no
+    // lock flag, and its update endpoint never stored one — so this function
+    // never has to take an announcement path. Refusing the call keeps that
+    // invariant explicit instead of carrying a branch that cannot run.
+    if (!canManagePost || announcementMode) return;
 
     try {
-      const response = await fetch(fromPath(interactionEndpoint), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ isLocked: !localPost.isLocked })
-      });
+      await orpc.posts.update({ postId: post.id, isLocked: !localPost.isLocked });
 
-      if (response.ok) {
-        localPost = { ...localPost, isLocked: !localPost.isLocked };
-        showManageMenu = false;
-      } else {
-        const errorData = (await response.json()) as { message: string };
-        alert(errorData.message || 'Failed to update post');
-      }
+      localPost = { ...localPost, isLocked: !localPost.isLocked };
+      showManageMenu = false;
     } catch (error) {
       console.error('Error updating post:', error);
-      alert(m.network_error_try_again());
+      alert(isApiError(error) ? error.message : m.network_error_try_again());
     }
   };
 
@@ -476,7 +391,7 @@
       (imageId) => !(localPost.images ?? []).includes(imageId)
     );
     if (addedDraftImageIds.length > 0) {
-      void cleanupDraftImages(addedDraftImageIds);
+      void discardDraftImages(addedDraftImageIds);
     }
 
     isEditingPost = false;
@@ -490,67 +405,63 @@
 
     isSavingPost = true;
     try {
-      const response = await fetch(fromPath(interactionEndpoint), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      if (announcementMode) {
+        await orpc.announcements.update({
+          announcementId: post.id,
           title: editTitle.trim(),
           content: editContent.trim(),
-          ...(announcementMode
+          status: editStatus,
+          ...(editPublishAtChanged
             ? {
-                status: editStatus,
-                ...(editPublishAtChanged
-                  ? {
-                      publishAt: editPublishAt ? new Date(editPublishAt).toISOString() : null
-                    }
-                  : {}),
-                expiresAt: editExpiresAt ? new Date(editExpiresAt).toISOString() : null,
-                notifyReaders: editNotifyReaders
+                publishAt: editPublishAt ? new Date(editPublishAt).toISOString() : null
               }
-            : { readability: editReadability }),
+            : {}),
+          expiresAt: editExpiresAt ? new Date(editExpiresAt).toISOString() : null,
+          notifyReaders: editNotifyReaders,
           images: editImageIds
-        })
-      });
-
-      if (response.ok) {
-        localPost = {
-          ...localPost,
+        });
+      } else {
+        await orpc.posts.update({
+          postId: post.id,
           title: editTitle.trim(),
           content: editContent.trim(),
-          images: [...editImageIds],
-          resolvedImages: [...editAttachments],
-          readability: announcementMode ? localPost.readability : editReadability,
-          status: announcementMode ? editStatus : localPost.status,
-          publishedAt: announcementMode
-            ? editStatus === 'draft'
-              ? null
-              : editNotifyReaders
-                ? new Date()
-                : editPublishAtChanged
-                  ? editPublishAt
-                    ? new Date(editPublishAt)
-                    : new Date()
-                  : localPost.publishedAt
-            : localPost.publishedAt,
-          expiresAt: announcementMode
-            ? editExpiresAt
-              ? new Date(editExpiresAt)
-              : null
-            : localPost.expiresAt,
-          updatedAt: new Date()
-        };
-        isEditingPost = false;
-        // Re-render content
-        content = await render(localPost.content);
-      } else {
-        const errorData = (await response.json()) as { message: string };
-        alert(errorData.message || 'Failed to update post');
+          readability: editReadability,
+          images: editImageIds
+        });
       }
+
+      localPost = {
+        ...localPost,
+        title: editTitle.trim(),
+        content: editContent.trim(),
+        images: [...editImageIds],
+        resolvedImages: [...editAttachments],
+        readability: announcementMode ? localPost.readability : editReadability,
+        status: announcementMode ? editStatus : localPost.status,
+        publishedAt: announcementMode
+          ? editStatus === 'draft'
+            ? null
+            : editNotifyReaders
+              ? new Date()
+              : editPublishAtChanged
+                ? editPublishAt
+                  ? new Date(editPublishAt)
+                  : new Date()
+                : localPost.publishedAt
+          : localPost.publishedAt,
+        expiresAt: announcementMode
+          ? editExpiresAt
+            ? new Date(editExpiresAt)
+            : null
+          : localPost.expiresAt,
+        updatedAt: new Date()
+      };
+      isEditingPost = false;
+      // Re-render content
+      content = await render(localPost.content);
     } catch (error) {
       console.error('Error updating post:', error);
-      alert(m.network_error_try_again());
+      alert(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isSavingPost = false;
     }
@@ -563,20 +474,17 @@
 
   const confirmDeletePost = async () => {
     try {
-      const response = await fetch(fromPath(interactionEndpoint), {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        // Redirect back to posts list
-        window.location.href = backUrl;
+      if (announcementMode) {
+        await orpc.announcements.remove({ announcementId: post.id });
       } else {
-        const errorData = (await response.json()) as { message: string };
-        alert(errorData.message || 'Failed to delete post');
+        await orpc.posts.remove({ postId: post.id });
       }
+
+      // Redirect back to posts list
+      window.location.href = backUrl;
     } catch (error) {
       console.error('Error deleting post:', error);
-      alert(m.network_error_try_again());
+      alert(isApiError(error) ? error.message : m.network_error_try_again());
     }
   };
 

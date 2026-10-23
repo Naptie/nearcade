@@ -1,5 +1,5 @@
 import { getLocale } from '$lib/paraglide/runtime';
-import { fromPath } from '$lib/utils/scoped';
+import { orpc } from '$lib/api/client';
 import { resolve } from '$app/paths';
 import { showBanner } from '$lib/notifications/banner.svelte';
 import { toast, dismissToast } from '$lib/notifications/toast.svelte';
@@ -72,21 +72,19 @@ const translatedListeners = new Map<string, Set<(text: string) => void>>();
 export const ensureUgcPreferences = (): Promise<UgcPreferences> => {
   preferences ??= (async () => {
     try {
-      const response = await fetch(fromPath('/api/ugc/preferences'));
-      if (!response.ok) throw new Error(String(response.status));
-      const data = (await response.json()) as {
-        loggedIn?: boolean;
-        configured?: boolean;
-        fields?: string[];
-        promptDismissed?: boolean;
-      };
+      const data = await orpc.ugc.getPreferences({});
       return {
-        loggedIn: Boolean(data.loggedIn),
-        configured: Boolean(data.configured),
-        fields: new Set(data.fields ?? []),
-        promptDismissed: Boolean(data.promptDismissed)
+        loggedIn: data.loggedIn,
+        configured: data.configured,
+        fields: new Set(data.fields),
+        promptDismissed: data.promptDismissed
       };
-    } catch {
+    } catch (err) {
+      // The preferences say whether the user opted in. A failure to read them
+      // must not be mistaken for "not opted in" — the fallback below is what
+      // the caller sees either way, so the failure is logged to keep an
+      // outage distinguishable from a feature that is switched off.
+      console.error('Failed to load UGC translation preferences:', err);
       return {
         loggedIn: false,
         configured: false,
@@ -105,11 +103,7 @@ export const resetUgcPreferencesCache = (): void => {
 
 const persistPromptDismissal = async (): Promise<void> => {
   try {
-    await fetch(fromPath('/api/ugc/preferences'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ promptDismissed: true })
-    });
+    await orpc.ugc.updatePreferences({ promptDismissed: true });
   } catch (err) {
     console.error('Failed to persist translation prompt dismissal:', err);
   }
@@ -281,28 +275,19 @@ const requestTranslationsFromServer = async (
   await Promise.all(
     [...byLocale.entries()].map(async ([locale, hashes]) => {
       try {
-        const payload: { hashes: string[]; lang: UgcLocale; sources?: Record<string, string> } = {
-          hashes: [...hashes],
-          lang: locale
-        };
         // Attach source texts so the server can enqueue work on a miss.
         const sources: Record<string, string> = {};
         for (const hash of hashes) {
           const source = sourceByHash.get(hash);
           if (source) sources[hash] = source;
         }
-        if (Object.keys(sources).length > 0) payload.sources = sources;
 
-        const response = await fetch(fromPath('/api/ugc/translations'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+        const data = await orpc.ugc.translations({
+          hashes: [...hashes],
+          lang: locale,
+          ...(Object.keys(sources).length > 0 ? { sources } : {})
         });
-        if (!response.ok) return;
-        const data = (await response.json()) as {
-          translations?: Record<string, string | null>;
-        };
-        for (const [hash, text] of Object.entries(data.translations ?? {})) {
+        for (const [hash, text] of Object.entries(data.translations)) {
           if (text) resolved.set(translationCacheKey(hash, locale), text);
         }
       } catch (err) {

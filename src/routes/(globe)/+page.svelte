@@ -19,7 +19,7 @@
     isShopCurrentlyOpen
   } from '$lib/utils';
   import { convertCoordinates } from '$lib/utils/index.client';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import { viewport } from '$lib/utils/viewport.svelte';
   import { onMount } from 'svelte';
   import type { PageData } from './$types';
@@ -115,8 +115,7 @@
 
     isSearchingUniversities = true;
     try {
-      const response = await fetch(fromPath(`/api/universities?q=${encodeURIComponent(query)}`));
-      const data = (await response.json()) as { universities: University[] };
+      const data = await orpc.universities.search({ q: query });
 
       // Only update if this is still the latest request
       if (requestId === searchRequestId) {
@@ -203,13 +202,7 @@
   const handleLeave = async (shop: { id: number }) => {
     isLeavingShop = true;
     try {
-      const response = await fetch(fromPath(`/api/shops/${shop.id}/attendance`), {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to leave');
-      }
+      await orpc.shops.leaveAttendance({ id: shop.id });
 
       await invalidateAll();
     } catch (error) {

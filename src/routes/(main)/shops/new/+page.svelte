@@ -3,6 +3,8 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { hasBoundPhone } from '$lib/utils';
+  import { orpc } from '$lib/api/client';
+  import { apiErrorMessage } from '$lib/utils/api-error';
   import { toast } from '$lib/notifications/toast.svelte';
   import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import { showBanner, dismissBanner } from '$lib/notifications/banner.svelte';
@@ -111,20 +113,13 @@
       return;
     }
 
-    const response = await fetch('/api/shops', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    });
-
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(body?.error ?? 'Failed to create shop');
+    try {
+      const { shop } = await orpc.shops.create(formData);
+      toast(m.shop_created_successfully(), { type: 'success' });
+      createdShopId = shop.id;
+    } catch (error) {
+      throw new Error(apiErrorMessage(error, 'Failed to create shop'), { cause: error });
     }
-
-    const { shop } = await response.json();
-    toast(m.shop_created_successfully(), { type: 'success' });
-    createdShopId = shop.id;
   }
 </script>
 

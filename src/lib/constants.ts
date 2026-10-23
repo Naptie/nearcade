@@ -250,6 +250,27 @@ export const PAGINATION = {
   SCROLL_THRESHOLD: 300 // pixels from bottom to trigger load more
 } as const;
 
+/**
+ * The data-update tasks the admin monitor can show and trigger.
+ *
+ * It lives here rather than next to the scheduler so the browser can name the
+ * same closed set of ids: the admin monitor keys its presentation by task id,
+ * and a `Record<string, …>` lookup there was unguarded — an id the server
+ * started reporting would have rendered `undefined.title`.
+ */
+export const DATA_UPDATE_TASK_IDS = [
+  'university_stats',
+  'campus_rankings',
+  'metro_rankings',
+  'region_rankings',
+  'home_stats',
+  'admin_stats_snapshot',
+  'meilisearch',
+  'openmetro_sync'
+] as const;
+
+export type DataUpdateTaskId = (typeof DATA_UPDATE_TASK_IDS)[number];
+
 // Sort criteria constants
 export const SORT_CRITERIA = [
   { key: 'shops' },

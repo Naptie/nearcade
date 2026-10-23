@@ -1,16 +1,16 @@
 <script lang="ts">
   import ManagedArcade from '$lib/components/ManagedArcade.svelte';
   import { m } from '$lib/paraglide/messages';
-  import type { Shop } from '$lib/types';
+  import type { ShopApi } from '$lib/types';
   import { pageTitle } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import { onMount } from 'svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
 
   let searchQuery = $state('');
-  let searchResults = $state<Shop[]>([]);
+  let searchResults = $state<ShopApi[]>([]);
   let isSearching = $state(false);
   let searchTimeout: ReturnType<typeof setTimeout> | undefined = $state(undefined);
   let radius = $state(10);
@@ -30,15 +30,8 @@
 
     isSearching = true;
     try {
-      const response = await fetch(
-        fromPath(`/api/shops?q=${encodeURIComponent(query)}&includeTimeInfo=false`)
-      );
-      if (response.ok) {
-        const results = (await response.json()) as { shops: Shop[] };
-        searchResults = results.shops || [];
-      } else {
-        searchResults = [];
-      }
+      const results = await orpc.shops.list({ q: query, includeTimeInfo: false });
+      searchResults = results.shops || [];
     } catch (error) {
       console.error('Error searching arcades:', error);
       searchResults = [];

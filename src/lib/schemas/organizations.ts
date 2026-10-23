@@ -6,7 +6,7 @@ import {
   bilingual,
   dateTimeSchema,
   locationSchema,
-  objectIdSchema,
+  mongoIdSchema,
   positiveIntegerQueryParamSchema,
   userSummarySchema
 } from './common';
@@ -71,10 +71,7 @@ export const campusSchema = z.object({
 
 export const universitySchema = z
   .object({
-    _id: z
-      .union([z.string(), objectIdSchema])
-      .optional()
-      .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
+    _id: mongoIdSchema,
     id: z.string().describe(bilingual('大学 ID。', 'University ID.')),
     name: z.string().describe(bilingual('大学名称。', 'University name.')),
     slug: z.string().optional().describe(bilingual('大学 slug。', 'University slug.')),
@@ -162,10 +159,7 @@ export const organizationChangelogMetadataSchema = z
   .meta({ override: { type: 'object', additionalProperties: true } });
 
 export const organizationChangelogEntrySchema = z.object({
-  _id: z
-    .union([z.string(), objectIdSchema])
-    .optional()
-    .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
+  _id: mongoIdSchema,
   id: z.string().describe(bilingual('变更记录 ID。', 'Changelog entry ID.')),
   type: organizationChangelogTypeSchema,
   targetId: z.string().describe(bilingual('目标 ID。', 'Target ID.')),
@@ -216,10 +210,7 @@ export const universityMemberTypeSchema = z
   .describe(bilingual('大学成员角色。', 'University membership role.'));
 
 export const universityMemberSchema = z.object({
-  _id: z
-    .union([z.string(), objectIdSchema])
-    .optional()
-    .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
+  _id: mongoIdSchema,
   id: z.string().describe(bilingual('成员关系 ID。', 'Membership ID.')),
   universityId: z.string().describe(bilingual('大学 ID。', 'University ID.')),
   userId: z.string().describe(bilingual('用户 ID。', 'User ID.')),
@@ -230,12 +221,11 @@ export const universityMemberSchema = z.object({
 });
 
 export const universityMemberListEntrySchema = z.object({
-  _id: z
-    .union([z.string(), objectIdSchema])
-    .optional()
-    .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
+  _id: mongoIdSchema,
+  userId: z.string().describe(bilingual('用户 ID。', 'User ID.')),
   memberType: universityMemberTypeSchema,
   joinedAt: dateTimeSchema(bilingual('加入时间。', 'Join time.')),
+  verifiedAt: dateTimeSchema(bilingual('认证时间。', 'Verification time.')).optional(),
   user: userSummarySchema.describe(bilingual('成员用户摘要。', 'Member user summary.'))
 });
 
@@ -264,10 +254,7 @@ export const universityMembersResponseSchema = z.object({
 
 export const clubSchema = z
   .object({
-    _id: z
-      .union([z.string(), objectIdSchema])
-      .optional()
-      .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
+    _id: mongoIdSchema,
     id: z.string().describe(bilingual('社团 ID。', 'Club ID.')),
     universityId: z.string().describe(bilingual('所属大学 ID。', 'University ID.')),
     name: z.string().describe(bilingual('社团名称。', 'Club name.')),
@@ -319,10 +306,7 @@ export const clubMemberTypeSchema = z
   .describe(bilingual('社团成员角色。', 'Club membership role.'));
 
 export const clubMemberSchema = z.object({
-  _id: z
-    .union([z.string(), objectIdSchema])
-    .optional()
-    .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
+  _id: mongoIdSchema,
   id: z.string().describe(bilingual('成员关系 ID。', 'Membership ID.')),
   clubId: z.string().describe(bilingual('社团 ID。', 'Club ID.')),
   userId: z.string().describe(bilingual('用户 ID。', 'User ID.')),
@@ -336,14 +320,24 @@ export const clubMemberSchema = z.object({
 });
 
 export const clubMemberListEntrySchema = z.object({
-  _id: z
-    .union([z.string(), objectIdSchema])
-    .optional()
-    .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
+  _id: mongoIdSchema,
+  userId: z.string().describe(bilingual('用户 ID。', 'User ID.')),
   memberType: clubMemberTypeSchema,
   joinedAt: dateTimeSchema(bilingual('加入时间。', 'Join time.')),
   user: userSummarySchema.describe(bilingual('成员用户摘要。', 'Member user summary.'))
 });
+
+/**
+ * One entry of a member list, as the API returns it.
+ *
+ * The browser and the server share this shape: both the page load and the
+ * pages the browser fetches afterwards read the list through the contract, so
+ * there is one type and one source for it.
+ */
+export type ClubMemberListEntry = z.infer<typeof clubMemberListEntrySchema>;
+
+/** One entry of a university member list, as the API returns it. */
+export type UniversityMemberListEntry = z.infer<typeof universityMemberListEntrySchema>;
 
 export const clubsListQuerySchema = z.object({
   q: z.string().optional().default('').describe(bilingual('搜索关键词。', 'Search query.')),

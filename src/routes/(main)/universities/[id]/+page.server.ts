@@ -1,13 +1,8 @@
 import { error, fail, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import type { University, Club, Campus, Shop } from '$lib/types';
-import {
-  checkUniversityPermission,
-  getUniversityMembersWithUserData,
-  toPlainArray,
-  toPlainObject,
-  updateUserType
-} from '$lib/utils';
+import type { University, Campus, Shop } from '$lib/types';
+import { checkUniversityPermission, toPlainArray, toPlainObject, updateUserType } from '$lib/utils';
+import { createServerApiClient } from '$lib/api/server-client';
 import { PAGINATION } from '$lib/constants';
 import { logCampusChanges } from '$lib/utils/universities-clubs/changelog.server';
 import { nanoid } from 'nanoid';
@@ -54,8 +49,6 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   const universityData = (async () => {
     try {
       const db = mongo.db();
-      const membersCollection = db.collection('university_members');
-      const clubsCollection = db.collection('clubs');
       const shopsCollection = db.collection<Shop>('shops');
 
       // Check permissions for the current user
@@ -76,24 +69,25 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       }
 
       // Get member statistics and list with user data joined
-      const totalMembers = await membersCollection.countDocuments({ universityId: university.id });
-      const members = await getUniversityMembersWithUserData(university.id, mongo, {
-        limit: PAGINATION.PAGE_SIZE,
-        sort: { joinedAt: -1 },
-        userFilter: userPermissions.role
-          ? {}
-          : {
-              isUniversityPublic: true
-            }
-      });
+      //
+      // The member list comes from the contract, so the first page and the
+      // pages the browser loads later are the same shape — one source, one
+      // type. The contract applies the same visibility filter this load used
+      // to apply by hand: a viewer who is not a member of the university only
+      // sees members whose university profile is public.
+      //
+      // `totalMembers` and `hasMore` are taken from that same answer instead
+      // of being recomputed here: the procedure already counts every member,
+      // so a second `countDocuments` was the same query twice, and deriving
+      // `hasMore` in the browser from `members.length` guessed at a page size
+      // the procedure owns.
+      const memberPage = await createServerApiClient().universities.members({ id, page: 1 });
+      const { members, hasMore: membersHasMore, totalMembers } = memberPage;
 
-      // Get clubs belonging to this university
-      const totalClubs = await clubsCollection.countDocuments({ universityId: university.id });
-      const clubs = (await clubsCollection
-        .find({ universityId: university.id })
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .toArray()) as unknown as Club[];
+      // The list comes from the contract, so the first page and the pages the
+      // browser loads later are the same shape — one source, one type.
+      const clubPage = await createServerApiClient().universities.clubs({ id, page: 1 });
+      const { clubs, hasMore: clubsHasMore, totalClubs } = clubPage;
 
       university.studentsCount = totalMembers;
 
@@ -113,7 +107,9 @@ export const load: PageServerLoad = async ({ params, parent }) => {
         university: toPlainObject(university),
         userPermissions,
         members,
-        clubs: toPlainArray(clubs),
+        membersHasMore,
+        clubs,
+        clubsHasMore,
         frequentingArcades: toPlainArray(frequentingArcades),
         stats: {
           totalMembers,

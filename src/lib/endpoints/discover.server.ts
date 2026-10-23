@@ -1,11 +1,10 @@
 import { error, isHttpError, isRedirect } from '@sveltejs/kit';
-import type { Game, Shop } from '$lib/types';
+import type { Game, Shop, AttendanceUser } from '$lib/types';
 import { calculateDistance, toPlainObject } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { toShopApi } from '$lib/utils/shops/api.server';
 import { getShopsAttendanceData } from './attendance.server';
-import type { PublicUser } from '$lib/auth/types';
 import {
   discoverQuerySchema,
   discoverResponseSchema,
@@ -277,9 +276,9 @@ export const loadShops = async ({ url }: { url: URL }): Promise<DiscoverResponse
       games: (Game & { totalAttendance?: number })[];
       totalAttendance?: number;
       currentReportedAttendance?: {
-        reportedAt: string;
+        reportedAt: string | Date;
         reportedBy: string;
-        reporter: PublicUser;
+        reporter: AttendanceUser;
         comment: string | null;
       } | null;
     })[] = shops.map((shop) => {

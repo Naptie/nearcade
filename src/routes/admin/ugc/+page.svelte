@@ -1,7 +1,8 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
   import { invalidateAll } from '$app/navigation';
-  import { resolve } from '$app/paths';
+  import { orpc } from '$lib/api/client';
+  import { isApiError } from '$lib/utils/api-error';
   import type { PageData } from './$types';
   import { adaptiveNewTab, formatDateTime, parseRelativeTime } from '$lib/utils';
   import { SvelteSet } from 'svelte/reactivity';
@@ -112,25 +113,17 @@
   });
 
   const runAction = async (action: string, hashes?: string[]): Promise<number> => {
-    const response = await fetch(resolve('/api/admin/ugc-entries'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action,
+    try {
+      const body = await orpc.admin.ugcEntryAction({
+        action: action as Parameters<typeof orpc.admin.ugcEntryAction>[0]['action'],
         ...(hashes && !selectAllMatching ? { hashes } : { all: true, query: currentQuery() })
-      })
-    });
-    if (!response.ok) {
-      let message = '';
-      try {
-        message = ((await response.json()) as { message?: string }).message ?? '';
-      } catch {
-        // ignore parse failure
-      }
-      throw new Error(message || m.internal_server_error());
+      });
+      return body.affected ?? 0;
+    } catch (error) {
+      throw new Error((isApiError(error) && error.message) || m.internal_server_error(), {
+        cause: error
+      });
     }
-    const body = (await response.json()) as { affected?: number };
-    return body.affected ?? 0;
   };
 
   const dispatch = async (
@@ -196,9 +189,11 @@
   let jobsTotal = $state(0);
 
   const fetchJobs = async (): Promise<JobsData> => {
-    const response = await fetch(resolve('/api/admin/ugc/jobs'));
-    if (!response.ok) throw new Error(m.internal_server_error());
-    return (await response.json()) as JobsData;
+    try {
+      return (await orpc.admin.ugcJobs({})) as JobsData;
+    } catch {
+      throw new Error(m.internal_server_error());
+    }
   };
 
   const openJobs = async () => {

@@ -30,7 +30,11 @@ import {
   stripPostLoginMarker
 } from '$lib/auth/email';
 import { resolveOAuthAccessTokenSession } from '$lib/auth/oauth/verify.server';
-import { resolveRequiredScopes } from '$lib/auth/oauth/scopes';
+import type { OAuthScope } from '$lib/auth/oauth/scopes';
+import { resolveContractScope } from '$lib/api/routes';
+import { errorResponse } from '$lib/api/errors';
+import { RPC_MOUNT } from '$lib/api/paths';
+import { API_TOKEN_PREFIX } from '$lib/api-tokens';
 import { SSC_SECRET, CORS_ALLOWED_ORIGINS } from '$env/static/private';
 import { setRequestCookie } from '$lib/utils/cookie';
 import { lookupIpRegion } from '$lib/endpoints/ip-lookup.server';
@@ -59,25 +63,58 @@ const reportError: HandleServerError = ({ status, error }) => {
   };
 };
 
-const resolveOAuthScopeRequirement = (event: RequestEvent) => {
+/**
+ * How a request's session is resolved.
+ *
+ * - `blocked` — an OAuth token that may not call this path at all (403).
+ * - `oauth`   — the request carries an OAuth access token. `requiredScopes` is
+ *               what the token must hold; `undefined` means "resolve the token
+ *               but check no scope here".
+ * - `default` — whatever better-auth resolves: a session cookie, an API
+ *               token, or nothing at all.
+ */
+type SessionMode =
+  { kind: 'blocked' } | { kind: 'oauth'; requiredScopes?: OAuthScope[] } | { kind: 'default' };
+
+const resolveSessionMode = (event: RequestEvent): SessionMode => {
   const { pathname } = event.url;
   const authHeader = event.request.headers.get('Authorization');
 
   if (!authHeader?.startsWith('Bearer ')) {
-    return undefined;
+    return { kind: 'default' };
   }
 
   const token = authHeader.slice(7);
-  if (token.startsWith('nk_') || token === SSC_SECRET) {
-    return undefined;
+  if (token.startsWith(API_TOKEN_PREFIX) || token === SSC_SECRET) {
+    return { kind: 'default' };
   }
 
   if (!pathname.startsWith(`${base}/api/`) || pathname.startsWith(`${base}/api/auth/`)) {
-    return undefined;
+    return { kind: 'default' };
+  }
+
+  // The typed RPC surface carries the procedure in the URL rather than the HTTP
+  // method the contract declares, so the REST path table cannot resolve it —
+  // and it would return "blocked" for every third-party OAuth caller, because
+  // no contract route is mounted under `/api/_rpc`. The router's own scope
+  // middleware already checks the scope against the procedure actually being
+  // invoked, from the contract metadata, so the hook only has to resolve the
+  // token and let that middleware decide.
+  if (pathname === `${base}${RPC_MOUNT}` || pathname.startsWith(`${base}${RPC_MOUNT}/`)) {
+    return { kind: 'oauth' };
   }
 
   const apiPath = pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
-  return resolveRequiredScopes(apiPath, event.request.method);
+  const policy = resolveContractScope(apiPath, event.request.method);
+
+  if (policy.kind === 'closed') {
+    return { kind: 'blocked' };
+  }
+  if (policy.kind === 'open') {
+    // Reachable by anyone: resolve the token, but demand no scope of it.
+    return { kind: 'oauth' };
+  }
+  return { kind: 'oauth', requiredScopes: [policy.scope] };
 };
 
 // Origins allowed to make credentialed cross-origin API requests, configured at
@@ -298,16 +335,42 @@ const handleLegacyShopPaths: Handle = async ({ event, resolve }) => {
 };
 
 const handleAuth: Handle = async ({ event, resolve }) => {
-  const oauthScopeRequirement = resolveOAuthScopeRequirement(event);
+  const sessionMode = resolveSessionMode(event);
 
-  if (oauthScopeRequirement === null) {
-    error(403, m.access_denied());
+  // A credential failure raised in a `handle` hook is thrown before the oRPC
+  // router runs, so the router's `customErrorResponseBodyEncoder` cannot shape
+  // it and SvelteKit answers with its HTML error page. API callers were
+  // promised the `{ error, message }` envelope, so these two cases have to
+  // leave here as JSON instead of as `error()`. `/api/auth/*` is excluded: that
+  // surface belongs to better-auth and keeps its own responses.
+  const isApiRoute =
+    event.url.pathname.startsWith(`${base}/api/`) &&
+    !event.url.pathname.startsWith(`${base}/api/auth/`);
+
+  let session: App.Locals['session'] | null;
+
+  try {
+    if (sessionMode.kind === 'blocked') {
+      error(403, m.access_denied());
+    }
+
+    if (sessionMode.kind === 'oauth') {
+      session = await resolveOAuthAccessTokenSession(event, sessionMode.requiredScopes);
+    } else {
+      // better-auth widens `session.ipAddress` to `string | null | undefined`,
+      // where `App.Locals['session']` narrows it to `string | null`. The cast
+      // used to happen once, at the `event.locals.session` assignment below;
+      // now that this variable is annotated it has to happen here instead.
+      session = (await auth.api
+        .getSession({ headers: event.request.headers })
+        .catch(() => null)) as App.Locals['session'] | null;
+    }
+  } catch (err) {
+    if (!isApiRoute || !isHttpError(err)) throw err;
+
+    const message = typeof err.body === 'string' ? err.body : err.body?.message;
+    return errorResponse(err.status, message);
   }
-
-  const session =
-    oauthScopeRequirement !== undefined
-      ? await resolveOAuthAccessTokenSession(event, oauthScopeRequirement)
-      : await auth.api.getSession({ headers: event.request.headers }).catch(() => null);
 
   event.locals.session = session as App.Locals['session'];
   event.locals.user = (session?.user as App.Locals['user']) ?? null;

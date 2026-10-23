@@ -12,6 +12,7 @@ const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 export default ts.config(
   includeIgnoreFile(gitignorePath),
   {
+    // Generated output, not source.
     ignores: ['static/**/*.js']
   },
   js.configs.recommended,
@@ -46,6 +47,19 @@ export default ts.config(
     files: ['**/*.cjs'],
     rules: {
       '@typescript-eslint/no-require-imports': 'off'
+    }
+  },
+  {
+    // A declaration file is a type surface, not code anybody writes: the
+    // shapes it spells out come from the schema they were generated from, and
+    // the rules that police code — an empty object type, an explicit `any`, a
+    // binding that only serves as a type — fire on them for that reason
+    // alone.
+    files: ['**/*.d.ts'],
+    rules: {
+      '@typescript-eslint/no-empty-object-type': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off'
     }
   }
 );

@@ -28,6 +28,13 @@ defaults:
   run:
     shell: bash
 
+env:
+  # The site the deployment is published to. A repository variable, so a fork
+  # or a staging deployment can point somewhere else.
+  SITE_URL: ${{ vars.SITE_URL }}
+  # The commit that is being deployed — the identity the live app reports.
+  DEPLOY_SHA: ${{ github.sha }}
+
 jobs:
   build:
     name: Build app
@@ -52,6 +59,18 @@ jobs:
 
       - name: Install dependencies
         run: pnpm i --frozen-lockfile
+
+      # The contract check is the only guard on the API surface: it verifies
+      # that every procedure is routable, that no internal procedure is
+      # published, that each declared OAuth scope is the scope the resolver
+      # hands out, that no two procedures claim the same method and path, that
+      # no legacy handler survived, and that every `operationId` a call site
+      # names exists. It reads only tracked files, so it runs identically here
+      # and on a clean checkout. It was written but never run — a build that
+      # skips it cannot tell a clean migration from one that dropped an
+      # endpoint.
+      - name: Check the API contract
+        run: pnpm api:check
 
       - name: Create build
         run: pnpm build
@@ -110,14 +129,223 @@ jobs:
     name: Publish via webhook
     runs-on: ubuntu-latest
     needs: build
+    timeout-minutes: 25
+    env:
+      DEPLOY_TIMEOUT_SECONDS: 900
     steps:
+      - name: Create the deployment record
+        id: deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          response=$(curl -sS -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/json" \
+            -d "{\"ref\":\"${DEPLOY_SHA}\",\"environment\":\"production\",\"auto_merge\":false,\"required_contexts\":[]}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/deployments")
+
+          deployment_id=$(printf '%s' "$response" | jq -r '.id // empty' 2>/dev/null || true)
+
+          if [ -z "$deployment_id" ]; then
+            echo "::error::could not create the deployment record: ${response}"
+            exit 1
+          fi
+
+          echo "Created the deployment record ${deployment_id}."
+          echo "id=${deployment_id}" >> "$GITHUB_OUTPUT"
+
       - name: Call deployment webhook
         env:
           WEBHOOK_TOKEN: ${{ secrets.WEBHOOK_SECRET }}
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
           RUN_ID: ${{ github.run_id }}
         run: |
-          curl -X POST -H "Content-Type: application/json" \
-          -H "X-Webhook-Token: ${WEBHOOK_TOKEN}" \
-          -d "{\"run_id\":\"${RUN_ID}\",\"source\":\"r2\",\"object_key\":\"nearcade/${RUN_ID}/build.zip\"}" \
-          "${WEBHOOK_URL}"
+          http_code=$(curl -sS --max-time 30 -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Token: ${WEBHOOK_TOKEN}" \
+            -d "{\"run_id\":\"${RUN_ID}\",\"source\":\"r2\",\"object_key\":\"nearcade/${RUN_ID}/build.zip\"}" \
+            -o webhook-response.txt -w '%{http_code}' \
+            "${WEBHOOK_URL}" || echo "000")
+
+          body=$(cat webhook-response.txt 2>/dev/null || true)
+          echo "The deployment webhook answered with ${http_code}: ${body}"
+
+          case "${body}" in
+            *"hook triggered successfully"*)
+              echo "The deployment was triggered."
+              ;;
+            *)
+              echo "::error::the deployment webhook did not accept the request"
+              exit 1
+              ;;
+          esac
+
+      - name: Wait for the deployment verdict
+        id: verdict
+        env:
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          DEPLOYMENT_API_TOKEN: ${{ secrets.DEPLOYMENT_API_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          api="${WEBHOOK_URL%/hooks/*}/deployments/${RUN_ID}"
+          deadline=$(( SECONDS + DEPLOY_TIMEOUT_SECONDS ))
+          attempt=0
+
+          while :; do
+            attempt=$(( attempt + 1 ))
+
+            body=$(curl -fsS --max-time 15 -H "X-Deployment-Token: ${DEPLOYMENT_API_TOKEN}" "${api}" 2>/dev/null || true)
+            status=$(printf '%s' "$body" | jq -r '.status // empty' 2>/dev/null || true)
+            reason=$(printf '%s' "$body" | jq -r '.reason // empty' 2>/dev/null || true)
+            warning=$(printf '%s' "$body" | jq -r '.warning // empty' 2>/dev/null || true)
+
+            case "${status}" in
+              succeeded)
+                echo "The server published the deployment (attempt ${attempt})."
+                if [ -n "$warning" ]; then
+                  echo "::warning::${warning}"
+                fi
+                echo "status=success" >> "$GITHUB_OUTPUT"
+                echo "description=Deployment published" >> "$GITHUB_OUTPUT"
+                echo "reason=" >> "$GITHUB_OUTPUT"
+                exit 0
+                ;;
+              failed)
+                echo "::error::the deployment failed on the server — ${reason:-no reason given}"
+                echo "status=error" >> "$GITHUB_OUTPUT"
+                echo "description=Deployment rolled back" >> "$GITHUB_OUTPUT"
+                echo "reason=${reason}" >> "$GITHUB_OUTPUT"
+                exit 0
+                ;;
+            esac
+
+            # The check comes before the deadline so that the whole budget is
+            # spent polling and the last attempt is not skipped.
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::the server did not report an outcome within ${DEPLOY_TIMEOUT_SECONDS}s"
+              echo "status=error" >> "$GITHUB_OUTPUT"
+              echo "description=The server did not report an outcome" >> "$GITHUB_OUTPUT"
+              echo "reason=The deployment service did not report an outcome in time" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "::notice::attempt ${attempt}: the deployment is '${status:-unknown}', waiting..."
+            sleep 10
+          done
+
+      - name: Record the deployment status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOYMENT_ID: ${{ steps.deployment.outputs.id }}
+          STATUS: ${{ steps.verdict.outputs.status }}
+          DESCRIPTION: ${{ steps.verdict.outputs.description }}
+          REASON: ${{ steps.verdict.outputs.reason }}
+        run: |
+          description="${DESCRIPTION}"
+          if [ -n "$REASON" ]; then
+            description="${DESCRIPTION}: ${REASON}"
+          fi
+
+          payload=$(jq -n --arg state "$STATUS" --arg description "$description" '{
+            state: $state,
+            description: $description,
+            log_url: "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          }')
+
+          http_code=$(curl -sS -o status-response.json -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/json" \
+            --data-binary "${payload}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses")
+
+          cat status-response.json
+
+          if [ "$http_code" != "201" ] && [ "$http_code" != "200" ]; then
+            echo "::error::could not record the deployment status (HTTP ${http_code})"
+            exit 1
+          fi
+
+          if [ "$STATUS" != "success" ]; then
+            echo "::error::${description}"
+            exit 1
+          fi
+
+          echo "Deployment ${DEPLOY_SHA} is live."
+
+  sync-apifox:
+    name: Sync the live API document to Apifox
+    runs-on: ubuntu-latest
+    needs: webhook-publish
+    timeout-minutes: 10
+    concurrency:
+      group: apifox-sync-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      APIFOX_ACCESS_TOKEN: ${{ secrets.APIFOX_ACCESS_TOKEN }}
+      APIFOX_PROJECT_ID: ${{ vars.APIFOX_PROJECT_ID }}
+      APIFOX_MODULE_ID: ${{ vars.APIFOX_MODULE_ID }}
+    steps:
+      - name: Read the live OpenAPI document
+        run: |
+          for attempt in $(seq 1 6); do
+            rm -f spec.json
+            curl -fsS --max-time 60 "${SITE_URL}/openapi.json?at=$(date +%s)" -o spec.json 2>/dev/null || true
+
+            if [ -s spec.json ] && jq -e '.openapi' spec.json >/dev/null 2>&1; then
+              echo "Read the live document (attempt ${attempt})."
+              exit 0
+            fi
+
+            echo "::notice::attempt ${attempt}: the document could not be read, retrying..."
+            sleep 10
+          done
+
+          echo "::error::could not read the live document"
+          exit 1
+
+      - name: Import the document into Apifox
+        run: |
+          jq -n --rawfile spec spec.json --arg module_id "${APIFOX_MODULE_ID}" '{
+            input: $spec,
+            options: ({
+              endpointOverwriteBehavior: "OVERWRITE_EXISTING",
+              schemaOverwriteBehavior: "OVERWRITE_EXISTING",
+              prependBasePath: false,
+              deleteUnmatchedResources: true
+            } + (if $module_id != "" then { moduleId: ($module_id | tonumber) } else {} end))
+          }' > payload.json
+
+          http_code=$(curl -sS -o response.json -w '%{http_code}' \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-Apifox-Api-Version: 2024-03-28" \
+            -H "Authorization: Bearer ${APIFOX_ACCESS_TOKEN}" \
+            --data-binary @payload.json \
+            "https://api.apifox.com/v1/projects/${APIFOX_PROJECT_ID}/import-openapi")
+
+          cat response.json
+
+          if [ "${http_code}" != "200" ]; then
+            echo "::error::Apifox import request failed with HTTP ${http_code}"
+            exit 1
+          fi
+
+          ok=$(jq -e '
+            (.data.errors | length) == 0 and
+            ([.data.counters.endpointFailed, .data.counters.schemaFailed,
+              .data.counters.endpointFolderFailed, .data.counters.schemaFolderFailed] | add) == 0
+          ' response.json >/dev/null && echo yes || echo no)
+
+          if [ "${ok}" != "yes" ]; then
+            echo "::error::Apifox import reported errors"
+            exit 1
+          fi
+
+          jq -r '.data.counters |
+            "Endpoints created: \(.endpointCreated), updated: \(.endpointUpdated), ignored: \(.endpointIgnored)\n" +
+            "Data models created: \(.schemaCreated), updated: \(.schemaUpdated), ignored: \(.schemaIgnored)"' \
+            response.json >> "${GITHUB_STEP_SUMMARY}"

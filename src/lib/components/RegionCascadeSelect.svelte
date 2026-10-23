@@ -1,8 +1,8 @@
 <script lang="ts">
   /* eslint-disable no-useless-assignment */
-  import { base } from '$app/paths';
   import { getLocale } from '$lib/paraglide/runtime';
   import { m } from '$lib/paraglide/messages';
+  import { orpc } from '$lib/api/client';
 
   // ---- Types ----
 
@@ -49,8 +49,6 @@
 
   // ---- State ----
 
-  const REGIONS_ENDPOINT = `${base}/api/regions`;
-
   let regionLevels = $state<RegionLevel[]>([]);
   let regionPrefilled = $state(false);
   // Invalidate in-flight requests whenever a newer selection or reset wins.
@@ -84,11 +82,10 @@
   // ---- Fetching ----
 
   async function fetchRegionOptions(parentId: string | null): Promise<RegionOption[]> {
-    const response = await fetch(
-      `${REGIONS_ENDPOINT}?locale=${getLocale()}${parentId ? `&parentId=${encodeURIComponent(parentId)}` : ''}`
-    );
-    if (!response.ok) throw new Error('Failed to load region options');
-    return (await response.json()) as RegionOption[];
+    return await orpc.regions.list({
+      parentId: parentId ?? undefined,
+      locale: getLocale()
+    });
   }
 
   // Load top-level regions (countries) on mount.
@@ -131,16 +128,11 @@
 
   /** Re-resolve the cascade levels from a full region-ID chain. */
   async function applyRegionIds(ids: string[]) {
+    // Upstream added the version guard; the stash replaced the hand-written
+    // fetch with the typed procedure. Both belong here: the guard discards a
+    // resolution that a newer selection has already superseded.
     const version = ++selectionVersion;
-    const response = await fetch(`${REGIONS_ENDPOINT}/${ids.join('/')}?locale=${getLocale()}`);
-    if (!response.ok) throw new Error('Failed to resolve region hierarchy');
-
-    const data = (await response.json()) as {
-      levels: {
-        region: { id: string; label: string; level: string; hasChildren: boolean };
-        options: RegionOption[];
-      }[];
-    };
+    const data = await orpc.regions.hierarchy({ ids: ids.join('/'), locale: getLocale() });
 
     const levels: RegionLevel[] = data.levels.map((l) => ({
       options: l.options,

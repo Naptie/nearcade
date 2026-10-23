@@ -14,10 +14,10 @@
     getUserTypeLabel,
     userRouteId
   } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { adminUserDocumentSchema } from '$lib/api/contracts/admin';
+  import type { z } from 'zod';
   import { buildPageHref, parsePageParam, readParam } from '$lib/admin/list-state';
-  import type { User } from '$lib/auth/types';
-  import type { Club, ClubMember, University, UniversityMember } from '$lib/types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import AdminPage from '$lib/components/admin/AdminPage.svelte';
   import AdminStats from '$lib/components/admin/AdminStats.svelte';
@@ -58,14 +58,17 @@
     ].map((option) => ({ value: option, label: getUserTypeLabel(option) }))
   ];
 
-  let users = $state<
-    Array<
-      User & {
-        universitiesCount: number;
-        clubsCount: number;
-      }
-    >
-  >([]);
+  /**
+   * A user row of the admin list.
+   *
+   * Derived from the contract's own document schema rather than mined out of
+   * the client function's return type — the schema is the source the response
+   * is validated against, so the row type cannot describe a shape the API
+   * does not return.
+   */
+  type AdminUser = z.infer<typeof adminUserDocumentSchema>;
+
+  let users = $state<AdminUser[]>([]);
   let hasMore = $state(false);
   let isLoadingUsers = $state(false);
   let copiedId = $state<string | null>(null);
@@ -92,19 +95,15 @@
 
     isLoadingUsers = true;
     try {
-      const parts = [`detailed=true`, `limit=20`, `page=${targetPage}`];
-      if (search.trim()) {
-        parts.push(`q=${encodeURIComponent(search.trim())}`);
-      }
-      if (userType && userType !== 'all') {
-        parts.push(`userType=${encodeURIComponent(userType)}`);
-      }
-      const response = await fetch(fromPath('/api/admin/users/search') + `?${parts.join('&')}`);
-      if (response.ok) {
-        const result = await response.json();
-        users = result.users;
-        hasMore = result.hasMore;
-      }
+      const result = await orpc.admin.searchUsers({
+        detailed: 'true',
+        limit: 20,
+        page: targetPage,
+        ...(search.trim() ? { q: search.trim() } : {}),
+        ...(userType && userType !== 'all' ? { userType } : {})
+      });
+      users = result.users;
+      hasMore = result.hasMore ?? false;
     } catch {
       users = [];
       hasMore = false;
@@ -123,10 +122,22 @@
 
   // Modal state for user type editing
   let editingUser: { id?: string; name?: string | null; userType?: string } | null = $state(null);
+  /**
+   * The membership documents the admin API hands back.
+   *
+   * The contract documents the identity fields; the verification fields below
+   * are part of the stored membership document as well.
+   */
+  type AdminUserDetail = Awaited<ReturnType<typeof orpc.admin.userDetail>>;
+  type AdminUniversityMembership = AdminUserDetail['universityMemberships'][number] & {
+    verificationEmail?: string;
+    verifiedAt?: Date | string | null;
+  };
+  type AdminClubMembership = AdminUserDetail['clubMemberships'][number];
   let userDetails: {
-    user?: User;
-    universityMemberships?: (UniversityMember & { university?: University })[];
-    clubMemberships?: (ClubMember & { club?: Club })[];
+    user: AdminUserDetail['user'];
+    universityMemberships: AdminUniversityMembership[];
+    clubMemberships: AdminClubMembership[];
   } | null = $state(null);
   let loadingUserDetails = $state(false);
   let newUserType = $state('');
@@ -145,7 +156,7 @@
     text: string;
   } | null>(null);
 
-  const memberTypeLabels = {
+  const memberTypeLabels: Record<string, string> = {
     member: m.admin_member_type_member(),
     student: m.admin_member_type_student(),
     moderator: m.admin_member_type_moderator(),
@@ -175,13 +186,7 @@
 
     loadingUserDetails = true;
     try {
-      const response = await fetch(fromPath(`/api/admin/users/${userId}`));
-      if (response.ok) {
-        userDetails = await response.json();
-      } else {
-        console.error('Failed to fetch user details');
-        userDetails = null;
-      }
+      userDetails = await orpc.admin.userDetail({ id: userId });
     } catch (error) {
       console.error('Error fetching user details:', error);
       userDetails = null;
@@ -212,16 +217,11 @@
     }
     isSearchingOrganizations = true;
     try {
-      const response = await fetch(
-        fromPath('/api/admin/organizations/search') +
-          `?type=${encodeURIComponent(selectedOrganizationType)}&q=${encodeURIComponent(query.trim())}`
-      );
-      if (response.ok) {
-        const result = await response.json();
-        organizationResults = result.organizations || [];
-      } else {
-        organizationResults = [];
-      }
+      const result = await orpc.admin.searchOrganizations({
+        type: selectedOrganizationType,
+        q: query.trim()
+      });
+      organizationResults = result.organizations || [];
     } catch {
       organizationResults = [];
     } finally {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import {
   bilingual,
   dateTimeSchema,
-  objectIdSchema,
+  mongoIdSchema,
   shopIdParamSchema,
   userIdSchema,
   userSummarySchema
@@ -23,10 +23,7 @@ export const imageStorageProviderSchema = z
 
 export const imageAssetSchema = z
   .object({
-    _id: z
-      .union([z.string(), objectIdSchema])
-      .optional()
-      .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
+    _id: mongoIdSchema,
     id: imageAssetIdSchema,
     shopId: shopIdParamSchema.shape.id
       .optional()
@@ -105,33 +102,45 @@ export const imageDraftOrganizationTypeSchema = z
   .enum(['university', 'club'])
   .describe(bilingual('草稿所属组织类型。', 'Organization type for a draft image.'));
 
+/**
+ * The owner and draft references an image may carry.
+ *
+ * Exported as a shape because two schemas describe the same form fields: the
+ * one the upload handler re-parses after merging in the query-string
+ * fallbacks, and the one the contract publishes. Sharing the definitions is
+ * what keeps the published contract from advertising a wider vocabulary than
+ * the handler accepts — the contract used to declare `draftKind` and
+ * `organizationType` as arbitrary strings.
+ */
+export const imageOwnerFieldsShape = {
+  shopId: optionalPositiveIntegerInput(bilingual('关联店铺 ID。', 'Associated shop ID.')),
+  commentId: optionalTrimmedString(bilingual('关联评论 ID。', 'Associated comment ID.')),
+  postId: optionalTrimmedString(bilingual('关联帖子 ID。', 'Associated post ID.')),
+  announcementId: optionalTrimmedString(bilingual('关联公告 ID。', 'Associated announcement ID.')),
+  deleteRequestId: optionalTrimmedString(
+    bilingual('关联删除申请 ID。', 'Associated delete request ID.')
+  ),
+  draftKind: z
+    .union([z.string(), z.null(), z.undefined()])
+    .transform((value) => value?.trim() || undefined)
+    .pipe(z.union([imageDraftKindSchema, z.undefined()]))
+    .describe(bilingual('草稿图片用途。', 'Draft image purpose.')),
+  organizationType: z
+    .union([z.string(), z.null(), z.undefined()])
+    .transform((value) => value?.trim() || undefined)
+    .pipe(z.union([imageDraftOrganizationTypeSchema, z.undefined()]))
+    .describe(bilingual('草稿所属组织类型。', 'Organization type for a draft image.')),
+  organizationId: optionalTrimmedString(
+    bilingual('草稿所属组织 ID。', 'Organization ID for a draft image.')
+  )
+};
+
 export const imageUploadFormDataSchema = z
   .object({
     file: z
       .instanceof(File)
       .refine((file) => file.type.startsWith('image/'), 'Only image files are allowed'),
-    shopId: optionalPositiveIntegerInput(bilingual('关联店铺 ID。', 'Associated shop ID.')),
-    commentId: optionalTrimmedString(bilingual('关联评论 ID。', 'Associated comment ID.')),
-    postId: optionalTrimmedString(bilingual('关联帖子 ID。', 'Associated post ID.')),
-    announcementId: optionalTrimmedString(
-      bilingual('关联公告 ID。', 'Associated announcement ID.')
-    ),
-    deleteRequestId: optionalTrimmedString(
-      bilingual('关联删除申请 ID。', 'Associated delete request ID.')
-    ),
-    draftKind: z
-      .union([z.string(), z.null(), z.undefined()])
-      .transform((value) => value?.trim() || undefined)
-      .pipe(z.union([imageDraftKindSchema, z.undefined()]))
-      .describe(bilingual('草稿图片用途。', 'Draft image purpose.')),
-    organizationType: z
-      .union([z.string(), z.null(), z.undefined()])
-      .transform((value) => value?.trim() || undefined)
-      .pipe(z.union([imageDraftOrganizationTypeSchema, z.undefined()]))
-      .describe(bilingual('草稿所属组织类型。', 'Organization type for a draft image.')),
-    organizationId: optionalTrimmedString(
-      bilingual('草稿所属组织 ID。', 'Organization ID for a draft image.')
-    )
+    ...imageOwnerFieldsShape
   })
   .superRefine((value, ctx) => {
     const ownerCount = [

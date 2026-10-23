@@ -3,13 +3,12 @@
   import { m } from '$lib/paraglide/messages';
   import { formatRegionLabel, adaptiveNewTab } from '$lib/utils';
   import InlineAlert from '$lib/components/InlineAlert.svelte';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import { onMount, onDestroy } from 'svelte';
   import type {
     UniversityRankingData,
     SortCriteria,
     RankingRadiusFilter,
-    UniversityRankingResponse,
     RankingsTableItem
   } from '$lib/types';
   import { PAGINATION, POI_SORT_CRITERIA } from '$lib/constants';
@@ -54,23 +53,16 @@
     if (!isLoadingMore && hasMore && nextCursor) {
       isLoadingMore = true;
       try {
-        const apiUrl = new URL(fromPath('/api/rankings/campus'), window.location.origin);
-        apiUrl.searchParams.set('sortBy', sortBy);
-        apiUrl.searchParams.set('radius', radiusFilter.toString());
-        apiUrl.searchParams.set('after', nextCursor);
-        apiUrl.searchParams.set('limit', PAGINATION.RANKING_PAGE_SIZE.toString());
-
-        const response = await fetch(apiUrl.toString());
-
-        if (!response.ok) {
-          throw new Error(`Failed to load more results: ${response.status}`);
-        }
-
-        const result = (await response.json()) as UniversityRankingResponse;
+        const result = await orpc.rankings.campus({
+          sortBy,
+          radius: radiusFilter.toString(),
+          after: nextCursor,
+          limit: PAGINATION.RANKING_PAGE_SIZE.toString()
+        });
 
         displayedRankings = [...displayedRankings, ...result.data];
         hasMore = result.hasMore;
-        nextCursor = result.nextCursor;
+        nextCursor = result.nextCursor ?? null;
       } catch (error) {
         console.error('Error loading more results:', error);
       } finally {

@@ -2,12 +2,11 @@ import type { PageServerLoad } from './$types';
 import mongo from '$lib/db/index.server';
 import {
   type Club,
-  type Post,
   type PostWithAuthor,
   type CommentWithAuthorAndVote,
-  type PostVote,
   PostReadability
 } from '$lib/types';
+import type { Post, PostVote } from '$lib/types/index.server';
 import { error } from '@sveltejs/kit';
 import { m } from '$lib/paraglide/messages';
 import {

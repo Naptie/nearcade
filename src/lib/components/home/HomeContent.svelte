@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import { METRO_RANKING_RADIUS_OPTIONS, RANKING_RADIUS_OPTIONS } from '$lib/constants';
   import MiniLeaderboard from '$lib/components/home/MiniLeaderboard.svelte';
   import RecentShopChangelog from '$lib/components/home/RecentShopChangelog.svelte';
@@ -175,9 +175,7 @@
     isLoading = true;
     error = null;
     try {
-      const response = await fetch(fromPath('/api/home/stats'));
-      if (!response.ok) throw new Error(`Failed to load stats: ${response.status}`);
-      stats = (await response.json()) as HomeStatsResponse;
+      stats = await orpc.home.stats({});
     } catch (err) {
       console.error('Error loading home stats:', err);
       error = err instanceof Error ? err.message : 'Failed to load stats';

@@ -158,6 +158,22 @@ export const locationSchema = z.object({
     )
 });
 
+/**
+ * The two coordinate systems the public geo surface speaks.
+ *
+ * Exported because the enum was written out four times — in `contracts/geo.ts`
+ * (twice), in `contracts/regions.ts`, and as a hand-written string union in the
+ * geo implementation — with nothing keeping them in step. A new datum has to
+ * become callable everywhere at once.
+ */
+export const COORDINATE_SYSTEMS = ['WGS84', 'GCJ02'] as const;
+
+export const coordinateSystemSchema = z
+  .enum(COORDINATE_SYSTEMS)
+  .describe(bilingual('坐标系。', 'Coordinate system.'));
+
+export type CoordinateSystem = (typeof COORDINATE_SYSTEMS)[number];
+
 export const successResponseSchema = z.object({
   success: z.boolean().describe(bilingual('是否成功。', 'Whether the operation succeeded.'))
 });
@@ -169,7 +185,15 @@ export const errorResponseSchema = z.object({
 
 export const userIdSchema = z.string().describe(bilingual('用户 ID。', 'User ID.'));
 
-const NOTIFICATION_TYPES = [
+/**
+ * The notification kinds this API knows about.
+ *
+ * Exported because it was spelled out three times — here, in
+ * `contracts/notifications.ts` and as a union in `types/index.server.ts` — with
+ * nothing keeping the three in step. The array is the source; each schema keeps
+ * its own `.describe()`.
+ */
+export const NOTIFICATION_TYPES = [
   'COMMENTS',
   'REPLIES',
   'POST_VOTES',
@@ -188,6 +212,28 @@ export const objectIdSchema = z
   )
   .describe(bilingual('MongoDB ObjectId。', 'MongoDB ObjectId.'))
   .meta({ override: { type: 'string' } });
+
+/**
+ * The `_id` of a stored MongoDB document, as it appears in a response.
+ *
+ * The legacy handlers returned the raw documents, so the id arrives either as
+ * the hex string or as the `ObjectId` itself — and a document that has not been
+ * persisted yet has none at all.
+ */
+export const mongoIdSchema = z
+  .union([z.string(), objectIdSchema])
+  .optional()
+  .describe(bilingual('MongoDB ID。', 'MongoDB ID.'));
+
+/**
+ * The single file of a multipart upload body.
+ *
+ * oRPC decodes the multipart body into the input before the handler runs, so
+ * the handler receives the `File` directly. `.describe()` clones the schema
+ * rather than mutating it, so a call site may add its own description without
+ * affecting the other upload endpoints.
+ */
+export const fileUploadSchema = z.file();
 
 export const dateTimeSchema = (description: string) =>
   z

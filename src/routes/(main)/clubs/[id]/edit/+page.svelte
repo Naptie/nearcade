@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
   import { goto, invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import { apiUrl } from '$lib/api/urls';
   import { m } from '$lib/paraglide/messages';
   import { PostReadability, PostWritability } from '$lib/types';
   import { pageTitle } from '$lib/utils';
@@ -337,7 +338,7 @@
 
 <UploadModal
   bind:isOpen={isAvatarUploadOpen}
-  uploadUrl="/api/clubs/{data.club.id}/avatar"
+  uploadUrl={apiUrl('postClubsByIdAvatar', { id: data.club.id })}
   title={m.upload_avatar()}
   confirmLabel={m.upload_avatar()}
   onSuccess={(result) => {

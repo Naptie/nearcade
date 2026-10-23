@@ -6,22 +6,19 @@
   import { onMount } from 'svelte';
   import UserAvatar from './UserAvatar.svelte';
   import type { GAME_TITLES } from '$lib/constants';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import type { attendanceHistoryEntrySchema } from '$lib/schemas/shops';
+  import type { z } from 'zod';
 
-  interface AttendanceReport {
-    _id: string;
-    shopId: number;
-    games: { gameId: number; name: string; version: string; currentAttendances: number }[];
-    comment: string | null;
-    reportedBy: string;
-    reportedAt: string;
-    reporter?: {
-      id: string;
-      name: string | null;
-      displayName?: string | null;
-      image: string | null;
-    };
-  }
+  /**
+   * One attendance report, exactly as `GET /api/shops/{id}/history` returns it.
+   *
+   * Derived from the contract's schema rather than hand-written: the previous
+   * local interface had drifted from it (it marked `reporter` optional and
+   * typed `comment` as `string | null`), so the component and the API could
+   * disagree about the same response.
+   */
+  type AttendanceReport = z.infer<typeof attendanceHistoryEntrySchema>;
 
   let {
     shopId,
@@ -39,21 +36,13 @@
   const fetchReports = async (pageNum: number) => {
     isLoading = true;
     try {
-      const response = await fetch(
-        fromPath(`/api/shops/${shopId}/history?page=${pageNum}&limit=5`)
-      );
-      if (response.ok) {
-        const result = (await response.json()) as {
-          data: AttendanceReport[];
-          pagination: { hasMore: boolean };
-        };
-        if (pageNum === 1) {
-          reports = result.data;
-        } else {
-          reports = [...reports, ...result.data];
-        }
-        hasMore = result.pagination.hasMore;
+      const result = await orpc.shops.history({ id: shopId, page: pageNum, limit: 5 });
+      if (pageNum === 1) {
+        reports = result.data;
+      } else {
+        reports = [...reports, ...result.data];
       }
+      hasMore = result.pagination.hasMore;
     } catch (err) {
       console.error('Failed to fetch attendance reports:', err);
     } finally {
