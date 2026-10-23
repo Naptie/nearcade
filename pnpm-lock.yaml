@@ -367,8 +367,8 @@ importers:
         specifier: ^5.2.10
         version: 5.2.10
       '@fontsource-variable/sora':
-        specifier: ^5.2.8
-        version: 5.2.8
+        specifier: ^5.3.0
+        version: 5.3.0
       '@fontsource/sora':
         specifier: ^5.3.0
         version: 5.3.0
@@ -1809,8 +1809,8 @@ packages:
   '@fontsource-variable/noto-sans-sc@5.2.10':
     resolution: {integrity: sha512-zdk10i5HrDQTXI7ldD61zToX1fsgig8vDTsu7zB48SXOitWfuX0e5viZAwnkHuhwh096PU6X6i1AyAsbBCISpA==}
 
-  '@fontsource-variable/sora@5.2.8':
-    resolution: {integrity: sha512-sP+ILTfi5r3cqmMBntI4ooQNxFI+LyHyD5hcPbWwwL4uh4kKFAkOz0w2veCXjz18fKRdva6OG0dY+5yQ02f30w==}
+  '@fontsource-variable/sora@5.3.0':
+    resolution: {integrity: sha512-h8kHta4Z8SkfUGeI82TUy1n3rbrKpBRGwuk4t4qCwto5oEHxlbOFD2yGP+Df5fbmTXwKGn+o667vYp0E4K8Whw==}
 
   '@fontsource/sora@5.3.0':
     resolution: {integrity: sha512-SqW3OpKxxfKvxDLPlbdrWf2KooPfbd+W3jaYn483o+Y/JrmU87vjFPNptDqwP428c3vY+gnranLhjcbRaXB0Jw==}
@@ -8506,7 +8506,7 @@ snapshots:
 
   '@fontsource-variable/noto-sans-sc@5.2.10': {}
 
-  '@fontsource-variable/sora@5.2.8': {}
+  '@fontsource-variable/sora@5.3.0': {}
 
   '@fontsource/sora@5.3.0': {}
 
