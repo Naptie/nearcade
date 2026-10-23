@@ -65,10 +65,14 @@ jobs:
       # published, that each declared OAuth scope is the scope the resolver
       # hands out, that no two procedures claim the same method and path, that
       # no legacy handler survived, and that every `operationId` a call site
-      # names exists. It reads only tracked files, so it runs identically here
-      # and on a clean checkout. It was written but never run — a build that
-      # skips it cannot tell a clean migration from one that dropped an
-      # endpoint.
+      # names exists.
+      #
+      # It imports the contract modules, which reach `$lib/paraglide/messages`
+      # — generated, not committed. The build regenerates the catalog with the
+      # real strategy list; this step only has to make it resolvable.
+      - name: Generate the i18n catalog
+        run: pnpm exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide
+
       - name: Check the API contract
         run: pnpm api:check
 
