@@ -29,6 +29,7 @@
   import { viewport } from '$lib/utils/viewport.svelte';
   import { isTouchscreen, getCachedLocation } from '$lib/utils';
   import { getIpOrigin } from '$lib/utils/index.client';
+  import { fromPath } from '$lib/utils/scoped';
   import type { GlobeShop } from '$lib/types';
   import {
     GlobeVisualsLayer,
@@ -37,12 +38,7 @@
   } from '$lib/utils/globe/visuals';
   import { FpsMonitor, runGlobeBenchmark, type BenchmarkResult } from '$lib/utils/globe/benchmark';
   import { type ThemeMode } from '$lib/utils/theme';
-  import {
-    bingTransformRequest,
-    fixBingStyleUrls,
-    getBingStyleUrl,
-    prefetchBingTiles
-  } from '$lib/utils/globe/bing';
+  import { createMapLibreAdapter, type UnifiedGeoAdapter } from 'unified-geo-client/maplibre';
 
   maplibregl.setWorkerUrl(workerUrl);
 
@@ -723,12 +719,57 @@
     });
   });
 
+  /**
+   * Warm the browser cache with the basemap tiles around a camera target so
+   * the flyTo arrives on an already-drawn map. Reads the style's tile URL
+   * templates generically — any XYZ source the style declares.
+   */
+  const prefetchStyleTiles = (
+    instance: maplibregl.Map,
+    center: [number, number],
+    zoom: number
+  ) => {
+    if (!instance.isStyleLoaded()) return;
+    const style = instance.getStyle();
+    const z = Math.floor(zoom);
+    const scale = 1 << z;
+    const cx = Math.floor(((center[0] + 180) / 360) * scale);
+    const cy = Math.floor(
+      ((1 -
+        Math.log(Math.tan((center[1] * Math.PI) / 180) +
+          1 / Math.cos((center[1] * Math.PI) / 180)) /
+          Math.PI) /
+        2) *
+        scale
+    );
+    for (const source of Object.values(style.sources)) {
+      const tiles = (source as { tiles?: string[] }).tiles;
+      if (!tiles?.length) continue;
+      const template = tiles[0]!;
+      if (!template.includes('{z}')) continue;
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const x = (((cx + dx) % scale) + scale) % scale;
+          const y = Math.max(0, Math.min(scale - 1, cy + dy));
+          const url = template
+            .replaceAll('{z}', String(z))
+            .replaceAll('{x}', String(x))
+            .replaceAll('{y}', String(y));
+          // Fire-and-forget: warm the browser cache before the camera arrives.
+          void fetch(url, { method: 'GET', priority: 'low' } as RequestInit).catch(
+            () => undefined
+          );
+        }
+      }
+    }
+  };
+
   const flyToWithAnticipatedBasemap = (
     instance: maplibregl.Map,
     options: maplibregl.FlyToOptions & { center: maplibregl.LngLatLike; zoom: number }
   ) => {
     const center = maplibregl.LngLat.convert(options.center);
-    prefetchBingTiles(instance, [center.lng, center.lat], options.zoom, { radius: 1 });
+    prefetchStyleTiles(instance, [center.lng, center.lat], options.zoom);
     instance.flyTo(options);
   };
 
@@ -1112,7 +1153,7 @@
     return layerNames;
   };
 
-  const getBingTextureOverlayAnchor = (instance: maplibregl.Map) => {
+  const getStyleOverlayAnchor = (instance: maplibregl.Map) => {
     const layers = instance.getStyle().layers;
     const lastFillIndex = layers.reduce(
       (lastIndex, layer, index) => (layer.type === 'fill' ? index : lastIndex),
@@ -1120,16 +1161,16 @@
     );
     const overlayLayers = layers.slice(lastFillIndex + 1);
 
-    // Bing's JK raster is a transparent label overlay. It follows the late
-    // fill layers in both bundled styles, so it is a stable place to put the
-    // globe textures above every Bing fill while keeping labels on top.
+    // The globe style variant keeps only the label raster overlays after the
+    // fill layers, so the first raster layer is a stable place to put the
+    // globe textures above every basemap fill while keeping labels on top.
     return (
-      overlayLayers.find((layer) => layer.type === 'raster' && layer.source === 'jk')?.id ??
+      overlayLayers.find((layer) => layer.type === 'raster')?.id ??
       overlayLayers.find((layer) => layer.type === 'symbol')?.id
     );
   };
 
-  const getBingBoundaryLayers = (instance: maplibregl.Map) =>
+  const getBoundaryLayers = (instance: maplibregl.Map) =>
     instance
       .getStyle()
       .layers.filter(
@@ -1143,8 +1184,9 @@
   const syncGlobeTextureLayerOrder = (instance: maplibregl.Map) => {
     // MapLibre omits custom layers from getStyle().layers, so their positions
     // cannot be checked there. Reorder them directly after setStyle; then put
-    // administrative boundaries back above the textures and below Bing labels.
-    const beforeId = getBingTextureOverlayAnchor(instance);
+    // administrative boundaries back above the textures and below basemap
+    // labels.
+    const beforeId = getStyleOverlayAnchor(instance);
     if (!beforeId) return;
 
     for (const layerId of ['globe-daymap', 'globe-visuals']) {
@@ -1152,7 +1194,7 @@
       instance.moveLayer(layerId, beforeId);
     }
 
-    for (const layer of getBingBoundaryLayers(instance)) {
+    for (const layer of getBoundaryLayers(instance)) {
       instance.moveLayer(layer.id, beforeId);
     }
   };
@@ -1174,11 +1216,11 @@
     const enhancementNames = enabledLayerNames.filter((n) => n !== 'dayMap');
     let didAddTextureLayer = false;
 
-    // Place custom surfaces above Bing's land and ocean fills, but below its
-    // administrative boundaries and labels. The Bing style emits water fills
-    // after some unrelated vector lines, so a generic first-line anchor would
-    // leave the low-zoom ocean covering the day map.
-    const textureOverlayAnchor = getBingTextureOverlayAnchor(instance);
+    // Place custom surfaces above the basemap's land and ocean fills, but
+    // below its administrative boundaries and labels. The style emits water
+    // fills after some unrelated vector lines, so a generic first-line anchor
+    // would leave the low-zoom ocean covering the day map.
+    const textureOverlayAnchor = getStyleOverlayAnchor(instance);
 
     if (dayMapEnabled && !instance.getLayer('globe-daymap')) {
       dayMapLayer = new GlobeVisualsLayer(VISUAL_TEXTURE_URLS.low, {
@@ -1201,7 +1243,7 @@
     }
 
     // Keep the remaining visual enhancements in the same layer band as the
-    // day map, beneath Bing's boundaries and labels.
+    // day map, beneath the basemap's boundaries and labels.
     if (enhancementNames.length === 0) {
       if (instance.getLayer('globe-visuals')) {
         instance.removeLayer('globe-visuals');
@@ -1546,22 +1588,45 @@
     theme: 'light'
   };
 
-  const reloadBingStyle = async (locale: string, theme: ThemeMode) => {
+  // The globe renders the whole earth, so its style is selected once (the
+  // location service returns the same global profile for any point) and the
+  // adapter's request rewrites are reused across setStyle reloads.
+  let styleAdapter: UnifiedGeoAdapter | null = null;
+
+  const fetchGlobeStyle = async (
+    locale: string,
+    theme: ThemeMode,
+    center: [number, number]
+  ): Promise<maplibregl.StyleSpecification> => {
+    const response = await fetch(
+      fromPath(
+        `/api/geo/map-style?longitude=${center[0]}&latitude=${center[1]}&theme=${theme}&locale=${locale}&scope=global`
+      )
+    );
+    if (!response.ok) {
+      throw new Error(`Map style request failed: ${response.status}`);
+    }
+    const { profile, style: servedStyle } = (await response.json()) as {
+      profile: Record<string, unknown>;
+      style: unknown;
+    };
+    const adapter = createMapLibreAdapter(profile as never, {
+      localFonts: { stacks: ['Sora', 'Noto'], baseUrl: fromPath('/') }
+    });
+    adapter.registerProtocols();
+    styleAdapter = adapter;
+    return (await adapter.loadStyle(servedStyle)) as unknown as maplibregl.StyleSpecification;
+  };
+
+  const reloadMapStyle = async (locale: string, theme: ThemeMode) => {
     const instance = map;
     if (!instance || isMapStyleLoading) return;
     if (lastAppliedStyle.locale === locale && lastAppliedStyle.theme === theme) return;
 
     isMapStyleLoading = true;
     try {
-      const styleUrl = getBingStyleUrl(locale, theme);
-      const response = await fetch(styleUrl);
-      if (!response.ok) {
-        console.warn(`Failed to load Bing style ${styleUrl}: ${response.status}`);
-        return;
-      }
-      const style = fixBingStyleUrls((await response.json()) as maplibregl.StyleSpecification);
-      // style.glyphs = `${base}/fonts/{fontstack}/{range}.pbf`;
       const center = instance.getCenter();
+      const style = await fetchGlobeStyle(locale, theme, [center.lng, center.lat]);
       const zoom = instance.getZoom();
       const pitch = instance.getPitch();
       const bearing = instance.getBearing();
@@ -1571,6 +1636,8 @@
         instance.jumpTo({ center, zoom, pitch, bearing });
         instance.setProjection({ type: 'globe' });
       });
+    } catch (cause) {
+      console.warn('Failed to reload the map style:', cause);
     } finally {
       isMapStyleLoading = false;
     }
@@ -1580,7 +1647,7 @@
     void currentLocale;
     void currentTheme;
     untrack(() => {
-      void reloadBingStyle(currentLocale, currentTheme);
+      void reloadMapStyle(currentLocale, currentTheme);
     });
   });
 
@@ -1651,13 +1718,15 @@
       if (destroyed || !mapContainer || featureSettingsKey !== globeFeatureSettingsKey) return;
 
       isMapStyleLoading = true;
-      const styleUrl = getBingStyleUrl(currentLocale, currentTheme);
-      const response = await fetch(styleUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to load Bing style ${styleUrl}: ${response.status}`);
-      }
-      const style = fixBingStyleUrls((await response.json()) as maplibregl.StyleSpecification);
-      // style.glyphs = `${base}/fonts/{fontstack}/{range}.pbf`;
+      const initialCenter: [number, number] =
+        cameraSnapshot?.center
+          ? [cameraSnapshot.center.lng, cameraSnapshot.center.lat]
+          : mode === 'landing'
+            ? [LANDING_LONGITUDE, LANDING_LATITUDE]
+            : [155, 45];
+      // The globe covers the whole earth, so any center resolves to the same
+      // global profile; the camera restore below re-applies the snapshot.
+      const style = await fetchGlobeStyle(currentLocale, currentTheme, initialCenter);
       isMapStyleLoading = false;
       lastAppliedStyle = { locale: currentLocale, theme: currentTheme };
       if (destroyed || !mapContainer || featureSettingsKey !== globeFeatureSettingsKey) return;
@@ -1672,7 +1741,8 @@
         pitch: cameraSnapshot?.pitch ?? (mode === 'landing' ? LANDING_PITCH : 0),
         bearing: cameraSnapshot?.bearing ?? (mode === 'landing' ? LANDING_BEARING : 0),
         pixelRatio: getGlobePixelRatio(),
-        transformRequest: bingTransformRequest,
+        transformRequest: (url, resourceType) =>
+          styleAdapter?.transformRequest(url, resourceType) ?? { url },
         attributionControl: false,
         canvasContextAttributes: getCanvasContextAttributes()
       });

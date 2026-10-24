@@ -97,8 +97,13 @@
   "admin_clubs": "社团管理",
   "admin_clubs_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 个社团"
       }
@@ -119,8 +124,16 @@
   "admin_data_update_duration": "耗时",
   "admin_data_update_duration_value": [
     {
-      "declarations": ["input hours", "input minutes", "input seconds"],
-      "selectors": ["hours", "minutes", "seconds"],
+      "declarations": [
+        "input hours",
+        "input minutes",
+        "input seconds"
+      ],
+      "selectors": [
+        "hours",
+        "minutes",
+        "seconds"
+      ],
       "match": {
         "hours=0,minutes=0,seconds=*": "{seconds} 秒",
         "hours=0,minutes=*,seconds=0": "{minutes} 分钟",
@@ -366,8 +379,13 @@
   "admin_ugc_occurrence_heading": "出现位置",
   "admin_ugc_occurrences": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 处内容"
       }
@@ -401,8 +419,13 @@
   "admin_universities": "高校管理",
   "admin_universities_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 所高校"
       }
@@ -440,8 +463,6 @@
   "already_added": "已添加",
   "already_verified": "已验证",
   "already_verified_description": "该电子邮件地址已用于账户验证。",
-  "amap_api_request_failed": "高德地图 API 请求失败",
-  "amap_secret_not_configured": "高德地图密钥未配置",
   "and_x_more": "还有 {count} 个",
   "announcement": "公告",
   "announcement_draft": "草稿",
@@ -543,8 +564,13 @@
   "campus_address": "校区地址",
   "campus_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 个校区"
       }
@@ -624,8 +650,13 @@
   "club_background_color": "社团背景色",
   "club_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 个社团"
       }
@@ -643,8 +674,13 @@
   "clubs": "社团",
   "clubs_available": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 个社团可用"
       }
@@ -746,8 +782,13 @@
   "discovery_interaction_threshold_must_be_between_1_and_100": "发现交互阈值必须在 1 到 100 之间",
   "dismiss_in": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 天内不再显示"
       }
@@ -766,8 +807,13 @@
   "donate": "赞助",
   "donate_description": [
     {
-      "declarations": ["input appName", "input count"],
-      "selectors": ["count"],
+      "declarations": [
+        "input appName",
+        "input count"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=1": "欢迎使用 {appName}！如果您觉得这个项目对您有帮助，欢迎赞助支持我们继续改进和维护。您的支持是我们前进的动力！",
         "count=*": "您已在本站浏览 {count} 次页面了。如果您觉得本站对您有帮助，欢迎赞助支持我们继续改进和维护。您的支持是我们前进的动力！"
@@ -991,8 +1037,15 @@
   "form_validation_error": "请修复下面的错误",
   "found_shops_near": [
     {
-      "declarations": ["input count", "input location", "local countPlural = count: plural"],
-      "selectors": ["count", "location"],
+      "declarations": [
+        "input count",
+        "input location",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count",
+        "location"
+      ],
       "match": {
         "count=*, location=*": "在 {location} 附近找到了 {count} 家店铺"
       }
@@ -1044,8 +1097,14 @@
   "home_view_full_ranking": "查看完整排行",
   "home_within_distance": [
     {
-      "declarations": ["input value", "input mode", "local formatted = value: number"],
-      "selectors": ["mode"],
+      "declarations": [
+        "input value",
+        "input mode",
+        "local formatted = value: number"
+      ],
+      "selectors": [
+        "mode"
+      ],
       "match": {
         "mode=meters": "{formatted} 米内",
         "mode=kilometers": "{formatted} 公里内"
@@ -1165,8 +1224,13 @@
   "member_count": "成员数量",
   "member_count_people": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 人"
       }
@@ -1321,6 +1385,7 @@
   "only_admins_can_revoke_moderator_roles": "只有管理员可以撤销版主角色",
   "only_admins_can_transfer_admin_privileges": "只有管理员可以转让管理员权限",
   "only_site_admins_can_grant_admin_privileges": "只有站点管理员可以授予管理员权限",
+  "open_in_maps_app": "在地图应用中打开",
   "opening_hours": "营业时间",
   "or": "或",
   "organization": "组织",
@@ -1371,8 +1436,13 @@
   "planned_leave_time": "计划退勤时间",
   "planned_leave_time_help": [
     {
-      "declarations": ["input time", "input isTomorrow"],
-      "selectors": ["isTomorrow"],
+      "declarations": [
+        "input time",
+        "input isTomorrow"
+      ],
+      "selectors": [
+        "isTomorrow"
+      ],
       "match": {
         "isTomorrow=true": "您计划离开的时间（明日 {time} 之前）",
         "isTomorrow=*": "您计划离开的时间（今日 {time} 之前）"
@@ -1478,8 +1548,13 @@
   "reported_by_user": "由 {user} 报告",
   "reported_players": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 人"
       }
@@ -1718,8 +1793,13 @@
   "shop_updated_successfully": "店铺更新成功",
   "shops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 家店铺"
       }
@@ -1727,8 +1807,13 @@
   ],
   "shops_available": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} 个机厅可用",
         "countPlural=other": "{count} 个机厅可用"
@@ -1766,8 +1851,13 @@
   "social_open_profile": "打开您的 {platform} 主页",
   "social_placeholder": [
     {
-      "declarations": ["input platform", "input isNumber"],
-      "selectors": ["isNumber"],
+      "declarations": [
+        "input platform",
+        "input isNumber"
+      ],
+      "selectors": [
+        "isNumber"
+      ],
       "match": {
         "isNumber=true": "输入您的 {platform} 号",
         "isNumber=*": "输入您的 {platform} 用户名"
@@ -1821,8 +1911,13 @@
   "starred_arcades_count": "收藏机厅数量",
   "starred_arcades_count_shops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 家"
       }
@@ -1832,8 +1927,13 @@
   "starred_arcades_visibility": "收藏机厅可见性",
   "stations": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 站"
       }
@@ -1844,8 +1944,13 @@
   "status": "状态",
   "stops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 站"
       }
@@ -1892,8 +1997,14 @@
   "thursday": "周四",
   "time_length": [
     {
-      "declarations": ["input hours", "input minutes"],
-      "selectors": ["hours", "minutes"],
+      "declarations": [
+        "input hours",
+        "input minutes"
+      ],
+      "selectors": [
+        "hours",
+        "minutes"
+      ],
       "match": {
         "hours=0, minutes=*": "{minutes} 分钟",
         "hours=*, minutes=0": "{hours} 小时",
@@ -1903,8 +2014,13 @@
   ],
   "times": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 次"
       }
@@ -1983,8 +2099,13 @@
   "universities": "高校",
   "universities_and_colleges_available": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 所高校可用"
       }
@@ -2040,7 +2161,6 @@
   "uploading_to_server": "正在上传至服务器...",
   "upvote": "顶",
   "use_google_maps": "使用 Google 地图",
-  "use_tencent_maps": "使用腾讯地图",
   "user": "用户",
   "user_already_has_an_active_attendance": "用户已有活动出勤记录",
   "user_avatar": "用户头像",
@@ -2060,8 +2180,14 @@
   "username_too_long": "用户名不能超过30个字符",
   "uses": [
     {
-      "declarations": ["input current", "input max"],
-      "selectors": ["current", "max"],
+      "declarations": [
+        "input current",
+        "input max"
+      ],
+      "selectors": [
+        "current",
+        "max"
+      ],
       "match": {
         "current=*, max=0": "{current} 次使用",
         "current=*, max=*": "{current}/{max} 次使用"
@@ -2080,8 +2206,13 @@
   "verify_title": "验证『{university}』的在校生资格",
   "via_stops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "途经 {count} 站"
       }
@@ -2090,8 +2221,6 @@
   "view": "查看",
   "view_as_visitor": "访客视角",
   "view_delete_request": "查看删除申请",
-  "view_in_amap": "在高德地图上查看",
-  "view_in_google_maps": "在 Google 地图上查看",
   "view_location": "查看位置",
   "view_on_source": "在 {source} 上查看",
   "view_shop": "查看店铺",

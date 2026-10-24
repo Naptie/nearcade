@@ -4,7 +4,7 @@
   import { toastError } from '$lib/notifications/toast.svelte';
   import { GAME_TITLES } from '$lib/constants';
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
-  import { regionDatum } from '$lib/utils/globe/bing';
+  import { regionDatum } from '$lib/utils/geo-datum';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
   import RegionCascadeSelect from '$lib/components/RegionCascadeSelect.svelte';
   import { getGameName } from '$lib/utils';

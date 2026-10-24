@@ -30,8 +30,13 @@
   "activity_group_comments": "Comments & replies",
   "activity_group_filter_n": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} group",
         "countPlural=other": "{count} groups"
@@ -106,8 +111,13 @@
   "admin_clubs": "Clubs",
   "admin_clubs_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} club",
         "countPlural=other": "{count} clubs"
@@ -129,8 +139,16 @@
   "admin_data_update_duration": "Duration",
   "admin_data_update_duration_value": [
     {
-      "declarations": ["input hours", "input minutes", "input seconds"],
-      "selectors": ["hours", "minutes", "seconds"],
+      "declarations": [
+        "input hours",
+        "input minutes",
+        "input seconds"
+      ],
+      "selectors": [
+        "hours",
+        "minutes",
+        "seconds"
+      ],
       "match": {
         "hours=0,minutes=0,seconds=*": "{seconds}s",
         "hours=0,minutes=*,seconds=0": "{minutes}m",
@@ -376,8 +394,13 @@
   "admin_ugc_occurrence_heading": "Occurrences",
   "admin_ugc_occurrences": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} occurrence",
         "countPlural=other": "{count} occurrences"
@@ -412,8 +435,13 @@
   "admin_universities": "Universities",
   "admin_universities_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} university",
         "countPlural=other": "{count} universities"
@@ -452,8 +480,6 @@
   "already_added": "Already Added",
   "already_verified": "Already verified",
   "already_verified_description": "The email address has already been used to verify an account.",
-  "amap_api_request_failed": "AMap API request failed",
-  "amap_secret_not_configured": "AMap secret not configured",
   "and_x_more": "and {count} more",
   "announcement": "Announcement",
   "announcement_draft": "Draft",
@@ -555,8 +581,13 @@
   "campus_address": "Campus Address",
   "campus_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} campus",
         "countPlural=other": "{count} campuses"
@@ -637,8 +668,13 @@
   "club_background_color": "Club Background Color",
   "club_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} club",
         "countPlural=other": "{count} clubs"
@@ -657,8 +693,13 @@
   "clubs": "Clubs",
   "clubs_available": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} club available",
         "countPlural=other": "{count} clubs available"
@@ -761,8 +802,13 @@
   "discovery_interaction_threshold_must_be_between_1_and_100": "Discovery interaction threshold must be between 1 and 100",
   "dismiss_in": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Dismiss in the next {count} day",
         "countPlural=other": "Dismiss in the next {count} days"
@@ -782,8 +828,13 @@
   "donate": "Donate",
   "donate_description": [
     {
-      "declarations": ["input appName", "input count"],
-      "selectors": ["count"],
+      "declarations": [
+        "input appName",
+        "input count"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=1": "Welcome to {appName}! If you find this project useful, consider supporting us to keep it running and improving. Your support helps us maintain the service and enhance the data quality.",
         "count=*": "You've navigated around this site {count} times. If you find this project useful, consider supporting us to keep it running and improving. Your support helps us maintain the service and enhance the data quality."
@@ -1007,8 +1058,14 @@
   "form_validation_error": "Please fix the errors below",
   "found_shops_near": [
     {
-      "declarations": ["input count", "input location", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "input location",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Found {count} shop near {location}",
         "countPlural=other": "Found {count} shops near {location}"
@@ -1038,8 +1095,14 @@
   "groove_coaster": "GROOVE COASTER",
   "heatmap_activities_on": [
     {
-      "declarations": ["input date", "input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input date",
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} activity on {date}",
         "countPlural=other": "{count} activities on {date}"
@@ -1049,8 +1112,14 @@
   "heatmap_all_types": "All activity types",
   "heatmap_day_tooltip": [
     {
-      "declarations": ["input count", "input date", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "input date",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "1 activity on {date}",
         "countPlural=other": "{count} activities on {date}"
@@ -1079,8 +1148,14 @@
   "home_view_full_ranking": "View full ranking",
   "home_within_distance": [
     {
-      "declarations": ["input value", "input mode", "local formatted = value: number"],
-      "selectors": ["mode"],
+      "declarations": [
+        "input value",
+        "input mode",
+        "local formatted = value: number"
+      ],
+      "selectors": [
+        "mode"
+      ],
       "match": {
         "mode=meters": "Within {formatted} m",
         "mode=kilometers": "Within {formatted} km"
@@ -1200,8 +1275,13 @@
   "member_count": "Member Count",
   "member_count_people": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} person",
         "countPlural=other": "{count} people"
@@ -1357,6 +1437,7 @@
   "only_admins_can_revoke_moderator_roles": "Only admins can revoke moderator roles",
   "only_admins_can_transfer_admin_privileges": "Only admins can transfer admin privileges",
   "only_site_admins_can_grant_admin_privileges": "Only site admins can grant admin privileges",
+  "open_in_maps_app": "Open in maps app",
   "opening_hours": "Opening Hours",
   "or": "OR",
   "organization": "Organization",
@@ -1407,8 +1488,13 @@
   "planned_leave_time": "Planned Leave Time",
   "planned_leave_time_help": [
     {
-      "declarations": ["input time", "input isTomorrow"],
-      "selectors": ["isTomorrow"],
+      "declarations": [
+        "input time",
+        "input isTomorrow"
+      ],
+      "selectors": [
+        "isTomorrow"
+      ],
       "match": {
         "isTomorrow=true": "When you plan to leave (before {time} tomorrow)",
         "isTomorrow=*": "When you plan to leave (before {time} today)"
@@ -1514,8 +1600,13 @@
   "reported_by_user": "Reported by {user}",
   "reported_players": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} player",
         "countPlural=other": "{count} players"
@@ -1755,8 +1846,13 @@
   "shop_updated_successfully": "Shop updated successfully",
   "shops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} shop",
         "countPlural=other": "{count} shops"
@@ -1765,8 +1861,13 @@
   ],
   "shops_available": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} shop available",
         "countPlural=other": "{count} shops available"
@@ -1804,8 +1905,13 @@
   "social_open_profile": "Open your {platform} profile",
   "social_placeholder": [
     {
-      "declarations": ["input platform", "input isNumber"],
-      "selectors": ["isNumber"],
+      "declarations": [
+        "input platform",
+        "input isNumber"
+      ],
+      "selectors": [
+        "isNumber"
+      ],
       "match": {
         "isNumber=true": "Enter your {platform} number",
         "isNumber=*": "Enter your {platform} username"
@@ -1859,8 +1965,13 @@
   "starred_arcades_count": "Starred Arcades Count",
   "starred_arcades_count_shops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} shop",
         "countPlural=other": "{count} shops"
@@ -1871,8 +1982,13 @@
   "starred_arcades_visibility": "Starred Arcades Visibility",
   "stations": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} station",
         "countPlural=other": "{count} stations"
@@ -1884,8 +2000,13 @@
   "status": "Status",
   "stops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} stop",
         "countPlural=other": "{count} stops"
@@ -1933,8 +2054,14 @@
   "thursday": "Thursday",
   "time_length": [
     {
-      "declarations": ["input hours", "input minutes"],
-      "selectors": ["hours", "minutes"],
+      "declarations": [
+        "input hours",
+        "input minutes"
+      ],
+      "selectors": [
+        "hours",
+        "minutes"
+      ],
       "match": {
         "hours=0, minutes=*": "{minutes}min",
         "hours=*, minutes=0": "{hours}h",
@@ -1944,8 +2071,13 @@
   ],
   "times": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} time",
         "countPlural=other": "{count} times"
@@ -2025,8 +2157,13 @@
   "universities": "Universities/Colleges",
   "universities_and_colleges_available": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} university or college available",
         "countPlural=other": "{count} universities and colleges available"
@@ -2083,7 +2220,6 @@
   "uploading_to_server": "Uploading to server...",
   "upvote": "Upvote",
   "use_google_maps": "Use Google Maps",
-  "use_tencent_maps": "Use Tencent Maps",
   "user": "User",
   "user_already_has_an_active_attendance": "User already has an active attendance",
   "user_avatar": "User avatar",
@@ -2103,8 +2239,14 @@
   "username_too_long": "Username must be 30 characters or less",
   "uses": [
     {
-      "declarations": ["input current", "input max"],
-      "selectors": ["current", "max"],
+      "declarations": [
+        "input current",
+        "input max"
+      ],
+      "selectors": [
+        "current",
+        "max"
+      ],
       "match": {
         "current=1, max=0": "{current} use",
         "current=*, max=0": "{current} uses",
@@ -2125,8 +2267,13 @@
   "verify_title": "Verify Your Student Status at {university}",
   "via_stops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Via {count} stop",
         "countPlural=other": "Via {count} stops"
@@ -2136,8 +2283,6 @@
   "view": "View",
   "view_as_visitor": "Visitor view",
   "view_delete_request": "View Delete Request",
-  "view_in_amap": "View in AMap",
-  "view_in_google_maps": "View in Google Maps",
   "view_location": "View Location",
   "view_on_source": "View on {source}",
   "view_shop": "View Shop",

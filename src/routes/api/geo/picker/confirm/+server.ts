@@ -55,10 +55,10 @@ export const POST: RequestHandler = async ({ request, url }) => {
   });
   let selectedCoordinate = coordinate;
 
-  // Nearcade stores shop locations for China-provider regions in GCJ02 — the
-  // datum unified-geo assigns to CN_MAINLAND and CN_HKMO — while Taiwan
-  // (CN_TW) and everything else stay WGS84. Branch on the territory datum,
-  // never on serviceArea ('china' now includes TW but remains WGS84 there).
+  // Nearcade stores shop locations in the zone datum unified-geo assigns —
+  // GCJ02 for CN_MAINLAND and CN_HKMO, WGS84 for Taiwan (CN_TW) and everywhere
+  // else. Branch on the territory datum, never on serviceArea ('china' now
+  // includes TW but remains WGS84 there).
   if (reverse.territory.datum === 'GCJ02' && inputDatum !== 'GCJ02') {
     const converted = await requestUnifiedGeo<CoordinateConversionResponse>('/geo/convert', {
       coordinate,
@@ -73,7 +73,6 @@ export const POST: RequestHandler = async ({ request, url }) => {
     location: selectedCoordinate,
     serviceArea: reverse.serviceArea,
     zone: reverse.zone,
-    provider: reverse.provider,
     name: name || result?.formattedAddress || address || '',
     address: result?.formattedAddress || address || '',
     city: result?.components.city ?? reverse.territory.city,

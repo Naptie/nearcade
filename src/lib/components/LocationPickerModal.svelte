@@ -9,11 +9,7 @@
   import { getMyLocation, getCachedLocation } from '$lib/utils';
   import { fromPath, isDarkMode } from '$lib/utils/scoped';
   import { getIpOrigin } from '$lib/utils/index.client';
-  import {
-    bingTransformRequest,
-    fixBingPickerStyleUrls,
-    getStyleLocale
-  } from '$lib/utils/globe/bing';
+  import { createMapLibreAdapter } from 'unified-geo-client/maplibre';
 
   maplibregl.setWorkerUrl(workerUrl);
 
@@ -189,10 +185,10 @@
   };
 
   /**
-   * Device geolocation is true GPS WGS84; the basemap (Bing CN) is GCJ02 on
-   * the mainland and WGS84 in Taiwan and overseas. Route the fix through
-   * /api/geo/translate so the marker lands where amap.com and the discover
-   * "我的位置" pin land.
+   * Device geolocation is true GPS WGS84; the basemap datum is zone-based
+   * (GCJ02 on the mainland and in the SARs, WGS84 in Taiwan and overseas).
+   * Route the fix through /api/geo/translate so the marker lands where the
+   * basemap and the discover "我的位置" pin land.
    */
   const translateToSurface = async (location: {
     longitude: number;
@@ -369,48 +365,56 @@
     void (async () => {
       try {
         const theme = isDarkMode() ? 'dark' : 'light';
-        // The Bing CN style document is served by unified-geo (bearer-authed
-        // server proxy); the local fixups below still apply to the served
-        // style (raster:// pseudo-URLs, quadkeys, glyphs).
-        const styleUrl = fromPath(
-          `/api/geo/style?provider=bing-cn&theme=${theme}&locale=${getStyleLocale(getLocale())}`
+        // The initial view resolves first: the map style is selected per point
+        // (zone-driven by the location service), so the resolved center picks
+        // the surface. A deadline keeps a slow origin lookup from holding the
+        // modal blank: past it, open on the static default. The map is then
+        // constructed once, at the resolved center — no default-center flash.
+        const initialView = initialLocation
+          ? {
+              center: [initialLocation.longitude, initialLocation.latitude] as [number, number],
+              zoom: 15,
+              selection: null
+            }
+          : await Promise.race([
+              resolveInitialView(),
+              new Promise<{ center: [number, number]; zoom: number; selection: null }>(
+                (resolve) => {
+                  viewDeadline = setTimeout(
+                    () => resolve({ center: DEFAULT_CENTER, zoom: 15, selection: null }),
+                    INITIAL_VIEW_DEADLINE_MS
+                  );
+                }
+              )
+            ]);
+        const [centerLng, centerLat] = initialView.center;
+        const styleResponse = await fetch(
+          fromPath(
+            `/api/geo/map-style?longitude=${centerLng}&latitude=${centerLat}&theme=${theme}&locale=${getLocale()}&scope=global`
+          )
         );
-        // Style and initial view resolve in parallel; the map is constructed
-        // once, at the resolved center — no default-center flash to fix up
-        // with a later jump. A deadline keeps a slow origin lookup from
-        // holding the modal blank: past it, open on the static default.
-        const [styleResponse, initialView] = await Promise.all([
-          fetch(styleUrl),
-          initialLocation
-            ? Promise.resolve({
-                center: [initialLocation.longitude, initialLocation.latitude] as [number, number],
-                zoom: 15,
-                selection: null
-              })
-            : Promise.race([
-                resolveInitialView(),
-                new Promise<{ center: [number, number]; zoom: number; selection: null }>(
-                  (resolve) => {
-                    viewDeadline = setTimeout(
-                      () => resolve({ center: DEFAULT_CENTER, zoom: 15, selection: null }),
-                      INITIAL_VIEW_DEADLINE_MS
-                    );
-                  }
-                )
-              ])
-        ]);
         if (!styleResponse.ok) throw new Error(`Map style request failed: ${styleResponse.status}`);
-        const style = fixBingPickerStyleUrls(
-          (await styleResponse.json()) as maplibregl.StyleSpecification
-        );
+        const { profile, style: servedStyle } = (await styleResponse.json()) as {
+          profile: Record<string, unknown>;
+          style: unknown;
+        };
         if (cancelled || !mapContainer) return;
+
+        // The adapter normalizes the served style, rewires any non-standard
+        // tile source through its custom protocol, and provides the request
+        // rewrites (glyph naming, app-hosted fonts).
+        const adapter = createMapLibreAdapter(profile as never, {
+          localFonts: { stacks: ['Sora', 'Noto'], baseUrl: fromPath('/') }
+        });
+        adapter.registerProtocols();
+        const style = (await adapter.loadStyle(servedStyle)) as unknown as maplibregl.StyleSpecification;
 
         map = new maplibregl.Map({
           container: mapContainer,
           style,
           center: initialView.center,
           zoom: initialView.zoom,
-          transformRequest: bingTransformRequest
+          transformRequest: adapter.transformRequest
         });
         mapInstance = map;
         map.addControl(new maplibregl.NavigationControl(), 'top-right');

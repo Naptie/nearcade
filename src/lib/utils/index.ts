@@ -283,7 +283,9 @@ export const generateRouteCacheKey = (
 ): string => {
   const lat = Number(originLat.toFixed(4));
   const lng = Number(originLng.toFixed(4));
-  return `${transportMethod}-${shopId}-${lat}-${lng}`;
+  // Version prefix: cache entries from earlier engines store incompatible
+  // shapes and must never resolve.
+  return `ug1-${transportMethod}-${shopId}-${lat}-${lng}`;
 };
 
 export const getCachedRouteData = async (cacheKey: string): Promise<CachedRouteData | null> => {
@@ -328,20 +330,6 @@ export const clearRouteCache = async (n: number = 0): Promise<void> => {
   } catch (error) {
     console.error('Error clearing route cache:', error);
   }
-};
-
-export const toAMapLngLat = (point: number[] | { lng: number; lat: number }): AMap.LngLat => {
-  if (Array.isArray(point)) {
-    return new AMap.LngLat(point[0], point[1]);
-  } else if ('lng' in point && 'lat' in point) {
-    return new AMap.LngLat(point.lng, point.lat);
-  } else {
-    throw new Error('Invalid point format for AMap conversion');
-  }
-};
-
-export const convertPath = (points: (number[] | { lng: number; lat: number })[]): AMap.LngLat[] => {
-  return points.map((point) => toAMapLngLat(point));
 };
 
 export const removeRecursiveBrackets = (input: string) => {
@@ -1157,25 +1145,6 @@ export const formatOpeningHourLiteral = (time: unknown) => {
   return `${hh}:${mm}`;
 };
 
-export const isShopChinaBased = (shop: {
-  address: {
-    general: string[];
-    region?: string[] | AddressRegionEntry[];
-  };
-}) => {
-  const regions = shop.address.region;
-  if (regions && regions.length > 0) {
-    const ids = regions.map((region) => (typeof region === 'string' ? region : region.id));
-    // Taiwan is served by the China providers now: coordinates stay WGS84, but
-    // map display and routing go through China providers. TW markers on AMap
-    // surfaces carry a known ~500m offset until the MapLibre migration lands.
-    return ids.some(
-      (id) => id === 'TW' || id.startsWith('CN-71') || id === 'CN' || id === 'HK' || id === 'MO'
-    );
-  }
-  // Fallback: without region data, assume non-China (safe default for map links)
-  return false;
-};
 
 /**
  * Formats address parts with locale-aware separators.
@@ -1711,3 +1680,5 @@ export const protect = (user: User | PublicUser | undefined): PublicUser | undef
   }
   return protectedUser;
 };
+
+export { regionDatum } from './geo-datum';

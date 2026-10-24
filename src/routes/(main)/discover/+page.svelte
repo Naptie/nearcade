@@ -1,18 +1,14 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
-  import type {
-    Game,
-    AMapContext,
-    ShopApi,
-    TransportMethod,
-    AMapTransportMethod,
-    TransportSearchResult,
-    CachedRouteData,
-    DirectionsState
-  } from '$lib/types';
+  import type { Game, ShopApi, TransportMethod } from '$lib/types';
+  import type { TransportSearchResult } from '$lib/types/routing';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { onMount, getContext, untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
+  import * as maplibregl from 'maplibre-gl';
+  import 'maplibre-gl/dist/maplibre-gl.css';
+  import '$lib/styles/maplibre.css';
+  import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
   import { SvelteSet } from 'svelte/reactivity';
   import InlineAlert from '$lib/components/InlineAlert.svelte';
   import {
@@ -22,14 +18,13 @@
     getCachedRouteData,
     setCachedRouteData,
     clearRouteCache,
-    convertPath,
     pageTitle,
     sanitizeHTML,
     formatShopAddress,
     getGameName,
     adaptiveNewTab,
     isShopCurrentlyOpen,
-    isShopChinaBased
+    regionDatum
   } from '$lib/utils';
   import {
     buildMetroOverlay,
@@ -40,9 +35,9 @@
     getMetroLocalizedName,
     getMetroShopLines,
     type MetroFare,
-    METRO_WALK_COLOR,
-    METRO_WALK_DASH
+    METRO_WALK_COLOR
   } from '$lib/utils/metro.client';
+  import { fetchMapLink } from '$lib/utils/map-links.client';
   import { getTravelIcon, inferTravelSeconds } from '$lib/utils/travel';
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
@@ -50,21 +45,14 @@
   import { page } from '$app/state';
   import Directions from '$lib/components/Directions.svelte';
   import {
-    SELECTED_ROUTE_INDEX,
-    HOVERED_ROUTE_INDEX,
-    ROUTE_INDEX,
-    ORIGIN_INDEX,
-    SHOP_INDEX,
-    SELECTED_SHOP_INDEX,
-    HOVERED_SHOP_INDEX,
     GAME_TITLES,
     RADIUS_OPTIONS,
     LIMIT_OPTIONS,
     DISCOVER_TIME_PRIMARY_KEY,
     getTravelBudgetMinutes
   } from '$lib/constants';
-  import { PUBLIC_GOOGLE_MAPS_MAP_ID } from '$env/static/public';
-  import { isDarkMode } from '$lib/utils/scoped';
+  import { createMapLibreAdapter } from 'unified-geo-client/maplibre';
+  import { isDarkMode, fromPath } from '$lib/utils/scoped';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import ShopFilterPanel from '$lib/components/ShopFilterPanel.svelte';
   import { emptyShopFilterState, type ShopFilterState } from '$lib/schemas/shop-filter';
@@ -75,31 +63,20 @@
     withoutGeoFilter
   } from '$lib/utils/shops/filter';
 
+  maplibregl.setWorkerUrl(workerUrl);
+
   let { data } = $props();
 
   let screenWidth = $state(0);
 
   let now = $state(new Date());
 
-  // Determine if all shops are overseas to enable Google Maps
-  const useGoogleMaps = $derived(
-    data.shops.length > 0 && data.shops.every((shop) => !isShopChinaBased(shop))
-  );
-
-  const amapContext = getContext<AMapContext>('amap');
-  let amap = $derived(amapContext?.amap);
-  let amapError = $derived(amapContext?.error ?? null);
-
   let mapContainer: HTMLDivElement | undefined = $state(undefined);
-  let map: AMap.Map | google.maps.Map | undefined = $state(undefined); // AMap.Map | google.maps.Map
-  let markers: Record<
-    string,
-    {
-      marker: AMap.Marker | google.maps.marker.AdvancedMarkerElement;
-      infoWindow?: google.maps.InfoWindow;
-      zIndex: number;
-    }
-  > = $state({}); // AMap.Marker | google.maps.marker.AdvancedMarkerElement
+  let map: maplibregl.Map | undefined = $state(undefined);
+  let mapError = $state('');
+  // The origin's map adapter: owns the profile-driven style, its request
+  // rewrites, and the traffic overlay.
+  let mapAdapter: ReturnType<typeof createMapLibreAdapter> | null = $state(null);
 
   let hoveredShopId: string | null = $state(null);
   let selectedShopId: string | null = $state(null);
@@ -109,35 +86,39 @@
   let transportMethod = $state<TransportMethod>(undefined); // 'transit', 'walking', 'riding', 'driving'
   let discoverRadius = $derived(data.radius ?? 10);
   let discoverLimit = $derived(data.limit ?? 20);
+  /**
+   * Live routing results per shop: the mode's best route (time, distance,
+   * geometry for the map) plus the full response for the Directions panel.
+   */
   let travelData = $state<
     Record<
       string,
       {
         time: number;
         distance: number;
-        path: AMap.LngLat[];
-        route: AMap.Polyline;
+        path: [number, number][];
         selectedRouteIndex: number;
-        routeData?: TransportSearchResult; // Store complete route data for directions
+        routeData?: TransportSearchResult;
       } | null
     >
-  >({}); // shopId -> travel data
-  let directions = $state<DirectionsState>({
+  >({});
+  let directions = $state<{ isOpen: boolean; shopId: string | null; selectedRouteIndex: number }>({
     isOpen: false,
     shopId: null,
     selectedRouteIndex: 0
   });
-  let cachedRoutes = $state<Record<string, CachedRouteData>>({}); // cacheKey -> cached route data
-  let trafficLayer: AMap.CoreVectorLayer | undefined = $state(undefined);
+  let cachedRoutes = $state<
+    Record<string, { routeData: TransportSearchResult; selectedRouteIndex: number }>
+  >({}); // cacheKey -> cached route data
 
   let costs: Record<string, Record<string, { preview: string; full: string }>> = $state({});
   let discoverTableContainer: HTMLDivElement | undefined = $state(undefined);
 
   /**
-   * Metro features need the AMap engine: `useGoogleMaps` only triggers when
-   * every shop is overseas, and only Chinese shops carry metro assignments.
+   * Metro features render whenever the response carries a metro block: only
+   * origins whose nearby shops have metro assignments produce one.
    */
-  let metroEnabled = $derived(!useGoogleMaps);
+  let metroEnabled = $derived(Boolean(data.metro));
 
   /**
    * A shop as returned by the discover endpoint: the persisted shop plus the
@@ -168,9 +149,9 @@
 
   /**
    * Every shop's displayed travel figure, resolved once and shared by the
-   * table, the sort, the type of comparison:
+   * table, the sort, and the color ramps:
    *
-   *  1. a live AMap result (a real route, so the most accurate),
+   *  1. a live routed result from the location service (the most accurate),
    *  2. the server's metro estimate (a real itinerary),
    *  3. a straight-line inference (rough, but it means the column can show a
    *     time for every row rather than leaving most of them blank).
@@ -181,7 +162,7 @@
   type TravelInfo = {
     seconds: number;
     distanceKm: number;
-    source: 'amap' | 'metro' | 'inferred';
+    source: 'route' | 'metro' | 'inferred';
   };
 
   let travelInfoById = $derived.by(() => {
@@ -189,10 +170,10 @@
 
     for (const shop of data.shops) {
       const id = `${shop.id}`;
-      const amap = travelData[id];
+      const live = travelData[id];
 
-      if (amap && amap.time) {
-        result[id] = { seconds: amap.time, distanceKm: amap.distance, source: 'amap' };
+      if (live && live.time) {
+        result[id] = { seconds: live.time, distanceKm: live.distance, source: 'route' };
         continue;
       }
 
@@ -221,8 +202,8 @@
     };
 
   /**
-   * Itineraries are static for a given response, so each shop's synthetic AMap
-   * plan is built once and reused by the Directions panel and the hover
+   * Itineraries are static for a given response, so each shop's reconstructed
+   * metro route is built once and reused by the Directions panel and the hover
    * overlay. Fares (the only live openmetro call) are layered on top.
    */
   let metroFares = $state<Record<string, MetroFare | null>>({});
@@ -231,7 +212,7 @@
   /**
    * Route data for metro-reachable shops, keyed by id, in the shape
    * `<Directions>` and the hover overlay expect. Shops without a worthwhile
-   * metro trip get no entry — the panel then falls back to the AMap result (or
+   * metro trip get no entry — the panel then falls back to the live route (or
    * shows nothing), exactly as before metro existed.
    */
   let shopRouteData = $derived.by(() => {
@@ -246,8 +227,8 @@
   });
 
   /**
-   * Whether a shop's metro itinerary — not a live AMap route — is what the
-   * Directions panel should show. AMap wins whenever it returned something,
+   * Whether a shop's metro itinerary — not a live route — is what the
+   * Directions panel should show. A live route wins whenever one arrived,
    * because a real routed path beats a straight-line-derived estimate.
    */
   const prefersMetroItinerary = (shopId: string): boolean =>
@@ -348,7 +329,7 @@
     // Always sort by the current primary metric so the table order matches
     // what the travel column leads with. Time-first is the default: a
     // straight-line distance says very little about how long the trip
-    // actually takes, but a real figure (AMap/metro) beats an inferred one —
+    // actually takes, but a real figure (routed/metro) beats an inferred one —
     // `shopTravel` already encodes that precedence.
     return [...data.shops].sort((a, b) => {
       if (timePrimary) {
@@ -379,55 +360,31 @@
     return browser && screenWidth < 768;
   });
 
-  const getRouteLink = (shop: ShopApi | undefined) => {
-    if (!data || !shop) return '';
-    const useGoogleMaps = !isShopChinaBased(shop);
-    const origin = data.location;
-    const from = useGoogleMaps
-      ? `${origin.latitude},${origin.longitude}`
-      : `${origin.longitude},${origin.latitude},${origin.name}`;
-    const destination = shop.location;
-    const to = useGoogleMaps
-      ? `${destination.coordinates[1]},${destination.coordinates[0]}`
-      : `${destination.coordinates[0]},${destination.coordinates[1]},${shop.name}`;
-    const mode =
-      transportMethod === 'walking'
-        ? useGoogleMaps
+  /**
+   * "Open in maps app" affordance for a shop: the link resolves per platform
+   * through /api/geo/links, so the handler opens whatever the user's device
+   * understands — no provider URLs live in the client.
+   */
+  const openExternalRoute = async (shop: DiscoverShop) => {
+    const link = await fetchMapLink({
+      longitude: shop.location.coordinates[0],
+      latitude: shop.location.coordinates[1],
+      name: shop.name,
+      mode: 'navigation',
+      travelMode:
+        transportMethod === 'walking'
           ? 'walking'
-          : 'walk'
-        : transportMethod === 'riding'
-          ? useGoogleMaps
-            ? 'bicycling'
-            : 'ride'
-          : transportMethod === 'driving'
-            ? useGoogleMaps
+          : transportMethod === 'riding'
+            ? 'cycling'
+            : transportMethod === 'driving'
               ? 'driving'
-              : 'car'
-            : useGoogleMaps
-              ? 'transit'
-              : 'bus';
-    return useGoogleMaps
-      ? `https://www.google.com/maps/dir/?api=1&origin=${from}&destination=${to}&travelmode=${mode}`
-      : `https://uri.amap.com/navigation?from=${from}&to=${to}&mode=${mode}&src=nearcade&callnative=1`;
+              : 'transit'
+    });
+    if (browser && link) window.open(link, '_blank', 'noopener,noreferrer');
   };
 
-  let routeLink = $derived.by(
-    () => getRouteLink(data.shops.find((s) => `${s.id}` === directions.shopId)) || ''
-  );
-
-  const getRouteOptions = (id: string): Partial<AMap.PolylineOptions> => {
-    const isSelected = selectedShopId === id;
-    const isHovered = hoveredShopId === id;
-    const hasDirectionsOpen = directions.isOpen && directions.shopId === id;
-
-    return {
-      strokeColor: isSelected ? 'lime' : isHovered ? 'orange' : 'cyan',
-      strokeWeight: isSelected ? 3.8 : isHovered ? 4.2 : 3,
-      strokeOpacity: hasDirectionsOpen ? 0 : isSelected || isHovered ? 1 : 0.4,
-      lineJoin: 'round',
-      zIndex: isSelected ? SELECTED_ROUTE_INDEX : isHovered ? HOVERED_ROUTE_INDEX : ROUTE_INDEX
-    };
-  };
+  /** Per-platform external link for the open Directions panel. */
+  let mapLink = $state<string | null>(null);
 
   const showDirections = () => {
     if (directions.isOpen || !directions.shopId || directions.shopId !== selectedShopId) return;
@@ -444,11 +401,30 @@
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let plugins: Record<string, any> = $state({});
+  /** The discover origin's datum: the map surface it was captured on. */
+  let datumOfOrigin: 'WGS84' | 'GCJ02' = 'WGS84';
 
-  const calculateTravelData = async (method: AMapTransportMethod) => {
-    if (!amap || !data || data.shops.length === 0) return;
+  /** Cache entries from the previous engine carry incompatible shapes. */
+  const isValidRouteData = (value: unknown): value is { routes: import('$lib/types/routing').RouteResult[] } =>
+    typeof value === 'object' &&
+    value !== null &&
+    'routes' in value &&
+    Array.isArray((value as { routes: unknown }).routes) &&
+    (value as { routes: unknown[] }).routes.every(
+      (route) =>
+        typeof route === 'object' &&
+        route !== null &&
+        'geometry' in route &&
+        'durationSeconds' in route
+    );
+
+  /**
+   * Live travel times for every shop through the routing proxy. The server
+   * caches and rate-limits upstream; results draw as route layers and feed
+   * the Directions panel. Selected shop first, the rest in table order.
+   */
+  const calculateTravelData = async (method: Exclude<TransportMethod, undefined>) => {
+    if (!data || data.shops.length === 0) return;
     travelData = {};
 
     const { quota, usage } = await navigator.storage.estimate();
@@ -458,167 +434,83 @@
       await clearRouteCache();
     }
 
-    const pluginName =
-      method === 'transit'
-        ? 'AMap.Transfer'
-        : method === 'walking'
-          ? 'AMap.Walking'
-          : method === 'riding'
-            ? 'AMap.Riding'
-            : 'AMap.Driving';
+    const mode = method === 'riding' ? 'cycling' : method;
 
-    if (!(method in plugins)) {
-      await new Promise<void>((resolve) => {
-        amap?.plugin([pluginName], () => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const a = amap as any;
-          if (method === 'transit') {
-            plugins[method] = new a.Transfer({ city: ' ', nightflag: 1, extensions: 'all' });
-          } else if (method === 'walking') {
-            plugins[method] = new a.Walking();
-          } else if (method === 'riding') {
-            plugins[method] = new a.Riding();
-          } else {
-            plugins[method] = new a.Driving({ strategy: 10 });
-          }
-          resolve();
-        });
-      });
-    }
+    const processShop = async (shop: ShopApi): Promise<void> => {
+      const applyRouteData = (result: TransportSearchResult, selectedIndex: number) => {
+        if (!isValidRouteData(result)) return;
+        const sorted = [...result.routes].sort((a, b) => a.durationSeconds - b.durationSeconds);
+        const selectedRoute = sorted[selectedIndex];
+        if (!selectedRoute) return;
 
-    const plugin = plugins[method];
-    const polylines: AMap.Polyline[] = [];
-
-    const processShop = async (shop: ShopApi, retryCount = 0): Promise<void> => {
-      return new Promise((resolve) => {
-        if (!amap) {
-          return;
-        }
-        const processRouteData = (result: TransportSearchResult, selectedIndex: number) => {
-          if (!amap || typeof result !== 'object') {
-            return;
-          }
-          const routes = 'routes' in result ? result.routes : result.plans;
-          routes.sort((a, b) => (a.time || Infinity) - (b.time || Infinity));
-          const selectedRoute = routes[selectedIndex];
-
-          const path = convertPath(
-            'path' in selectedRoute
-              ? selectedRoute.path
-              : ('steps' in selectedRoute ? selectedRoute.steps : selectedRoute.rides)
-                  .map((step) => step.path)
-                  .flat()
-          );
-
-          const routeLine = new amap.Polyline({
-            path: path,
-            ...getRouteOptions(`${shop.id}`)
-          });
-
-          routeLine.on('mouseover', () => {
-            hoveredShopId = `${shop.id}`;
-          });
-          routeLine.on('mouseout', () => {
-            if (hoveredShopId === `${shop.id}`) {
-              hoveredShopId = null;
-            }
-          });
-          routeLine.on('click', () => {
-            selectedShopId = `${shop.id}`;
-            showDirections();
-          });
-
-          polylines.push(routeLine);
-          travelData[`${shop.id}`] = {
-            time: selectedRoute.time ?? 0,
-            distance: selectedRoute.distance ? selectedRoute.distance / 1000 : 0,
-            path,
-            route: routeLine,
-            selectedRouteIndex: selectedIndex,
-            routeData: result
-          };
+        travelData[`${shop.id}`] = {
+          time: selectedRoute.durationSeconds,
+          distance: selectedRoute.distanceMeters / 1000,
+          path: selectedRoute.geometry,
+          selectedRouteIndex: selectedIndex,
+          routeData: { routes: result.routes }
         };
+      };
 
-        const cacheKey = generateRouteCacheKey(
-          data.location.latitude,
-          data.location.longitude,
-          `${shop.id}`,
-          method
-        );
+      const cacheKey = generateRouteCacheKey(
+        data.location.latitude,
+        data.location.longitude,
+        `${shop.id}`,
+        method
+      );
 
-        // Check cache first
-        getCachedRouteData(cacheKey).then((cachedData) => {
-          if (cachedData) {
-            cachedRoutes[cacheKey] = cachedData;
-            processRouteData(cachedData.routeData, cachedData.selectedRouteIndex);
-            resolve();
-            return;
-          }
+      // Check cache first
+      const cachedData = await getCachedRouteData(cacheKey);
+      if (cachedData && isValidRouteData(cachedData.routeData)) {
+        cachedRoutes[cacheKey] = cachedData;
+        applyRouteData(cachedData.routeData, cachedData.selectedRouteIndex);
+        return;
+      }
 
-          // No cache, make fresh request
-          const origin = new amap!.LngLat(data.location.longitude, data.location.latitude);
-          const destination = new amap!.LngLat(
-            shop.location.coordinates[0],
-            shop.location.coordinates[1]
-          );
-
-          try {
-            plugin.search(origin, destination, (status: string, result: TransportSearchResult) => {
-              console.debug(result);
-              if (
-                status === 'complete' &&
-                typeof result === 'object' &&
-                (('plans' in result && result.plans.length > 0) ||
-                  ('routes' in result && result.routes.length > 0))
-              ) {
-                // Cache the complete result
-                setCachedRouteData(cacheKey, result, 0);
-                cachedRoutes[cacheKey] = {
-                  routeData: result,
-                  selectedRouteIndex: 0
-                };
-
-                processRouteData(result, 0);
-                resolve();
-              } else if (
-                typeof result !== 'object' &&
-                ['CUQPS_HAS_EXCEEDED_THE_LIMIT', 'Request Error', undefined].includes(result) &&
-                retryCount < 10
-              ) {
-                // Rate limit exceeded, add to end of queue for retry
-                setTimeout(() => {
-                  processShop(shop, retryCount + 1).then(resolve);
-                }, 1000); // Wait 1 second before retry
-              } else {
-                console.error(result);
-                travelData[`${shop.id}`] = null;
-                resolve();
-              }
-            });
-          } catch (error) {
-            console.error(`Error calculating travel data for shop ${shop.id}:`, error);
-            travelData[`${shop.id}`] = null;
-            resolve();
-          }
+      try {
+        const response = await fetch('/api/geo/directions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            origin: {
+              longitude: data.location.longitude,
+              latitude: data.location.latitude,
+              // The discover origin arrives in the map surface's datum (the
+              // globe or picker sent it that way); keep it labeled so routes
+              // come back drawable on this map without conversion.
+              coordinateSystem: datumOfOrigin
+            },
+            destination: {
+              longitude: shop.location.coordinates[0],
+              latitude: shop.location.coordinates[1],
+              // Shops persist in their region's storage datum.
+              coordinateSystem: regionDatum(shop.address?.region ?? [])
+            },
+            mode,
+            language: getLocale()
+          })
         });
-      });
+        if (!response.ok) throw new Error(`routing failed: ${response.status}`);
+        const result = (await response.json()) as TransportSearchResult;
+        if (isValidRouteData(result)) {
+          setCachedRouteData(cacheKey, result, 0);
+          cachedRoutes[cacheKey] = { routeData: result, selectedRouteIndex: 0 };
+          applyRouteData(result, 0);
+        } else {
+          travelData[`${shop.id}`] = null;
+        }
+      } catch (error) {
+        console.error(`Error calculating travel data for shop ${shop.id}:`, error);
+        travelData[`${shop.id}`] = null;
+      }
     };
 
-    // Process shops sequentially to avoid rate limiting
-    // Process selected shop first if exists, then process remaining shops
     for (const shop of [
-      ...data.shops.filter((shop) => `${shop.id}` === selectedShopId),
-      ...data.shops.filter((shop) => `${shop.id}` !== selectedShopId)
+      ...data.shops.filter((entry) => `${entry.id}` === selectedShopId),
+      ...data.shops.filter((entry) => `${entry.id}` !== selectedShopId)
     ]) {
       await processShop(shop);
     }
-
-    // Batch add all polylines at once to avoid per-add re-renders
-    if (polylines.length > 0 && map && 'add' in map) {
-      (map as AMap.Map).add(polylines);
-    }
-
-    if (!directions.isOpen && map && 'setFitView' in map) map.setFitView();
   };
 
   const findGame = (games: Game[], titleId: number): Game | null => {
@@ -732,29 +624,13 @@
     screenWidth = window.innerWidth;
   };
 
-  const assignAMap = (event: CustomEventInit<typeof AMap>) => {
-    amap = event.detail;
-  };
-
   onMount(() => {
     screenWidth = window.innerWidth;
     window.addEventListener('resize', handleResize);
-    window.addEventListener('amap-loaded', assignAMap);
 
     const interval = setInterval(() => {
       now = new Date();
     }, 1000);
-
-    // Load Google Maps if needed
-    if (
-      useGoogleMaps &&
-      'loadGoogleMaps' in window &&
-      typeof window.loadGoogleMaps === 'function'
-    ) {
-      window.loadGoogleMaps().catch((error: Error) => {
-        console.error('Failed to load Google Maps:', error);
-      });
-    }
 
     Promise.all(
       data.shops.flatMap((shop) => {
@@ -770,45 +646,117 @@
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      window.removeEventListener('amap-loaded', assignAMap);
       clearInterval(interval);
     };
   });
 
-  const createIcon = (id: string, icon: string, origin = false) => {
+  /**
+   * A shop marker: a dot that sits on the shop's coordinate plus a name chip
+   * that floats beside it. MapLibre centres the marker's own box on the
+   * coordinate and the chip is positioned outside that box, so the dot — not
+   * the label — marks the place. `data-side` flips the chip to the dot's left
+   * near the map's right edge; `data-state` carries selection/hover, which the
+   * stylesheet turns into the dot's colour.
+   */
+  const createShopMarkerElement = (shop: DiscoverShop) => {
     const element = document.createElement('div');
-    element.id = id;
-    element.className = 'cursor-pointer relative';
-    const inner = document.createElement('div');
-    inner.className = `absolute left-1/2 -translate-x-1/2 ${origin ? 'top-1/2 -translate-y-1/2' : 'bottom-0 text-info dark:text-success hover:text-warning hover:dark:text-info'} text-lg`;
-    const iconEl = document.createElement('i');
-    iconEl.className = icon;
-    inner.appendChild(iconEl);
-    element.appendChild(inner);
+    element.id = `shop-marker-${shop.id}`;
+    element.className = 'discover-marker cursor-pointer';
+    element.dataset.state = 'idle';
+    element.dataset.side = 'end';
+
+    const dot = document.createElement('span');
+    dot.className = 'discover-marker-dot';
+    element.appendChild(dot);
+
+    const label = document.createElement('span');
+    label.className = 'discover-marker-label';
+    if (metroEnabled && shop.transit?.metro) {
+      const lineGroup = document.createElement('span');
+      lineGroup.className = 'discover-marker-lines';
+      for (const line of getMetroShopLines(shop, data.metro)) {
+        const chip = document.createElement('span');
+        chip.className = 'discover-marker-line';
+        const color = line.color ?? '#64748b';
+        chip.style.backgroundColor = color;
+        chip.style.color = getMetroBadgeTextColor(color);
+        chip.textContent = line.shortName;
+        lineGroup.appendChild(chip);
+      }
+      label.appendChild(lineGroup);
+    }
+    const name = document.createElement('span');
+    name.className = 'discover-marker-name';
+    // DOM text nodes escape external names; no HTML interpolation.
+    name.textContent = shop.name;
+    label.appendChild(name);
+    element.appendChild(label);
     return element;
   };
 
-  const createAMapShopLabel = (shop: DiscoverShop): string => {
+  const createOriginMarkerElement = () => {
+    const element = document.createElement('div');
+    element.className = 'discover-marker discover-marker-origin cursor-pointer';
+    element.dataset.state = 'origin';
+    element.dataset.side = 'end';
+
+    const dot = document.createElement('span');
+    dot.className = 'discover-marker-dot';
+    element.appendChild(dot);
+
     const label = document.createElement('span');
-    label.className = 'inline-flex items-center gap-x-1.5 whitespace-nowrap';
-    const lines = metroEnabled && shop.transit?.metro ? getMetroShopLines(shop, data.metro) : [];
-    const lineGroup = document.createElement('span');
-    lineGroup.className = 'inline-flex items-center gap-0.25';
-    for (const line of lines) {
-      const chip = document.createElement('span');
-      chip.className =
-        'min-w-5 shrink-0 rounded-sm px-1 text-center leading-5 font-bold whitespace-nowrap';
-      const color = line.color ?? '#64748b';
-      chip.style.backgroundColor = color;
-      chip.style.color = getMetroBadgeTextColor(color);
-      chip.textContent = line.shortName;
-      lineGroup.appendChild(chip);
-    }
-    if (lines.length > 0) label.appendChild(lineGroup);
-    // sanitizeHTML allows markup and strips inline styles. DOM text nodes
-    // escape external names; style properties avoid interpolating CSS into HTML.
-    label.appendChild(document.createTextNode(shop.name));
-    return label.outerHTML;
+    label.className = 'discover-marker-label discover-marker-label-static';
+    label.textContent = m.origin();
+    element.appendChild(label);
+    return element;
+  };
+
+  let activePopup: maplibregl.Popup | null = null;
+
+  const popupContent = (shop: DiscoverShop, address: string): HTMLElement => {
+    const container = document.createElement('div');
+    container.className = 'mt-2 min-w-48 max-w-80 space-y-2';
+    const header = document.createElement('div');
+    header.className = 'space-y-0.25';
+    const title = document.createElement('div');
+    title.className = 'font-semibold text-lg';
+    title.textContent = shop.name;
+    const addressLine = document.createElement('div');
+    addressLine.className = 'text-sm opacity-70';
+    addressLine.textContent = address;
+    header.append(title, addressLine);
+    const actions = document.createElement('div');
+    actions.className = 'flex gap-2';
+    const link = document.createElement('button');
+    link.className = 'btn btn-dash btn-neutral';
+    const icon = document.createElement('i');
+    icon.className = 'fas fa-external-link-alt';
+    const text = document.createElement('span');
+    text.textContent = m.open_in_maps_app();
+    link.append(icon, text);
+    link.onclick = async () => {
+      const target = await fetchMapLink({
+        longitude: shop.location.coordinates[0],
+        latitude: shop.location.coordinates[1],
+        name: shop.name
+      });
+      if (target) window.open(target, '_blank', 'noopener,noreferrer');
+    };
+    actions.appendChild(link);
+    container.append(header, actions);
+    return container;
+  };
+
+  const showShopPopup = (instance: maplibregl.Map, shop: DiscoverShop) => {
+    const address = formatShopAddress(shop);
+    const popup = new maplibregl.Popup({ offset: 24, closeButton: true })
+      .setLngLat([shop.location.coordinates[0], shop.location.coordinates[1]])
+      .setDOMContent(popupContent(shop, address))
+      .addTo(instance);
+    popup.on('close', () => {
+      if (selectedShopId === `${shop.id}`) selectedShopId = null;
+    });
+    activePopup = popup;
   };
 
   const handleMarkerClick = (shopId: string) => {
@@ -835,391 +783,457 @@
     });
   };
 
-  const createShopInfoWindowContent = (shop: ShopApi): string => {
-    const address = formatShopAddress(shop);
-    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${shop.name} ${address}`)}`;
+  // ── Map lifecycle ─────────────────────────────────────────────────────────
 
-    return `
-      <div class="mt-2 min-w-48 max-w-80 space-y-2">
-        <div class="space-y-0.25">
-          <div class="font-semibold text-lg text-slate-800">
-            ${shop.name}
-          </div>
-          <div class="text-sm text-slate-600">
-            ${address}
-          </div>
-        </div>
-        <div class="flex gap-2">
-          <a 
-            href="${googleMapsUrl}" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            class="btn btn-dash btn-neutral"
-          >
-            <i class="fas fa-external-link-alt"></i>
-            ${m.view_in_google_maps()}
-          </a>
-        </div>
-      </div>
-    `;
+  const ROUTES_SOURCE_ID = 'shop-routes';
+  const ROUTE_LINE_LAYER_ID = 'shop-routes-line';
+  const METRO_SOURCE_ID = 'metro-overlay';
+  const METRO_LAYER_ID = 'metro-overlay-line';
+
+  const removeLayerAndSource = (instance: maplibregl.Map, id: string) => {
+    try {
+      if (instance.getLayer(id)) instance.removeLayer(id);
+      if (instance.getSource(id)) instance.removeSource(id);
+    } catch {
+      // Map may already be destroyed during navigation.
+    }
+  };
+
+  const fitToShops = (instance: maplibregl.Map) => {
+    const bounds = new maplibregl.LngLatBounds();
+    bounds.extend([data.location.longitude, data.location.latitude]);
+    for (const shop of data.shops) {
+      if (shop.isClosed) continue;
+      bounds.extend(shop.location.coordinates as [number, number]);
+    }
+    if (!bounds.isEmpty()) {
+      instance.fitBounds(bounds, { padding: 64, maxZoom: 15, duration: 0 });
+    }
+  };
+
+  let shopMarkerElements: Record<string, HTMLElement> = $state({});
+
+  // ── Marker labels ─────────────────────────────────────────────────────────
+
+  /** Label placement order: the selection, then the hover, then table order. */
+  const markerLabelPriority = (shopId: string): number => {
+    if (shopId === selectedShopId) return 0;
+    if (shopId === hoveredShopId) return 1;
+    return 2;
+  };
+
+  /**
+   * How many name chips the map may show at once: fewer on a phone-sized
+   * viewport, more as the map zooms in — a city-wide view keeps only its
+   * leading shops labelled, a street-level view can afford most of them.
+   */
+  const markerLabelBudget = (zoom: number): number => {
+    const base = isMobileView ? 3 : 6;
+    const perZoom = isMobileView ? 1.5 : 2.5;
+    return Math.round(base + Math.max(0, zoom - 10) * perZoom);
+  };
+
+  const rectsOverlap = (a: DOMRect, b: DOMRect, padding: number): boolean =>
+    a.left - padding < b.right &&
+    a.right + padding > b.left &&
+    a.top - padding < b.bottom &&
+    a.bottom + padding > b.top;
+
+  /**
+   * Decide which name chips are readable. Every marker keeps its dot; only the
+   * chips compete for room, so a chip that would overlap a chip with a stronger
+   * claim fades out instead of fighting over the same pixels. The selected and
+   * hovered shops always keep theirs.
+   *
+   * Colliding chips are hidden with `visibility`, never `display`, so their
+   * boxes keep their measured size and the next pass can reclaim them without
+   * a re-layout round trip.
+   */
+  const refreshMarkerLabels = () => {
+    const instance = map;
+    if (!instance) return;
+
+    const width = instance.getContainer().clientWidth;
+    const entries: { shop: DiscoverShop; label: HTMLElement }[] = [];
+
+    for (const shop of sortedShops) {
+      const element = shopMarkerElements[`${shop.id}`];
+      const label = element?.querySelector<HTMLElement>('.discover-marker-label');
+      if (!element || !label) continue;
+      // A hidden marker neither shows a label nor reserves room for one.
+      if (shop.isClosed && !closedShopsExpanded) continue;
+      // Write before measuring: a flipped chip must be laid out on its new side.
+      const side =
+        instance.project(shop.location.coordinates as [number, number]).x > width * 0.72
+          ? 'start'
+          : 'end';
+      if (element.dataset.side !== side) element.dataset.side = side;
+      entries.push({ shop, label });
+    }
+
+    // Read pass: one layout flush for every chip on the map.
+    const measured = entries.map((entry) => entry.label.getBoundingClientRect());
+
+    const order = entries
+      .map((entry, index) => ({
+        index,
+        rect: measured[index]!,
+        priority: markerLabelPriority(`${entry.shop.id}`)
+      }))
+      .sort((a, b) => a.priority - b.priority);
+    const budget = markerLabelBudget(instance.getZoom());
+    const placed: DOMRect[] = [];
+    const keep = new Array<boolean>(entries.length).fill(false);
+    let shown = 0;
+
+    for (const { index, rect, priority } of order) {
+      // A chip that has never been laid out has no room to claim yet.
+      if (rect.width === 0) continue;
+      if (priority > 1) {
+        if (shown >= budget) continue;
+        if (placed.some((other) => rectsOverlap(other, rect, 4))) continue;
+      }
+      placed.push(rect);
+      keep[index] = true;
+      shown++;
+    }
+
+    for (const [index, entry] of entries.entries()) {
+      entry.label.classList.toggle('is-colliding', !keep[index]);
+    }
+  };
+
+  let markerLabelFrame: number | null = null;
+
+  /** Coalesce the bursts of `move`/`zoom`/`resize` events into one pass a frame. */
+  const scheduleMarkerLabels = () => {
+    if (markerLabelFrame !== null) return;
+    markerLabelFrame = requestAnimationFrame(() => {
+      markerLabelFrame = null;
+      refreshMarkerLabels();
+    });
   };
 
   $effect(() => {
-    if (!mapContainer || !data || darkMode === undefined) return;
+    if (!mapContainer || !data || darkMode === undefined || mapError) return;
 
-    // Don't track sortedShops — it depends on travelData which would cause
-    // the map to re-initialize during route calculation.
-    // We only want to re-init when `data` changes (new server fetch).
-    const shops = untrack(() => sortedShops);
-    if (useGoogleMaps) {
-      // Dynamically load Google Maps only when needed (overseas shops)
-      untrack(async () => {
-        const { loadGoogleMaps } = await import('$lib/utils/google-maps.client');
-        try {
-          await loadGoogleMaps(['core', 'maps', 'marker']);
-        } catch {
-          console.error('Failed to load Google Maps');
-          return;
-        }
-        if (!google.maps) return;
+    let cancelled = false;
+    let instance: maplibregl.Map | undefined;
 
-        const googleMap = new google.maps.Map(mapContainer!, {
-          mapId: PUBLIC_GOOGLE_MAPS_MAP_ID,
-          zoom: 10,
-          center: { lat: data.location.latitude, lng: data.location.longitude },
-          colorScheme: isDarkMode() ? 'DARK' : 'LIGHT'
+    void (async () => {
+      try {
+        const theme = darkMode ? 'dark' : 'light';
+        // The style is selected per origin point by the location service; the
+        // adapter normalizes it, wires non-standard tile sources through its
+        // protocol, and exposes the traffic overlay for this surface.
+        const styleResponse = await fetch(
+          fromPath(
+            `/api/geo/map-style?longitude=${data.location.longitude}&latitude=${data.location.latitude}&theme=${theme}&locale=${getLocale()}&scope=regional`
+          )
+        );
+        if (!styleResponse.ok) throw new Error(`Map style request failed: ${styleResponse.status}`);
+        const { profile, style: servedStyle } = (await styleResponse.json()) as {
+          profile: Record<string, unknown>;
+          style: unknown;
+        };
+        // The surface datum of the resolved profile is what the origin and the
+        // returned shops are already drawn in.
+        datumOfOrigin =
+          (profile as { coordinateSystem?: 'WGS84' | 'GCJ02' }).coordinateSystem ?? 'WGS84';
+        if (cancelled || !mapContainer) return;
+
+        const adapter = createMapLibreAdapter(profile as never, {
+          localFonts: { stacks: ['Sora', 'Noto'], baseUrl: fromPath('/') }
         });
+        adapter.registerProtocols();
+        const style = await adapter.loadStyle(servedStyle);
+        if (cancelled || !mapContainer) return;
+        mapAdapter = adapter;
 
-        map = googleMap;
-
-        const originMarker = new google.maps.marker.AdvancedMarkerElement({
-          position: { lat: data.location.latitude, lng: data.location.longitude },
-          map: googleMap,
-          title: m.origin(),
-          content: createIcon('origin-marker', 'fa-solid fa-location-crosshairs fa-xl', true),
-          zIndex: ORIGIN_INDEX
-        });
-
-        // Create info window for origin
-        const originInfoWindow = new google.maps.InfoWindow({
-          content: `<div class="text-sm font-medium">${m.origin()}</div>`
-        });
-
-        originMarker.addListener('click', () => {
-          originInfoWindow.open(googleMap, originMarker);
-        });
-
-        // Create shop markers
-        if (shops.length > 0) {
-          shops.forEach((shop) => {
-            const minLat = Math.min(...data.shops.map((s) => s.location.coordinates[1]));
-            const maxLat = Math.max(...data.shops.map((s) => s.location.coordinates[1]));
-            const minLng = Math.min(...data.shops.map((s) => s.location.coordinates[0]));
-            const maxLng = Math.max(...data.shops.map((s) => s.location.coordinates[0]));
-
-            const normalizedLat = (shop.location.coordinates[1] - minLat) / (maxLat - minLat) || 0;
-            const normalizedLng = (shop.location.coordinates[0] - minLng) / (maxLng - minLng) || 0;
-            const zIndex =
-              Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300) + SHOP_INDEX;
-
-            const marker = new google.maps.marker.AdvancedMarkerElement({
-              position: { lat: shop.location.coordinates[1], lng: shop.location.coordinates[0] },
-              map: googleMap,
-              title: shop.name,
-              content: createIcon(`shop-marker-${shop.id}`, 'fa-solid fa-location-dot fa-lg'),
-              zIndex
-            });
-
-            const infoWindow = new google.maps!.InfoWindow({
-              content: createShopInfoWindowContent(shop)
-            });
-            infoWindow.addListener('closeclick', () => {
-              if (selectedShopId === `${shop.id}`) {
-                selectedShopId = null;
-              }
-            });
-
-            markers[`${shop.id}`] = { marker, infoWindow, zIndex };
-            if (shop.isClosed) {
-              marker.map = null;
-            }
-
-            marker.addListener('mouseover', () => {
-              hoveredShopId = `${shop.id}`;
-            });
-
-            marker.addListener('mouseout', () => {
-              if (hoveredShopId === `${shop.id}`) {
-                hoveredShopId = null;
-              }
-            });
-
-            marker.addListener('click', () => {
-              Object.values(markers).forEach((markerInfo) => {
-                markerInfo.infoWindow?.close();
-              });
-              infoWindow.open(googleMap, marker);
-
-              handleMarkerClick(`${shop.id}`);
-            });
-          });
-
-          // Fit bounds to show all markers
-          const bounds = new google.maps.LatLngBounds();
-          bounds.extend({ lat: data.location.latitude, lng: data.location.longitude });
-          data.shops.forEach((shop) => {
-            if (shop.isClosed) return;
-            bounds.extend({ lat: shop.location.coordinates[1], lng: shop.location.coordinates[0] });
-          });
-          googleMap.fitBounds(bounds);
-        }
-      });
-    } else if (!useGoogleMaps && amap) {
-      // Initialize AMap
-      untrack(() => {
-        if (!amap) return;
-        map = new amap.Map('amap-container', {
-          zoom: 10,
+        instance = new maplibregl.Map({
+          container: mapContainer,
+          style: style as unknown as maplibregl.StyleSpecification,
           center: [data.location.longitude, data.location.latitude],
-          mapStyle: darkMode ? 'amap://styles/dark' : 'amap://styles/light',
-          viewMode: '2D'
+          zoom: 10,
+          transformRequest: adapter.transformRequest,
+          attributionControl: { compact: true }
         });
+        map = instance;
+        const activeMap: maplibregl.Map = instance;
+        instance.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-        // Reset traffic layer
-        trafficLayer = undefined;
+        // Origin marker. MapLibre orders markers by DOM order; the highlight
+        // effect manages stacking through the element's z-index style.
+        const originMarker = new maplibregl.Marker({
+          element: createOriginMarkerElement()
+        })
+          .setLngLat([data.location.longitude, data.location.latitude])
+          .addTo(instance);
+        originMarker.getElement().style.zIndex = '500';
 
-        const origin = new amap.Marker({
-          position: [data.location.longitude, data.location.latitude],
-          title: m.origin(),
-          content: '<i class="fa-solid fa-location-crosshairs fa-lg"></i>',
-          offset: new amap.Pixel(-9.375, -10),
-          label: {
-            content: m.origin(),
-            offset: new amap.Pixel(2, -5),
-            direction: 'right'
-          },
-          zIndex: ORIGIN_INDEX
-        });
-        origin.setMap(map);
-        if (shops.length > 0) {
-          shops.forEach((shop) => {
-            const minLat = Math.min(...data.shops.map((s) => s.location.coordinates[1]));
-            const maxLat = Math.max(...data.shops.map((s) => s.location.coordinates[1]));
-            const minLng = Math.min(...data.shops.map((s) => s.location.coordinates[0]));
-            const maxLng = Math.max(...data.shops.map((s) => s.location.coordinates[0]));
-
-            const normalizedLat = (shop.location.coordinates[1] - minLat) / (maxLat - minLat) || 0;
-            const normalizedLng = (shop.location.coordinates[0] - minLng) / (maxLng - minLng) || 0;
-            const zIndex =
-              Math.floor((1 - normalizedLat) * 700 + (1 - normalizedLng) * 300) + SHOP_INDEX;
-
-            const marker = new amap!.Marker({
-              position: shop.location.coordinates,
-              title: shop.name,
-              content: `<i id="shop-marker-${shop.id}" class="text-info dark:text-success fa-solid fa-location-dot fa-lg"></i>`,
-              offset: new amap!.Pixel(-7.03, -20),
-              label: {
-                content: createAMapShopLabel(shop),
-                offset: new amap!.Pixel(2, -5),
-                direction: 'right'
-              },
-              zIndex
-            });
-
-            markers[`${shop.id}`] = { marker, zIndex };
-
-            marker.on('mouseover', () => {
-              hoveredShopId = `${shop.id}`;
-            });
-            marker.on('mouseout', () => {
-              if (hoveredShopId === `${shop.id}`) {
-                hoveredShopId = null;
-              }
-            });
-            marker.on('click', () => {
-              handleMarkerClick(`${shop.id}`);
-            });
-            marker.setMap(map as AMap.Map);
-            if (shop.isClosed) {
-              // Hide via CSS visibility instead of marker.hide(): AMap keeps
-              // drawing hidden markers and measures their label while it has
-              // no layout, which permanently misplaces it (show() never
-              // re-measures). Visibility preserves layout, so the label stays
-              // centered for whenever the marker is revealed.
-              document
-                .getElementById(`shop-marker-${shop.id}`)
-                ?.closest<HTMLElement>('.amap-marker')
-                ?.style.setProperty('visibility', 'hidden');
-            }
+        // Shop markers with metro line chips and names.
+        const elements: Record<string, HTMLElement> = {};
+        for (const shop of data.shops) {
+          const marker = new maplibregl.Marker({
+            element: createShopMarkerElement(shop)
+          })
+            .setLngLat(shop.location.coordinates as [number, number])
+            .addTo(instance);
+          const element = marker.getElement();
+          element.style.zIndex = '400';
+          element.addEventListener('mouseenter', () => {
+            hoveredShopId = `${shop.id}`;
           });
-
-          if (map && 'setFitView' in map) map.setFitView();
+          element.addEventListener('mouseleave', () => {
+            if (hoveredShopId === `${shop.id}`) hoveredShopId = null;
+          });
+          element.addEventListener('click', (event) => {
+            event.stopPropagation();
+            activePopup?.remove();
+            showShopPopup(activeMap, shop);
+            handleMarkerClick(`${shop.id}`);
+          });
+          if (shop.isClosed) {
+            element.style.visibility = 'hidden';
+          }
+          elements[`${shop.id}`] = element;
         }
-      });
-    }
+        shopMarkerElements = elements;
+
+        activePopup = null;
+        fitToShops(instance);
+
+        // Labels are placed against the settled viewport, and re-placed
+        // whenever the map moves or resizes. The passes that define the
+        // *settled* state run synchronously rather than through a frame:
+        // `requestAnimationFrame` is throttled hard in a background or
+        // occluded tab, and the labels should be decluttered before the map is
+        // first painted anyway. Only the drag-time pass is frame-paced, since
+        // it exists to keep up with motion.
+        instance.on('move', scheduleMarkerLabels);
+        instance.on('moveend', refreshMarkerLabels);
+        instance.on('resize', refreshMarkerLabels);
+        instance.once('idle', refreshMarkerLabels);
+        refreshMarkerLabels();
+        if (typeof document !== 'undefined' && document.fonts) {
+          void document.fonts.ready.then(() => refreshMarkerLabels());
+        }
+      } catch (error) {
+        console.error('Failed to initialize the discover map:', error);
+        if (!cancelled) mapError = String(error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (markerLabelFrame !== null) {
+        cancelAnimationFrame(markerLabelFrame);
+        markerLabelFrame = null;
+      }
+      activePopup?.remove();
+      activePopup = null;
+      shopMarkerElements = {};
+      instance?.remove();
+      if (map === instance) {
+        map = undefined;
+        mapAdapter = null;
+      }
+    };
   });
 
+  // Closed-shop visibility follows the expand toggle; the labels they free up
+  // are handed to the shops still on the map.
   $effect(() => {
     const expanded = closedShopsExpanded;
-    const mapInstance = map;
-    if (!mapInstance) return;
     untrack(() => {
       for (const shop of data.shops) {
         if (!shop.isClosed) continue;
-        const markerData = markers[`${shop.id}`];
-        if (!markerData) continue;
-        const marker = markerData.marker;
-        if ('hide' in marker && typeof marker.hide === 'function') {
-          document
-            .getElementById(`shop-marker-${shop.id}`)
-            ?.closest<HTMLElement>('.amap-marker')
-            ?.style.setProperty('visibility', expanded ? '' : 'hidden');
-        } else {
-          (marker as google.maps.marker.AdvancedMarkerElement).map = expanded
-            ? (mapInstance as google.maps.Map)
-            : null;
-        }
+        const element = shopMarkerElements[`${shop.id}`];
+        if (element) element.style.visibility = expanded ? '' : 'hidden';
+      }
+      scheduleMarkerLabels();
+    });
+  });
+
+  // Theme changes re-select the style for the current surface.
+  $effect(() => {
+    if (!map || darkMode === undefined) return;
+    const theme = darkMode ? 'dark' : 'light';
+    untrack(async () => {
+      try {
+        const response = await fetch(
+          fromPath(
+            `/api/geo/map-style?longitude=${data.location.longitude}&latitude=${data.location.latitude}&theme=${theme}&locale=${getLocale()}&scope=regional`
+          )
+        );
+        if (!response.ok) return;
+        const { profile, style: servedStyle } = (await response.json()) as {
+          profile: Record<string, unknown>;
+          style: unknown;
+        };
+        const adapter = createMapLibreAdapter(profile as never, {
+          localFonts: { stacks: ['Sora', 'Noto'], baseUrl: fromPath('/') }
+        });
+        const style = (await adapter.loadStyle(servedStyle)) as unknown as maplibregl.StyleSpecification;
+        mapAdapter = adapter;
+        map?.setStyle(style, { diff: false });
+      } catch {
+        // Keep the current style; the next full reload picks the theme up.
       }
     });
   });
 
+  // Live routing per selected transport method.
   $effect(() => {
-    if (!map || useGoogleMaps) return;
-    if (map && 'setMapStyle' in map) {
-      map.setMapStyle(darkMode ? 'amap://styles/dark' : 'amap://styles/light');
-    }
-  });
-
-  $effect(() => {
-    if (!map || useGoogleMaps) return; // Skip for Google Maps
+    if (!map) return;
     if (transportMethod) {
       const method = transportMethod;
       untrack(async () => {
         await calculateTravelData(method);
       });
       return () => {
-        Object.keys(travelData).forEach((shopId) => {
-          const route = travelData[shopId]?.route;
-          if (route && map && (map as { remove?: (route: unknown) => void }).remove) {
-            try {
-              (map as { remove: (route: unknown) => void }).remove(route);
-            } catch {
-              // Map may already be destroyed during navigation
-            }
-          }
-        });
+        clearShopRoutes();
       };
-    } else {
-      travelData = {};
     }
+    travelData = {};
   });
 
+  // ── Route layers: one GeoJSON source restyled per hover/selection ─────────
+
+  const clearShopRoutes = () => {
+    const instance = map;
+    if (!instance) return;
+    removeLayerAndSource(instance, ROUTE_LINE_LAYER_ID);
+    removeLayerAndSource(instance, ROUTES_SOURCE_ID);
+  };
+
   $effect(() => {
-    if (useGoogleMaps) return;
-    void hoveredShopId;
-    void selectedShopId;
-    void directions.isOpen;
-    void directions.shopId;
+    const instance = map;
+    if (!instance || !instance.isStyleLoaded()) return;
+    const routeEntries = Object.entries(travelData).filter(
+      ([, travel]) => travel?.path && travel.path.length >= 2
+    );
     untrack(() => {
-      Object.keys(travelData).forEach((shopId) => {
-        const data = travelData[shopId];
-        if (!data || !data.route.setOptions) return;
-        data.route.setOptions(getRouteOptions(shopId));
-      });
+      if (routeEntries.length === 0) {
+        clearShopRoutes();
+        return;
+      }
+      const features = routeEntries.map(([shopId, travel]) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'LineString' as const, coordinates: travel!.path },
+        id: shopId,
+        properties: { shopId }
+      }));
+      const source = instance.getSource(ROUTES_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+      if (source) {
+        source.setData({ type: 'FeatureCollection', features });
+      } else {
+        instance.addSource(ROUTES_SOURCE_ID, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features }
+        });
+        instance.addLayer({
+          id: ROUTE_LINE_LAYER_ID,
+          type: 'line',
+          source: ROUTES_SOURCE_ID,
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': [
+              'case',
+              ['boolean', ['feature-state', 'selected'], false],
+              '#00ff00',
+              ['boolean', ['feature-state', 'hovered'], false],
+              '#ffa500',
+              '#00e5ff'
+            ],
+            'line-width': [
+              'case',
+              ['boolean', ['feature-state', 'selected'], false],
+              3.8,
+              ['boolean', ['feature-state', 'hovered'], false],
+              4.2,
+              3
+            ],
+            'line-opacity': [
+              'case',
+              ['boolean', ['feature-state', 'faded'], false],
+              0,
+              ['boolean', ['feature-state', 'highlighted'], false],
+              1,
+              0.4
+            ]
+          }
+        });
+        instance.on('click', ROUTE_LINE_LAYER_ID, (event) => {
+          const shopId = event.features?.[0]?.properties?.shopId;
+          if (shopId) {
+            selectedShopId = `${shopId}`;
+            showDirections();
+          }
+        });
+        instance.on('mouseenter', ROUTE_LINE_LAYER_ID, () => {
+          instance.getCanvas().style.cursor = 'pointer';
+        });
+        instance.on('mouseleave', ROUTE_LINE_LAYER_ID, () => {
+          instance.getCanvas().style.cursor = '';
+        });
+      }
+      // Push hover/selection into feature state.
+      for (const [shopId] of routeEntries) {
+        instance.setFeatureState(
+          { source: ROUTES_SOURCE_ID, id: shopId },
+          {
+            selected: selectedShopId === shopId,
+            hovered: hoveredShopId === shopId,
+            faded: directions.isOpen && directions.shopId === shopId,
+            highlighted:
+              (selectedShopId === shopId || hoveredShopId === shopId) &&
+              !(directions.isOpen && directions.shopId === shopId)
+          }
+        );
+      }
     });
   });
 
+  // Selection drives the camera and opens the Directions panel.
   $effect(() => {
-    // Update route colors when directions state changes
-    if (directions.shopId && !useGoogleMaps) {
-      const routeData = travelData[directions.shopId];
-      if (routeData && routeData.route.setOptions) {
-        routeData.route.setOptions(getRouteOptions(directions.shopId));
-      }
-    }
-  });
-
-  $effect(() => {
-    if (selectedShopId) {
-      untrack(() => {
-        if (useGoogleMaps && map && 'setZoom' in map) {
-          // For Google Maps, just center on the shop
-          const shop = data.shops.find((s) => `${s.id}` === selectedShopId);
-          if (shop) {
-            map.setZoom(15);
-            (map as google.maps.Map).panTo({
-              lat: shop.location.coordinates[1],
-              lng: shop.location.coordinates[0]
-            });
-          }
-        } else {
-          const route = travelData[selectedShopId!]?.route;
-          if (route && map && 'setFitView' in map) {
-            map.setFitView([route]);
-            directions.shopId = selectedShopId;
-            openDirections();
-          } else if (shopRouteData[selectedShopId!]) {
-            // No live AMap route for this shop, but the server supplied a metro
-            // itinerary, so the panel can open without waiting.
-            directions.shopId = selectedShopId;
-            openDirections();
-          } else {
-            const shop = data.shops.find((s) => `${s.id}` === selectedShopId);
-            if (shop && map && 'setZoomAndCenter' in map) {
-              map.setZoomAndCenter(15, shop.location.coordinates);
-            }
-          }
-        }
-      });
-    }
-  });
-
-  $effect(() => {
-    if (
-      transportMethod &&
-      selectedShopId &&
-      travelData[selectedShopId]?.routeData &&
-      !useGoogleMaps
-    ) {
-      const selected = selectedShopId;
-      untrack(() => {
-        const result = travelData[selected]?.routeData;
-        if (
-          typeof result !== 'object' ||
-          (!('plans' in result && result.plans.length > 0) &&
-            !('routes' in result && result.routes.length > 0))
-        ) {
-          return;
-        }
-        const cacheKey = generateRouteCacheKey(
-          data.location.latitude,
-          data.location.longitude,
-          selected,
-          transportMethod
-        );
-        const cachedData = cachedRoutes[cacheKey];
-        const selectedIndex = cachedData?.selectedRouteIndex ?? 0;
-
-        directions = {
-          isOpen: true,
-          shopId: selected,
-          selectedRouteIndex: selectedIndex
-        };
+    if (!selectedShopId || !map) return;
+    const instance = map;
+    untrack(() => {
+      const shop = data.shops.find((s) => `${s.id}` === selectedShopId);
+      if (!shop) return;
+      const route = travelData[selectedShopId!]?.path;
+      if (route && route.length >= 2) {
+        const bounds = new maplibregl.LngLatBounds();
+        for (const [lng, lat] of route) bounds.extend([lng, lat]);
+        instance.fitBounds(bounds, { padding: 72, duration: 600, maxZoom: 16 });
+        directions.shopId = selectedShopId;
         openDirections();
-      });
-    }
+      } else if (shopRouteData[selectedShopId!]) {
+        // No live route for this shop, but the server supplied a metro
+        // itinerary, so the panel can open without waiting.
+        directions.shopId = selectedShopId;
+        openDirections();
+      } else {
+        instance.easeTo({
+          center: shop.location.coordinates as [number, number],
+          zoom: Math.max(instance.getZoom(), 15),
+          duration: 600
+        });
+      }
+    });
   });
 
   /**
    * Opening the panel for the selection always falls back to the metro
-   * itinerary when there is one; the AMap-route effect above handles the case
-   * where a live route exists (it runs with the route already in hand).
+   * itinerary when there is one; the live-route effect above handles the case
+   * where a route exists (it runs with the route already in hand).
    */
   $effect(() => {
-    if (!selectedShopId || useGoogleMaps) return;
+    if (!selectedShopId) return;
     const selected = selectedShopId;
     if (!shopRouteData[selected]) return;
-    // A live AMap route takes precedence and opens the panel via its own effect.
+    // A live route takes precedence and opens the panel via its own effect.
     if (travelData[selected]?.routeData) return;
     untrack(() => {
       directions = { isOpen: true, shopId: selected, selectedRouteIndex: 0 };
@@ -1227,78 +1241,40 @@
     });
   });
 
+  // Marker highlight follows hover/selection.
   $effect(() => {
     const selected = selectedShopId;
     const hovered = hoveredShopId;
     untrack(() => {
-      data.shops.forEach((shop) => {
-        const markerId = `${shop.id}`;
-        const markerData = markers[markerId];
-        if (!markerData) return;
-
-        if (useGoogleMaps) {
-          const marker = markerData.marker as google.maps.marker.AdvancedMarkerElement;
-          const isSelected = markerId === selected;
-          const isHovered = markerId === hovered;
-
-          if (isSelected) {
-            Object.values(markers).forEach((markerInfo) => {
-              markerInfo.infoWindow?.close();
-            });
-            markerData.infoWindow?.open(map as google.maps.Map, marker);
-          }
-
-          marker.zIndex = isSelected
-            ? SELECTED_SHOP_INDEX
-            : isHovered
-              ? HOVERED_SHOP_INDEX
-              : markerData.zIndex;
-        } else {
-          const marker = markerData.marker as AMap.Marker;
-          if (marker.setzIndex)
-            marker.setzIndex(
-              markerId === selected
-                ? SELECTED_SHOP_INDEX
-                : markerId === hovered
-                  ? HOVERED_SHOP_INDEX
-                  : markerData.zIndex
-            );
-        }
-
-        const element = document.querySelector(`#shop-marker-${shop.id}`) as HTMLElement | null;
-        if (element) {
-          element.className = element.className.replace(
-            /text-error|text-warning dark:text-info|text-info dark:text-success/g,
-            ''
-          );
-          if (selected === markerId) {
-            element.classList.add('text-error');
-          } else if (hovered === markerId) {
-            element.classList.add('text-warning');
-            element.classList.add('dark:text-info');
-          } else {
-            element.classList.add('text-info');
-            element.classList.add('dark:text-success');
-          }
-        }
-      });
+      for (const shop of data.shops) {
+        const element = shopMarkerElements[`${shop.id}`];
+        if (!element) continue;
+        element.dataset.state =
+          selected === `${shop.id}` ? 'selected' : hovered === `${shop.id}` ? 'hovered' : 'idle';
+        element.style.zIndex =
+          selected === `${shop.id}` ? '600' : hovered === `${shop.id}` ? '550' : '400';
+      }
+      // The hovered and selected shops outrank the rest for a label.
+      scheduleMarkerLabels();
     });
   });
 
+  // Traffic overlay for the modes that benefit from it.
   $effect(() => {
-    if (!amap || !map || useGoogleMaps) return;
+    const instance = map;
+    const adapter = mapAdapter;
+    if (!instance || !adapter) return;
     if (['transit', 'riding', 'driving'].includes(transportMethod ?? '')) {
-      if (!trafficLayer && amap.TileLayer) {
-        trafficLayer = new amap.TileLayer.Traffic({
-          zIndex: 1000,
-          autoRefresh: true,
-          opacity: 0.5
-        });
-        if (trafficLayer.setMap) trafficLayer.setMap(map as AMap.Map);
-      }
+      untrack(() => adapter.addTrafficOverlay(instance, { opacity: 0.5 }));
     } else {
-      if (trafficLayer && trafficLayer.setMap) trafficLayer.setMap(null);
-      trafficLayer = undefined;
+      untrack(() => {
+        try {
+          if (instance.getLayer('ug-traffic')) instance.removeLayer('ug-traffic');
+          if (instance.getSource('ug-traffic')) instance.removeSource('ug-traffic');
+        } catch {
+          // Map may already be destroyed during navigation.
+        }
+      });
     }
   });
 
@@ -1307,21 +1283,18 @@
   // shop paints its openmetro itinerary from the response alone — solid ride
   // legs in official line colors, dashed grey walks. The overlay is hidden
   // while a Directions panel is open because the panel draws its own.
-  let metroOverlay: AMap.Polyline[] = [];
 
   const clearMetroOverlay = () => {
-    metroOverlay.forEach((polyline) => {
-      try {
-        polyline.setMap(null);
-      } catch {
-        // Map may already be destroyed during navigation
-      }
-    });
-    metroOverlay = [];
+    const instance = map;
+    if (!instance) return;
+    removeLayerAndSource(instance, METRO_LAYER_ID);
+    removeLayerAndSource(instance, `${METRO_LAYER_ID}-solid`);
+    removeLayerAndSource(instance, METRO_SOURCE_ID);
   };
 
   const drawMetroOverlay = (shopId: string, emphasized: boolean) => {
-    if (!amap || !map || useGoogleMaps) return;
+    const instance = map;
+    if (!instance) return;
     const shop = data.shops.find((entry) => `${entry.id}` === shopId);
     if (!shop) return;
 
@@ -1330,24 +1303,44 @@
     const segments = shop.travel ? buildMetroOverlay(shop, data.metro) : [];
     if (segments.length === 0) return;
 
-    const lines: AMap.Polyline[] = [];
-    for (const segment of segments) {
-      const polyline = new amap.Polyline({
-        path: segment.path.map(([lng, lat]) => new amap!.LngLat(lng, lat)),
-        strokeColor: segment.color ?? METRO_WALK_COLOR,
-        strokeWeight: emphasized ? segment.weight + 1 : segment.weight,
-        strokeOpacity: emphasized ? 1 : 0.85,
-        strokeStyle: segment.dashed ? 'dashed' : 'solid',
-        ...(segment.dashed ? { strokeDasharray: METRO_WALK_DASH, showDir: false } : {}),
-        lineJoin: 'round',
-        lineCap: 'round',
-        zIndex: emphasized ? HOVERED_ROUTE_INDEX : ROUTE_INDEX
-      });
-      polyline.setMap(map as AMap.Map);
-      lines.push(polyline);
-    }
-
-    metroOverlay = lines;
+    const features = segments.map((segment) => ({
+      type: 'Feature' as const,
+      geometry: { type: 'LineString' as const, coordinates: segment.path },
+      properties: {
+        color: segment.color ?? METRO_WALK_COLOR,
+        dashed: segment.dashed ? 1 : 0,
+        weight: emphasized ? segment.weight + 1 : segment.weight
+      }
+    }));
+    instance.addSource(METRO_SOURCE_ID, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features }
+    });
+    instance.addLayer({
+      id: METRO_LAYER_ID,
+      type: 'line',
+      source: METRO_SOURCE_ID,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': ['get', 'color'],
+        'line-width': ['get', 'weight'],
+        'line-opacity': emphasized ? 1 : 0.85,
+        'line-dasharray': [2, 2]
+      },
+      filter: ['get', 'dashed']
+    });
+    instance.addLayer({
+      id: `${METRO_LAYER_ID}-solid`,
+      type: 'line',
+      source: METRO_SOURCE_ID,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': ['get', 'color'],
+        'line-width': ['get', 'weight'],
+        'line-opacity': emphasized ? 1 : 0.85
+      },
+      filter: ['!', ['get', 'dashed']]
+    });
   };
 
   /**
@@ -1367,14 +1360,12 @@
     untrack(() => {
       clearMetroOverlay();
       if (!shopId || directionsOpen) return;
-      // A live AMap route for this shop draws itself; the metro overlay would
+      // A live route for this shop draws itself; the metro overlay would
       // double-draw a different path on top of it.
-      if (travelData[shopId]?.route) return;
+      if (travelData[shopId]?.path) return;
       drawMetroOverlay(shopId, hoveredShopId === shopId);
     });
   });
-
-  $effect(() => () => clearMetroOverlay());
 
   /**
    * The openmetro fare for the shop whose metro itinerary is displayed, once it
@@ -1394,10 +1385,10 @@
   });
 
   /**
-   * Route data feeding `<Directions>`. A live AMap result always wins — it is
-   * a real routed path, whereas the metro itinerary is reconstructed from
-   * straight-line walks. The metro plan is the fallback when AMap has nothing
-   * (no transport method selected, or the request failed).
+   * Route data feeding `<Directions>`. A live routed result always wins — it
+   * is a real routed path, whereas the metro itinerary is reconstructed from
+   * straight-line walks. The metro plan is the fallback when routing has
+   * nothing (no transport method selected, or the request failed).
    */
   let activeDirectionsRouteData = $derived.by(() => {
     const shopId = directions.shopId;
@@ -1415,9 +1406,9 @@
   });
 
   /**
-   * True when the panel is showing a **metro itinerary** rather than an AMap
+   * True when the panel is showing a **metro itinerary** rather than a live
    * route. Only then is the fare fetched from openmetro and shown with a
-   * skeleton — a live AMap plan reports its own cost and must not be masked by
+   * skeleton — a live plan reports its own cost and must not be masked by
    * a request that is still in flight.
    */
   let activeDirectionsIsMetro = $derived.by(() => {
@@ -1439,7 +1430,7 @@
 
   /**
    * Live fare enrichment (§3.5) — openmetro traffic beyond the discover call.
-   * Runs only when the **metro itinerary** is what the panel shows; a live AMap
+   * Runs only when the **metro itinerary** is what the panel shows; a live
    * plan reports its own cost, so querying openmetro then would be wasted
    * traffic. Failures are silent (the fare column is simply omitted).
    */
@@ -1461,6 +1452,33 @@
         // fare column rather than showing a skeleton forever.
         metroFares = { ...metroFares, [shopId]: fare };
       });
+    });
+  });
+
+  /** Per-platform external link for the open Directions panel. */
+  $effect(() => {
+    if (!directions.isOpen || !directions.shopId) {
+      mapLink = null;
+      return;
+    }
+    const shop = data.shops.find((entry) => `${entry.id}` === directions.shopId);
+    if (!shop) return;
+    untrack(async () => {
+      const link = await fetchMapLink({
+        longitude: shop.location.coordinates[0],
+        latitude: shop.location.coordinates[1],
+        name: shop.name,
+        mode: 'navigation',
+        travelMode:
+          transportMethod === 'walking'
+            ? 'walking'
+            : transportMethod === 'riding'
+              ? 'cycling'
+              : transportMethod === 'driving'
+                ? 'driving'
+                : 'transit'
+      });
+      mapLink = link;
     });
   });
 
@@ -1510,17 +1528,16 @@
   fareLoading={activeDirectionsFareLoading}
   fare={activeDirectionsFare}
   fareCurrency={activeDirectionsFareCurrency}
-  map={map as AMap.Map}
-  {amap}
-  amapLink={routeLink}
+  map={map ?? null}
+  mapLink={mapLink}
   onClose={() => {
     directions.isOpen = false;
   }}
   onRouteSelected={(index) => {
     directions.selectedRouteIndex = index;
 
-    // Server-provided itineraries have a single route, so there is nothing to
-    // re-select or re-cache.
+    // Reconstructed metro itineraries have a single route, so there is
+    // nothing to re-select or re-cache.
     if (prefersMetroItinerary(directions.shopId ?? '')) return;
 
     // Update cache with new selected route index
@@ -1538,36 +1555,21 @@
       }
     }
 
-    // Update the polyline on the map to show the selected route
-    if (directions.shopId && transportMethod && amap && map) {
-      const shopData = travelData[directions.shopId];
-      if (shopData?.routeData) {
-        const result = shopData.routeData;
-        if (typeof result === 'object') {
-          const routes = 'routes' in result ? result.routes : result.plans;
-          const selectedRoute = routes[index];
-
-          if (selectedRoute) {
-            const path = convertPath(
-              'path' in selectedRoute
-                ? selectedRoute.path
-                : ('steps' in selectedRoute ? selectedRoute.steps : selectedRoute.rides)
-                    .map((step) => step.path)
-                    .flat()
-            );
-
-            shopData.route.setPath(path);
-
-            travelData[directions.shopId] = {
-              ...shopData,
-              time: selectedRoute.time ?? 0,
-              distance: selectedRoute.distance ? selectedRoute.distance / 1000 : 0,
-              path,
-              route: shopData.route,
-              selectedRouteIndex: index
-            };
-          }
-        }
+    // The travel figure follows the newly selected route.
+    const shopData = directions.shopId ? travelData[directions.shopId] : undefined;
+    const result = shopData?.routeData;
+    if (shopData && result && isValidRouteData(result)) {
+      const selectedRoute = [...result.routes].sort(
+        (a, b) => a.durationSeconds - b.durationSeconds
+      )[index];
+      if (selectedRoute) {
+        travelData[`${directions.shopId}`] = {
+          time: selectedRoute.durationSeconds,
+          distance: selectedRoute.distanceMeters / 1000,
+          path: selectedRoute.geometry,
+          selectedRouteIndex: index,
+          routeData: result
+        };
       }
     }
   }}
@@ -1706,7 +1708,7 @@
         })}
       </p>
     </div>
-    <div class="not-xs:hidden flex flex-col gap-1 {useGoogleMaps ? 'hidden' : ''}">
+    <div class="not-xs:hidden flex flex-col gap-1">
       <!-- Wide screens: all selects inline -->
       <div class="hidden md:flex md:items-end md:gap-2">
         <div class="flex flex-col gap-1">
@@ -1770,18 +1772,25 @@
     <InlineAlert type="info" soft class="mb-4 not-dark:hidden">{m.no_shops_found()}</InlineAlert>
     <InlineAlert type="info" class="mb-4 dark:hidden">{m.no_shops_found()}</InlineAlert>
   {/if}
-  {#if amapError && !useGoogleMaps}
+  {#if mapError}
     <InlineAlert type="error" icon="fa-circle-xmark" class="mb-4">
       {m.map_failure({
-        error: amapError
+        error: mapError
       })}
     </InlineAlert>
   {/if}
+  <!-- The class attribute here must never be dynamic: MapLibre tags its
+       container with `maplibregl-map` when the map is constructed, and a
+       template expression makes Svelte rewrite `className` wholesale on the
+       next update, which drops that class and with it the `position: relative`
+       that pins the canvas and controls to this box. `class:` directives
+       toggle individual classes instead, so MapLibre's own class survives. -->
   <div
-    id="amap-container"
-    class="mb-4 h-[50vh] w-full rounded-xl md:h-[60vh] {!useGoogleMaps && !amap
-      ? 'bg-base-200 animate-pulse opacity-50'
-      : ''}"
+    id="map-container"
+    class="mb-4 h-[50vh] w-full rounded-xl md:h-[60vh]"
+    class:bg-base-200={!map}
+    class:animate-pulse={!map}
+    class:opacity-50={!map}
     bind:this={mapContainer}
   ></div>
   <div class="mb-2 flex flex-wrap items-center gap-1">
@@ -1967,7 +1976,7 @@
               {#if timePrimary}
                 {@const travel = shopTravel(shop)}
                 {@const icon = shopTravelIcon(shop)}
-                <!-- Time leads. Every row has one: a live AMap route, the
+                <!-- Time leads. Every row has one: a live routed time, the
                        server's metro estimate, or a straight-line inference. -->
                 <div class="flex flex-col items-center gap-0.5">
                   <div
@@ -2059,16 +2068,17 @@
                   <i class="fas fa-info-circle"></i>
                   <span class="hidden md:inline">{m.details()}</span>
                 </a>
-                <a
+                <button
+                  type="button"
                   class="btn btn-ghost btn-sm px-1 text-nowrap sm:px-2 md:px-4"
-                  href={getRouteLink(shop)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onclick={() => handleShopClick(shop)}
+                  onclick={() => {
+                    handleShopClick(shop);
+                    void openExternalRoute(shop);
+                  }}
                 >
                   <i class="fas fa-map-marked-alt"></i>
                   <span class="hidden md:inline">{m.route()}</span>
-                </a>
+                </button>
               </div>
             </td>
           </tr>
@@ -2254,19 +2264,88 @@
     white-space: normal;
   }
 
-  :global(.amap-marker-label) {
-    @apply rounded-full border-0 bg-sky-400/12 px-2 backdrop-blur-lg dark:bg-emerald-500/12;
+  /* ── Discover map markers ─────────────────────────────────────────────────
+     A marker is a dot centred on the shop's coordinate plus a name chip that
+     floats beside it. The chip is positioned outside the marker's box, so it
+     neither drags the dot off the coordinate nor widens the click target —
+     and it is `pointer-events: none` for the same reason: with chips this
+     wide, a clickable one would swallow clicks aimed at the dots it covers.
+     Theme colours come in as `var(--color-*)` because this block references
+     Tailwind alone, which does not know the daisyUI palette. */
+  :global(.discover-marker) {
+    @apply flex h-3.5 w-3.5 items-center justify-center;
   }
 
-  :global(.gm-style-iw-d) {
-    @apply overflow-visible!;
+  :global(.discover-marker-dot) {
+    @apply block h-2.5 w-2.5 rounded-full;
+    background-color: var(--color-info);
+    box-shadow: 0 0 0 2px var(--color-base-100);
+    transition: scale 150ms ease;
   }
 
-  :global(.gm-ui-hover-effect) {
-    @apply transition dark:bg-zinc-300!;
+  :global(.discover-marker-origin .discover-marker-dot) {
+    @apply h-3 w-3;
+    background-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-base-100);
   }
 
-  :global(.gm-ui-hover-effect:hover) {
-    @apply dark:bg-zinc-900!;
+  :global(.discover-marker[data-state='hovered'] .discover-marker-dot) {
+    @apply scale-150;
+    background-color: var(--color-warning);
+  }
+
+  :global(.discover-marker[data-state='selected'] .discover-marker-dot) {
+    @apply scale-150;
+    background-color: var(--color-error);
+  }
+
+  :global(.discover-marker-label) {
+    @apply pointer-events-none absolute top-1/2 left-[calc(100%+0.4rem)] flex max-w-44 -translate-y-1/2 items-center gap-x-1.5 rounded-full border px-2 text-xs leading-5 font-medium whitespace-nowrap shadow-md backdrop-blur-md;
+    background-color: color-mix(in oklab, var(--color-base-100) 90%, transparent);
+    border-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+    color: var(--color-base-content);
+    transition:
+      opacity 150ms ease,
+      visibility 150ms ease;
+  }
+
+  /* Near the right edge of the map the chip flips to the dot's left. */
+  :global(.discover-marker[data-side='start'] .discover-marker-label) {
+    @apply right-[calc(100%+0.4rem)] left-auto;
+  }
+
+  /* Overlapped chips fade out but keep their box: the next declutter pass
+     measures them, and a `display: none` chip would measure as zero. */
+  :global(.discover-marker-label.is-colliding) {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  :global(.discover-marker-label-static) {
+    @apply border-transparent font-semibold;
+    background-color: color-mix(in oklab, var(--color-accent) 90%, transparent);
+    color: var(--color-accent-content);
+  }
+
+  :global(.discover-marker-name) {
+    @apply min-w-0 overflow-hidden text-ellipsis;
+  }
+
+  :global(.discover-marker-lines) {
+    @apply flex shrink-0 items-center gap-0.5;
+  }
+
+  :global(.discover-marker-line) {
+    @apply min-w-5 shrink-0 rounded-sm px-1 text-center leading-5 font-bold whitespace-nowrap;
+  }
+
+  @media (max-width: 767px) {
+    :global(.discover-marker-label) {
+      @apply max-w-32;
+    }
+  }
+
+  :global(.maplibregl-popup-content) {
+    @apply rounded-xl;
   }
 </style>

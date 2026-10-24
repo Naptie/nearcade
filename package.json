@@ -30,8 +30,6 @@
     "wechat-refresh": "tsx ./scripts/refresh-wechat-token.ts"
   },
   "devDependencies": {
-    "@amap/amap-jsapi-loader": "^1.0.1",
-    "@amap/amap-jsapi-types": "^0.0.15",
     "@edgeone/sveltekit": "^1.1.0",
     "@eslint/compat": "^2.1.0",
     "@eslint/js": "^10.0.1",
@@ -49,7 +47,6 @@
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.2",
     "@types/geojson": "^7946.0.16",
-    "@types/google.maps": "^3.65.2",
     "@types/node": "^25.9.5",
     "@types/three": "^0.184.1",
     "@types/xml2js": "^0.4.14",

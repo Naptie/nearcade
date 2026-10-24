@@ -97,8 +97,13 @@
   "admin_clubs": "クラブ管理",
   "admin_clubs_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} クラブ"
       }
@@ -119,8 +124,16 @@
   "admin_data_update_duration": "所要時間",
   "admin_data_update_duration_value": [
     {
-      "declarations": ["input hours", "input minutes", "input seconds"],
-      "selectors": ["hours", "minutes", "seconds"],
+      "declarations": [
+        "input hours",
+        "input minutes",
+        "input seconds"
+      ],
+      "selectors": [
+        "hours",
+        "minutes",
+        "seconds"
+      ],
       "match": {
         "hours=0,minutes=0,seconds=*": "{seconds} 秒",
         "hours=0,minutes=*,seconds=0": "{minutes} 分",
@@ -366,8 +379,13 @@
   "admin_ugc_occurrence_heading": "出現箇所",
   "admin_ugc_occurrences": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 箇所"
       }
@@ -401,8 +419,13 @@
   "admin_universities": "大学管理",
   "admin_universities_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 大学"
       }
@@ -440,8 +463,6 @@
   "already_added": "追加済み",
   "already_verified": "認証済み",
   "already_verified_description": "このメールアドレスはすでにアカウント認証に使用されています。",
-  "amap_api_request_failed": "AMap API リクエストが失敗しました",
-  "amap_secret_not_configured": "AMap シークレットが設定されていません",
   "and_x_more": "他 {count} 件",
   "announcement": "お知らせ",
   "announcement_draft": "下書き",
@@ -543,8 +564,13 @@
   "campus_address": "キャンパスの住所",
   "campus_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} キャンパス"
       }
@@ -624,8 +650,13 @@
   "club_background_color": "クラブの背景色",
   "club_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} クラブ"
       }
@@ -643,8 +674,13 @@
   "clubs": "クラブ",
   "clubs_available": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} クラブが利用可能です"
       }
@@ -746,8 +782,13 @@
   "discovery_interaction_threshold_must_be_between_1_and_100": "発見のしきい値は 1 から 100 の間である必要があります",
   "dismiss_in": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 日間表示しない"
       }
@@ -766,8 +807,13 @@
   "donate": "寄付",
   "donate_description": [
     {
-      "declarations": ["input appName", "input count"],
-      "selectors": ["count"],
+      "declarations": [
+        "input appName",
+        "input count"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=1": "{appName} へようこそ！このプロジェクトが役立つと思われたら、改善と維持のために寄付を歓迎します。あなたのサポートが私たちの原動力です！",
         "count=*": "このサイト内を {count} 回見て回りました。このサイトが役立つと思われたら、改善と維持のために寄付を歓迎します。あなたのサポートが私たちの原動力です！"
@@ -991,8 +1037,15 @@
   "form_validation_error": "以下のエラーを修正してください",
   "found_shops_near": [
     {
-      "declarations": ["input count", "input location", "local countPlural = count: plural"],
-      "selectors": ["count", "location"],
+      "declarations": [
+        "input count",
+        "input location",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count",
+        "location"
+      ],
       "match": {
         "count=*, location=*": "{location} の近くに {count} 件の店舗が見つかりました"
       }
@@ -1044,8 +1097,14 @@
   "home_view_full_ranking": "完全なランキングを見る",
   "home_within_distance": [
     {
-      "declarations": ["input value", "input mode", "local formatted = value: number"],
-      "selectors": ["mode"],
+      "declarations": [
+        "input value",
+        "input mode",
+        "local formatted = value: number"
+      ],
+      "selectors": [
+        "mode"
+      ],
       "match": {
         "mode=meters": "{formatted} m 以内",
         "mode=kilometers": "{formatted} km 以内"
@@ -1165,8 +1224,13 @@
   "member_count": "メンバー数",
   "member_count_people": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 人"
       }
@@ -1321,6 +1385,7 @@
   "only_admins_can_revoke_moderator_roles": "管理者のみモデレーター権限を取り消すことができます",
   "only_admins_can_transfer_admin_privileges": "管理者のみ管理者権限を譲渡できます",
   "only_site_admins_can_grant_admin_privileges": "サイト管理者のみ管理者権限を付与できます",
+  "open_in_maps_app": "地図アプリで開く",
   "opening_hours": "営業時間",
   "or": "または",
   "organization": "組織",
@@ -1371,8 +1436,13 @@
   "planned_leave_time": "退出予定時刻",
   "planned_leave_time_help": [
     {
-      "declarations": ["input time", "input isTomorrow"],
-      "selectors": ["isTomorrow"],
+      "declarations": [
+        "input time",
+        "input isTomorrow"
+      ],
+      "selectors": [
+        "isTomorrow"
+      ],
       "match": {
         "isTomorrow=true": "退出予定時刻（明日 {time} まで）",
         "isTomorrow=*": "退出予定時刻（今日 {time} まで）"
@@ -1478,8 +1548,13 @@
   "reported_by_user": "{user} さんが報告",
   "reported_players": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 人"
       }
@@ -1718,8 +1793,13 @@
   "shop_updated_successfully": "店舗が正常に更新されました",
   "shops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 店舗"
       }
@@ -1727,8 +1807,13 @@
   ],
   "shops_available": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} ゲームセンターが利用可能です",
         "countPlural=other": "{count} ゲームセンターが利用可能です"
@@ -1766,8 +1851,13 @@
   "social_open_profile": "{platform} のプロフィールを開く",
   "social_placeholder": [
     {
-      "declarations": ["input platform", "input isNumber"],
-      "selectors": ["isNumber"],
+      "declarations": [
+        "input platform",
+        "input isNumber"
+      ],
+      "selectors": [
+        "isNumber"
+      ],
       "match": {
         "isNumber=true": "{platform} の番号を入力してください",
         "isNumber=*": "{platform} のユーザー名を入力してください"
@@ -1821,8 +1911,13 @@
   "starred_arcades_count": "お気に入りのゲームセンター数",
   "starred_arcades_count_shops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 店舗"
       }
@@ -1832,8 +1927,13 @@
   "starred_arcades_visibility": "お気に入りのゲームセンターの可視性",
   "stations": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 駅"
       }
@@ -1844,8 +1944,13 @@
   "status": "ステータス",
   "stops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 駅"
       }
@@ -1892,8 +1997,14 @@
   "thursday": "木曜日",
   "time_length": [
     {
-      "declarations": ["input hours", "input minutes"],
-      "selectors": ["hours", "minutes"],
+      "declarations": [
+        "input hours",
+        "input minutes"
+      ],
+      "selectors": [
+        "hours",
+        "minutes"
+      ],
       "match": {
         "hours=0, minutes=*": "{minutes} 分",
         "hours=*, minutes=0": "{hours} 時間",
@@ -1903,8 +2014,13 @@
   ],
   "times": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 回"
       }
@@ -1983,8 +2099,13 @@
   "universities": "大学",
   "universities_and_colleges_available": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 大学が利用可能です"
       }
@@ -2040,7 +2161,6 @@
   "uploading_to_server": "サーバーへアップロード中...",
   "upvote": "賛成票を投じる",
   "use_google_maps": "Google マップを使用",
-  "use_tencent_maps": "Tencent マップを使用",
   "user": "ユーザー",
   "user_already_has_an_active_attendance": "ユーザーは既にアクティブなチェックインがあります",
   "user_avatar": "ユーザーアバター",
@@ -2060,8 +2180,14 @@
   "username_too_long": "ユーザー名は30文字以内で入力してください",
   "uses": [
     {
-      "declarations": ["input current", "input max"],
-      "selectors": ["current", "max"],
+      "declarations": [
+        "input current",
+        "input max"
+      ],
+      "selectors": [
+        "current",
+        "max"
+      ],
       "match": {
         "current=*, max=0": "{current} 回使用",
         "current=*, max=*": "{current}/{max} 回使用"
@@ -2080,8 +2206,13 @@
   "verify_title": "「{university}」の学生資格を認証",
   "via_stops": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["count"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "count"
+      ],
       "match": {
         "count=*": "{count} 駅経由"
       }
@@ -2090,8 +2221,6 @@
   "view": "表示",
   "view_as_visitor": "訪問者の視点",
   "view_delete_request": "削除申請を表示",
-  "view_in_amap": "Amap で表示",
-  "view_in_google_maps": "Google マップで表示",
   "view_location": "場所を表示",
   "view_on_source": "{source} で表示",
   "view_shop": "店舗を表示",

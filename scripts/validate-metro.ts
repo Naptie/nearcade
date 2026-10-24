@@ -1083,10 +1083,7 @@ suite('route', async () => {
     '$app/paths': 'export const base = "";',
     '$env/dynamic/private': 'export const env = {};',
     '$env/dynamic/public': 'export const env = {};',
-    // `discover.server` → `geo.server` → `tencent.server` imports build-time
-    // env constants; no translation may be attempted in the harness.
-    '$env/static/public': 'export const PUBLIC_TENCENT_MAPS_KEY = "";',
-    '$env/static/private': 'export const AMAP_SECRET = "";',
+    '$env/static/public': 'export {};',
     '$lib/paraglide/messages': `export const m = new Proxy({}, { get: (_, key) => () => String(key) });`,
     'openmetro-client': 'export const createClient = globalThis.__metroRouteTest.unexpected;'
   };
@@ -1106,7 +1103,7 @@ suite('route', async () => {
 
   try {
     const { loadShops } = await import('../src/lib/endpoints/discover.server');
-    const { buildMetroOverlay, buildMetroFullPath, buildMetroTransitPlan, getMetroShopLines } =
+    const { buildMetroOverlay, buildMetroFullPath, buildMetroRoute, getMetroShopLines } =
       await import('../src/lib/utils/metro.client');
     assert.deepEqual(
       getMetroShopLines(shops[0], undefined).map((line) => line.shortName),
@@ -1169,16 +1166,16 @@ suite('route', async () => {
       assert.deepEqual(overlay[0].path, accessPath);
       assert.notDeepEqual(overlay[0].path[0], overlay[0].path[1]);
       assert.deepEqual(buildMetroFullPath(shop, block).slice(0, 2), accessPath);
-      const plan = buildMetroTransitPlan(shop, block);
+      const plan = buildMetroRoute(shop, block);
       assert.ok(plan);
-      assert.equal(plan.time, shop.travel?.seconds);
-      // The plan total must reconcile with its own steps: the entry/exit
+      assert.equal(plan.durationSeconds, shop.travel?.seconds);
+      // The route total must reconcile with its own steps: the entry/exit
       // overheads are folded into the first/last ride segments (never into
       // walk segments, so a zero-metre walk never reads "0m · 4min").
-      const stepSum = plan.segments.reduce((sum, segment) => sum + segment.time, 0);
-      assert.equal(stepSum, plan.time);
+      const stepSum = plan.segments.reduce((sum, segment) => sum + (segment.durationSeconds ?? 0), 0);
+      assert.equal(stepSum, plan.durationSeconds);
       assert.deepEqual(
-        plan.segments.map((segment) => segment.time),
+        plan.segments.map((segment) => segment.durationSeconds),
         [
           block.origin.walkSeconds,
           300 + METRO_ENTRY_OVERHEAD_SECONDS,
@@ -1187,9 +1184,9 @@ suite('route', async () => {
           shop.transit!.metro!.walkSeconds
         ]
       );
-      assert.deepEqual(plan.segments[0].transit.path, [
-        { lng: searchOrigin.lon, lat: searchOrigin.lat },
-        { lng: 116, lat: 40 }
+      assert.deepEqual(plan.segments[0].geometry, [
+        [searchOrigin.lon, searchOrigin.lat],
+        [116, 40]
       ]);
     }
     console.log('  ✓ Actual origin → station access path survives assembly and client rendering.');

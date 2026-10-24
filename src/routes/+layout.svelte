@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { onMount, setContext } from 'svelte';
+  import { onMount } from 'svelte';
   import '../app.css';
   import '@fortawesome/fontawesome-free/css/all.min.css';
   import {
-    PUBLIC_AMAP_KEY,
     PUBLIC_FIREBASE_VAPID_KEY,
     PUBLIC_CLARITY_PROJECT_ID,
     PUBLIC_FIREBASE_API_KEY,
@@ -15,11 +14,10 @@
     PUBLIC_FIREBASE_STORAGE_BUCKET,
     PUBLIC_BAIDU_SITE_VERIFICATION
   } from '$env/static/public';
-  import type { AMapContext, WindowMessage } from '$lib/types';
-  import '@amap/amap-jsapi-types';
+  import type { WindowMessage } from '$lib/types';
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
-  import { fromPath, isDarkMode } from '$lib/utils/scoped';
+  import { isDarkMode } from '$lib/utils/scoped';
   import { getDisplayName } from '$lib/utils';
   import { m } from '$lib/paraglide/messages';
   import { page } from '$app/state';
@@ -46,20 +44,7 @@
   const isGlobePage = $derived(page.url.pathname === resolve('/globe'));
 
   let { data, children } = $props();
-  let amap: typeof AMap | undefined = $state(undefined);
-  let amapError = $state<string | null>(null);
   let themeColorMeta: HTMLMetaElement;
-
-  const amapContext: AMapContext = {
-    get amap() {
-      return amap;
-    },
-    get error() {
-      return amapError;
-    }
-  };
-
-  setContext('amap', amapContext);
 
   const setHighlightTheme = () => {
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -150,27 +135,6 @@
         console.error('Failed to initialize Firebase:', error);
       });
 
-      (window as Window & { _AMapSecurityConfig?: { serviceHost: string } })._AMapSecurityConfig = {
-        serviceHost: fromPath('/_AMapService')
-      };
-
-      // Load AMap by default outside the Globe, where Bing supplies the map.
-      try {
-        import('@amap/amap-jsapi-loader').then((loader) => {
-          loader.default
-            .load({
-              key: PUBLIC_AMAP_KEY,
-              version: '2.0'
-            })
-            .then((a: typeof AMap) => {
-              amap = a;
-              window.dispatchEvent(new CustomEvent('amap-loaded', { detail: a }));
-            });
-        });
-      } catch (error) {
-        console.error('Failed to load AMap:', error);
-        amapError = error instanceof Error ? error.message : 'Failed to load AMap';
-      }
     }
 
     let redirect = page.url.searchParams.get('redirect');

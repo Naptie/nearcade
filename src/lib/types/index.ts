@@ -6,7 +6,7 @@ import type {
   RANKING_RADIUS_OPTIONS,
   METRO_RANKING_RADIUS_OPTIONS
 } from '../constants';
-import type { TransportSearchResult } from './amap';
+export type { TransportSearchResult, CachedRouteData, DirectionsState } from './routing';
 import type { PublicUser } from '$lib/auth/types';
 import { z } from 'zod';
 import { activitySchema } from '$lib/schemas/users';
@@ -205,18 +205,19 @@ export type SortCriteria =
   'shops' | 'machines' | 'density' | 'per_capita' | (typeof GAME_TITLES)[number]['key'];
 
 /**
- * Travel method driving the discover view. These select an *AMap* network
- * lookup for the table's travel column; the server-computed openmetro
- * itineraries (walk / ride / metro) are always shown in the panel regardless
- * of this choice, so there is no separate "metro" method.
+ * Travel method driving the discover view. These select the routing lookup
+ * for the table's travel column; the server-computed openmetro itineraries
+ * (walk / ride / metro) are always shown in the panel regardless of this
+ * choice, so there is no separate "metro" method.
  */
 export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'driving';
 
-/** Methods computed by the AMap plugins (all of them — `undefined` means none). */
-export type AMapTransportMethod = Exclude<TransportMethod, undefined>;
+/** A concrete transport method (`undefined` means none selected). */
+export type ConcreteTransportMethod = Exclude<TransportMethod, undefined>;
 
-export const isAMapTransportMethod = (method: TransportMethod): method is AMapTransportMethod =>
-  method !== undefined;
+export const isConcreteTransportMethod = (
+  method: TransportMethod
+): method is ConcreteTransportMethod => method !== undefined;
 
 export type RadiusFilter = (typeof RADIUS_OPTIONS)[number];
 
@@ -481,17 +482,7 @@ export interface AttendanceReportRecord {
   reportedAt: Date;
 }
 
-// Extended types for directions
-export interface CachedRouteData {
-  routeData: TransportSearchResult;
-  selectedRouteIndex: number;
-}
 
-export interface DirectionsState {
-  isOpen: boolean;
-  shopId: string | null;
-  selectedRouteIndex: number;
-}
 
 export interface WindowMessage {
   type: 'NAVIGATE' | 'INVALIDATE';
@@ -602,4 +593,4 @@ export interface ShopWithExtras extends Shop {
   density: number;
 }
 
-export * from './amap';
+

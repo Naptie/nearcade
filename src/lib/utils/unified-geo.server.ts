@@ -32,9 +32,13 @@ interface UnifiedGeoClientSurface {
     convert: { post: (body: unknown) => Promise<unknown> };
     reverse: { post: (body: unknown) => Promise<unknown> };
     search: { post: (body: unknown) => Promise<unknown> };
+    resolve: { post: (body: unknown) => Promise<unknown> };
+    geocode: { post: (body: unknown) => Promise<unknown> };
+    directions: { post: (body: unknown) => Promise<unknown> };
   };
   maps: {
     profile: { post: (body: unknown) => Promise<unknown> };
+    links: { post: (body: unknown) => Promise<unknown> };
   };
 }
 
@@ -44,7 +48,11 @@ const unifiedGeoClientRoutes: Record<string, UnifiedGeoClientCall> = {
   '/geo/convert': (client, body) => client.geo.convert.post(body),
   '/geo/reverse': (client, body) => client.geo.reverse.post(body),
   '/geo/search': (client, body) => client.geo.search.post(body),
-  '/maps/profile': (client, body) => client.maps.profile.post(body)
+  '/geo/resolve': (client, body) => client.geo.resolve.post(body),
+  '/geo/geocode': (client, body) => client.geo.geocode.post(body),
+  '/geo/directions': (client, body) => client.geo.directions.post(body),
+  '/maps/profile': (client, body) => client.maps.profile.post(body),
+  '/maps/links': (client, body) => client.maps.links.post(body)
 };
 
 // Cached typed client; `null` marks "package unavailable in this process" so a
@@ -183,22 +191,73 @@ export interface UnifiedGeoStyleResult {
   cacheControl: string | null;
 }
 
-/** Fetch a MapLibre style document served by unified-geo (GET /maps/styles). */
-export async function requestUnifiedGeoStyle(params: {
-  provider: 'bing-cn' | 'amap' | 'google';
-  theme?: 'dark' | 'light';
-  locale?: 'zh-CN' | 'en-US';
-}): Promise<UnifiedGeoStyleResult> {
+/** Make an authenticated GET request to unified-geo (e.g. /capabilities). */
+export async function requestUnifiedGeoGet<T extends UnifiedGeoEnvelope>(
+  endpoint: string
+): Promise<T> {
   const secret = env.UNIFIED_GEO_API_SECRET;
   if (!secret) error(503, 'The location service is not configured.');
 
-  const query = new URLSearchParams({ provider: params.provider });
-  if (params.theme) query.set('theme', params.theme);
-  if (params.locale) query.set('locale', params.locale);
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${endpoint}`, {
+      headers: { authorization: `Bearer ${secret}` },
+      signal: AbortSignal.timeout(10_000)
+    });
+  } catch (cause) {
+    console.error('Unified geo request failed:', endpoint, cause);
+    error(502, 'The location service is unavailable.');
+  }
+
+  if (!response.ok) {
+    console.error('Unified geo returned an error:', endpoint, response.status);
+    error(502, 'The location service is unavailable.');
+  }
+
+  const payload = (await response.json()) as unknown;
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    !('success' in payload) ||
+    payload.success !== true
+  ) {
+    console.error('Unified geo returned an unsuccessful response:', endpoint);
+    error(502, 'The location service returned an invalid response.');
+  }
+
+  return payload as T;
+}
+
+/** Fetch the map profile for a point (POST /maps/profile). */
+export function requestUnifiedGeoProfile(body: {
+  coordinate: { longitude: number; latitude: number; coordinateSystem: 'WGS84' | 'GCJ02' };
+  scope?: 'regional' | 'global';
+  style?: 'dark' | 'light';
+  locale?: string;
+}): Promise<UnifiedGeoEnvelope & Record<string, unknown>> {
+  return requestUnifiedGeo('/maps/profile', body);
+}
+
+/**
+ * Fetch the MapLibre style document the profile points at (its `styleUrl`,
+ * served by unified-geo with the credentials baked in). The style body is
+ * returned as-is — not wrapped in an envelope — with the upstream Cache-Control
+ * header for pass-through.
+ */
+export async function fetchUnifiedGeoStyle(styleUrl: string): Promise<UnifiedGeoStyleResult> {
+  const secret = env.UNIFIED_GEO_API_SECRET;
+  if (!secret) error(503, 'The location service is not configured.');
+
+  let url: URL;
+  try {
+    url = new URL(styleUrl, `${baseUrl}/`);
+  } catch {
+    error(502, 'The location service returned an invalid style URL.');
+  }
 
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}/maps/styles?${query.toString()}`, {
+    response = await fetch(url, {
       headers: { authorization: `Bearer ${secret}` },
       signal: AbortSignal.timeout(10_000)
     });
