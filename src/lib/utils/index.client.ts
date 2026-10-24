@@ -93,7 +93,22 @@ export const getIpOrigin = (): Promise<IpOrigin | null> => {
   return ipOriginRequest;
 };
 
-/** Normalize coordinates to the map profile selected by unified-geo. */
+/**
+ * Move a point into the map surface's coordinate system.
+ *
+ * A device fix is WGS84 — that is what the GPS reports, everywhere. The map
+ * surface (Bing CN) and the coordinates nearcade stores live in the surface's
+ * datum: GCJ02 on the mainland and in the SARs, WGS84 in Taiwan and abroad.
+ * So a WGS84 fix has to be converted before it can be compared with a stored
+ * shop, drawn on the map, or used as a search anchor — and a point that is
+ * already in the surface's space must not be converted again.
+ *
+ * The target datum is read from the geo service rather than assumed, so a fix
+ * outside the mainland is left in WGS84.
+ *
+ * A failure leaves the point untouched: the caller keeps working with a
+ * slightly-off coordinate instead of losing the location entirely.
+ */
 export const convertCoordinates = async <T extends { latitude: number; longitude: number }>(
   location: T
 ): Promise<T> => {

@@ -37,6 +37,15 @@ export function getStyleLocale(locale: string): 'zh-CN' | 'en-US' {
 /**
  * Datum of the map surface (and of stored shop coordinates) for a region id
  * chain: GCJ02 on the mainland and in the SARs, WGS84 for Taiwan and abroad.
+ *
+ * This is the space every coordinate is compared in — a shop, a map marker, a
+ * search anchor. Which space a point *arrives* in depends on where it came
+ * from:
+ *
+ * - a device fix is WGS84 and has to be converted into this space first
+ *   (`convertCoordinates`);
+ * - a map pick, a place-search result and a stored document are already in
+ *   this space, and must not be converted again.
  */
 export function regionDatum(regionIds: string[]): 'WGS84' | 'GCJ02' {
   const isChina = regionIds.some((id) => id === 'CN' || id === 'HK' || id === 'MO');

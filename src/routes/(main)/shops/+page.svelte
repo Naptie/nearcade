@@ -14,6 +14,7 @@
     pageTitle
   } from '$lib/utils';
   import { hasBoundPhone } from '$lib/utils';
+  import { convertCoordinates } from '$lib/utils/index.client';
   import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import { PAGINATION, GAME_TITLES } from '$lib/constants';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
@@ -156,8 +157,17 @@
     locating = true;
     try {
       const { latitude, longitude } = await getMyLocation();
+      // A device fix is WGS84. The shops this filter searches are stored in the
+      // map surface's datum (GCJ02 on the mainland), so the anchor has to be
+      // moved into that space before it can be compared with them.
+      const anchor = await convertCoordinates({ latitude, longitude });
       await applyFilterUpdate((filter) => {
-        filter.geo = { mode: 'near', lat: latitude, lng: longitude, radiusKm: 10 };
+        filter.geo = {
+          mode: 'near',
+          lat: anchor.latitude,
+          lng: anchor.longitude,
+          radiusKm: 10
+        };
       });
     } catch {
       // Location unavailable — leave the filter untouched.

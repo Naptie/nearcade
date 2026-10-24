@@ -4,6 +4,7 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { GAME_TITLES, RADIUS_OPTIONS } from '$lib/constants';
   import { getGameName, getMyLocation } from '$lib/utils';
+  import { convertCoordinates } from '$lib/utils/index.client';
   import FilterSectionCard from '$lib/components/FilterSectionCard.svelte';
   import RegionCascadeSelect from '$lib/components/RegionCascadeSelect.svelte';
   import { toastError } from '$lib/notifications/toast.svelte';
@@ -127,13 +128,17 @@
       return;
     }
     locating = true;
+    const radiusKm = draft.geo?.radiusKm ?? 10;
     getMyLocation()
-      .then(({ latitude, longitude }) => {
+      .then(async ({ latitude, longitude }) => {
+        // A device fix is WGS84; the shops this filter searches are stored in
+        // the map surface's datum, so the anchor moves into that space first.
+        const anchor = await convertCoordinates({ latitude, longitude });
         draft.geo = {
           mode: 'near',
-          lat: latitude,
-          lng: longitude,
-          radiusKm: draft.geo?.radiusKm ?? 10
+          lat: anchor.latitude,
+          lng: anchor.longitude,
+          radiusKm
         };
       })
       .catch(() => toastError(m.filter_error_location()))

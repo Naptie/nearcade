@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { definePublic } from '../contract';
 import { bilingual, locationSchema } from '$lib/schemas/common';
+import { convertFromSchema } from '$lib/schemas/discover';
 import { shopApiRegionEntrySchema } from '$lib/schemas/shops';
 
 /**
@@ -155,6 +156,7 @@ export const globeContract = {
           .number()
           .optional()
           .describe(bilingual('按距离排序时的经度。', 'Longitude used by the distance query.')),
+        convertFrom: convertFromSchema,
         offset: z.coerce
           .number()
           .int()

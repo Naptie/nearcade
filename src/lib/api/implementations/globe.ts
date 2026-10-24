@@ -10,6 +10,7 @@ import {
   loadGlobeShopsByName
 } from '$lib/endpoints/globe.server';
 import { readGlobeFilterState } from '$lib/utils/shops/filter';
+import { convertToMapProfile } from '$lib/utils/geo.server';
 
 const MAX_IDS_PER_REQUEST = 200;
 const MAX_TITLE_IDS = 50;
@@ -73,11 +74,26 @@ export const globeImplementation = {
     }
 
     if (input.lat !== undefined || input.lng !== undefined) {
-      const latitude = input.lat ?? 0;
-      const longitude = input.lng ?? 0;
+      let latitude = input.lat ?? 0;
+      let longitude = input.lng ?? 0;
       if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
         apiError('BAD_REQUEST', 'lat or lng is out of range');
       }
+
+      // The origin is compared with the stored shops, which live in the map
+      // surface's datum. A caller that sends a point in another datum says so,
+      // and the point is moved into that space before it is used as the
+      // anchor — the same rule `/discover` follows.
+      if (input.convertFrom) {
+        const converted = await convertToMapProfile(longitude, latitude, input.convertFrom);
+        if (converted) {
+          longitude = converted.longitude;
+          latitude = converted.latitude;
+        } else {
+          console.error('Unified geo coordinate routing failed; using original coordinates');
+        }
+      }
+
       const page = await loadGlobeShopsByDistance(longitude, latitude, offset, {
         titleIds,
         filter

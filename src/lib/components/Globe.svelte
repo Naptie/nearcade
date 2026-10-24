@@ -29,7 +29,7 @@
   import { viewport } from '$lib/utils/viewport.svelte';
   import { isTouchscreen, getCachedLocation } from '$lib/utils';
   import { orpc } from '$lib/api/client';
-  import { getIpOrigin } from '$lib/utils/index.client';
+  import { getIpOrigin, convertCoordinates } from '$lib/utils/index.client';
   import type { GlobeShop } from '$lib/types';
   import {
     GlobeVisualsLayer,
@@ -610,25 +610,44 @@
     })();
   });
 
+  /**
+   * An origin in the map surface's datum.
+   *
+   * The origin is the anchor the shops are ordered by distance from, and the
+   * shops are stored in that space (GCJ02 on the mainland). Both sources below
+   * are WGS84 — a device fix and the IP-derived city centre — so they have to
+   * move into the surface's space before they are used as an anchor; a WGS84
+   * point compared against GCJ02 shops sits ~500 m off.
+   */
+  const toSurfaceOrigin = async (origin: { latitude: number; longitude: number }) => {
+    const converted = await convertCoordinates({
+      latitude: origin.latitude,
+      longitude: origin.longitude
+    });
+    return { lat: converted.latitude, lng: converted.longitude };
+  };
+
   // All sidebar requests use one origin. Start from the last cached device
   // location, then replace it only when the user picks a map point or shop.
   $effect(() => {
     if (sidebarOrigin) return;
     const cached = getCachedLocation(false);
     if (cached) {
-      sidebarOrigin = { lat: cached.latitude, lng: cached.longitude };
-      originFallbackResolved = true;
+      void toSurfaceOrigin(cached).then((anchor) => {
+        if (!sidebarOrigin) sidebarOrigin = anchor;
+        originFallbackResolved = true;
+      });
       return;
     }
     if (originFallbackRequested) return;
     originFallbackRequested = true;
 
-    void getIpOrigin().then((origin) => {
-      if (origin && !sidebarOrigin) {
-        sidebarOrigin = { lat: origin.latitude, lng: origin.longitude };
-      }
-      originFallbackResolved = true;
-    });
+    void getIpOrigin()
+      .then((origin) => (origin ? toSurfaceOrigin(origin) : null))
+      .then((anchor) => {
+        if (anchor && !sidebarOrigin) sidebarOrigin = anchor;
+        originFallbackResolved = true;
+      });
   });
 
   // Region is no longer a server-side filter of its own: it is part of
