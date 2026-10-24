@@ -516,7 +516,7 @@ export const buildMetroRouteData = (
 // ── Live fare enrichment (§3.5) ─────────────────────────────────────────────
 
 const getApiBase = (): string =>
-  env.PUBLIC_OPENMETRO_API_BASE?.trim() || 'https://openmetro.phi.zone';
+  env.PUBLIC_OPENMETRO_API_BASE?.trim() || 'https://openmetro.dev';
 
 let client: ReturnType<typeof createClient> | null = null;
 const getClient = () => (client ??= createClient(getApiBase()));

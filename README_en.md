@@ -278,7 +278,7 @@ Once `.env` is configured, run `docker compose up -d --build --wait`, then open
 **Metro data setup (optional)**
 
 `.env.example` sets `PUBLIC_OPENMETRO_API_BASE = ""`, which uses the code's
-`https://openmetro.phi.zone` default. Set another Open Metro API base if needed;
+`https://openmetro.dev` default. Set another Open Metro API base if needed;
 no API key is required. After importing shops, run the admin task `openmetro_sync`
 at `/admin/data-updates` to populate reference data, shop assignments and station
 rankings; daily scheduling is recommended. Every sync refreshes assignments and
