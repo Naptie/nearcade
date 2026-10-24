@@ -1,9 +1,8 @@
 import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type { Shop, ShopApiAddress } from '$lib/types';
+import type { Shop, ShopApiAddress, AttendanceUser } from '$lib/types';
 import { PAGINATION } from '$lib/constants';
 import { sanitizeHTML, toPlainArray, toPlainObject } from '$lib/utils';
-import type { PublicUser } from '$lib/auth/types';
 import { m } from '$lib/paraglide/messages';
 import {
   generalFromRegion,
@@ -35,8 +34,8 @@ type SearchResultShop = Omit<SearchResultHit, 'address'> & {
   address: ShopApiAddress;
   currentAttendance?: number;
   currentReportedAttendance?: {
-    reportedAt: string;
-    reportedBy: PublicUser;
+    reportedAt: string | Date;
+    reportedBy: AttendanceUser;
     comment: string | null;
   } | null;
 };

@@ -3,6 +3,7 @@
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
+  import { orpc } from '$lib/api/client';
   import {
     adaptiveNewTab,
     formatDate,
@@ -91,22 +92,11 @@
     }
 
     try {
-      const response = await fetch(
-        resolve('/api/users/[id]/activities', {
-          id: data.user.id || ''
-        }) + `?page=${page}&limit=10`
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to load activities');
-      }
-
-      const result = (await response.json()) as {
-        activities: Activity[];
-        hasMore: boolean;
-        page: number;
-        limit: number;
-      };
+      const result = await orpc.users.activities({
+        id: data.user.id || '',
+        page,
+        limit: 10
+      });
 
       if (append) {
         activities = [...activities, ...result.activities];

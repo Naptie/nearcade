@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import mongo from '$lib/db/index.server';
-import type { ImageAsset } from '$lib/types';
+import type { StoredImageAsset } from '$lib/types';
 import type { User } from '$lib/auth/types';
 import { m } from '$lib/paraglide/messages';
 import { protect, toPlainArray } from '$lib/utils';
@@ -43,7 +43,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     ];
   }
 
-  const imagesCollection = db.collection<ImageAsset>('images');
+  // The admin surface reads the stored documents, so it sees the storage
+  // bookkeeping the public API does not.
+  const imagesCollection = db.collection<StoredImageAsset>('images');
   const [images, totalCount] = await Promise.all([
     imagesCollection
       .find(searchFilter)

@@ -2,6 +2,8 @@
   import { m } from '$lib/paraglide/messages';
   import { locales } from '$lib/paraglide/runtime';
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
+  import { orpc } from '$lib/api/client';
+  import { apiErrorMessage } from '$lib/utils/api-error';
   import type { Region } from '$lib/regions/types';
 
   type Props = {
@@ -77,36 +79,19 @@
       const lng = parseNumber(longitude);
       const lat = parseNumber(latitude);
 
-      const payload: {
-        name: Record<string, string>;
-        area: number | null;
-        population: number | null;
-        location: { type: 'Point'; coordinates: [number, number] } | null;
-      } = {
+      await orpc.admin.updateRegion({
+        id: region.id,
         name: names,
         area: areaValue,
         population: populationValue,
         location: lng != null && lat != null ? { type: 'Point', coordinates: [lng, lat] } : null
-      };
-
-      const response = await fetch(`/api/admin/regions/${region.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
       });
-
-      const result = (await response.json()) as { error?: string };
-
-      if (!response.ok) {
-        errorMessage = result.error ?? m.region_save_failed();
-        return;
-      }
 
       onSaved();
       isOpen = false;
     } catch (err) {
       console.error('Error saving region:', err);
-      errorMessage = m.region_save_failed();
+      errorMessage = apiErrorMessage(err, m.region_save_failed());
     } finally {
       isSubmitting = false;
     }

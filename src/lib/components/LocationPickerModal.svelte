@@ -7,6 +7,7 @@
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import { getMyLocation, getCachedLocation } from '$lib/utils';
+  import { orpc } from '$lib/api/client';
   import { fromPath, isDarkMode } from '$lib/utils/scoped';
   import { getIpOrigin } from '$lib/utils/index.client';
   import { createMapLibreAdapter } from 'unified-geo-client/maplibre';
@@ -129,19 +130,13 @@
     isSearchingPlaces = true;
     searchFailed = false;
     try {
-      const response = await fetch(fromPath('/api/geo/picker/search'), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          query,
-          longitude: center.lng,
-          latitude: center.lat,
-          language: getLocale()
-        })
+      const result = await orpc.geo.pickerSearch({
+        query,
+        longitude: center.lng,
+        latitude: center.lat,
+        language: getLocale()
       });
-      if (!response.ok) throw new Error(`Place search failed: ${response.status}`);
-      const data = (await response.json()) as { places: Place[] };
-      if (requestId === searchRequestId) places = data.places ?? [];
+      if (requestId === searchRequestId) places = result.places ?? [];
     } catch (error) {
       console.error('Error searching places:', error);
       if (requestId === searchRequestId) {
@@ -195,19 +190,10 @@
     latitude: number;
   }): Promise<MapSelection | undefined> => {
     try {
-      const response = await fetch(
-        fromPath(
-          `/api/geo/translate?lat=${location.latitude}&lng=${location.longitude}&from=WGS84`
-        ),
+      const translated = await orpc.geo.translate(
+        { lat: location.latitude, lng: location.longitude, from: 'WGS84' },
         { signal: AbortSignal.timeout(2500) }
       );
-      if (!response.ok) throw new Error(`translate failed: ${response.status}`);
-      const translated = (await response.json()) as {
-        converted: boolean;
-        lng: number;
-        lat: number;
-        coordinateSystem: CoordinateSystem;
-      };
       return {
         name: '',
         address: '',
@@ -299,28 +285,15 @@
     pickerError = '';
 
     try {
-      const response = await fetch(fromPath('/api/geo/picker/confirm'), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          longitude: selection.longitude,
-          latitude: selection.latitude,
-          language: getLocale(),
-          name: selection.name,
-          address: selection.address,
-          ...(selection.coordinateSystem ? { coordinateSystem: selection.coordinateSystem } : {})
-        })
+      // The resolution is the one operation that answers "where is this
+      // point, and which region is it in" — the same one the shop form uses.
+      const result = await orpc.regions.resolve({
+        longitude: selection.longitude,
+        latitude: selection.latitude,
+        ...(selection.coordinateSystem ? { coordinateSystem: selection.coordinateSystem } : {}),
+        ...(selection.address ? { address: selection.address } : {}),
+        language: getLocale()
       });
-      if (!response.ok) throw new Error(`Location confirmation failed: ${response.status}`);
-      const result = (await response.json()) as {
-        location: { longitude: number; latitude: number; coordinateSystem: CoordinateSystem };
-        serviceArea: 'china' | 'international';
-        region?: string[];
-        detailed?: string;
-        name: string;
-        address: string;
-        city?: string;
-      };
       if (session !== pickerSession) return;
 
       onLocationSelected({
@@ -328,11 +301,14 @@
         latitude: result.location.latitude,
         coordinateSystem: result.location.coordinateSystem,
         serviceArea: result.serviceArea,
-        region: result.region,
-        detailed: result.detailed,
-        name: result.name,
-        address: result.address,
-        city: result.city ?? '',
+        region: result.region.chain,
+        detailed: result.region.detailed,
+        // The provider answers with an address, not with the name of a place.
+        // The name is the one the search returned for the picked place, and
+        // falls back to the address when the place has none.
+        name: selection.name || result.place.address,
+        address: result.place.address,
+        city: result.place.city ?? '',
         confirmed: true
       });
       isOpen = false;
@@ -365,7 +341,7 @@
     void (async () => {
       try {
         const theme = isDarkMode() ? 'dark' : 'light';
-        // The initial view resolves first: the map style is selected per point
+// The initial view resolves first: the map style is selected per point
         // (zone-driven by the location service), so the resolved center picks
         // the surface. A deadline keeps a slow origin lookup from holding the
         // modal blank: past it, open on the static default. The map is then

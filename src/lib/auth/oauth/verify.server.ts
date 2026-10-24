@@ -30,6 +30,7 @@ import { env } from '$env/dynamic/private';
 import { auth } from '$lib/auth/index.server';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
+import { API_TOKEN_PREFIX } from '$lib/api-tokens';
 import type { AuthSession, User } from '$lib/auth/types';
 import type { OAuthScope } from './scopes';
 
@@ -123,8 +124,8 @@ export async function verifyOAuthAccessToken(
   const token = extractBearerToken(request);
   if (!token) return null;
 
-  // Skip tokens that look like nearcade API keys (nk_ prefix)
-  if (token.startsWith('nk_')) return null;
+  // Skip tokens that are nearcade API tokens rather than OAuth access tokens.
+  if (token.startsWith(API_TOKEN_PREFIX)) return null;
 
   const trustedOrigins = [
     ...(env.ALLOWED_ORIGINS?.split(',')
@@ -254,6 +255,11 @@ export async function resolveOAuthAccessTokenSession(
   if (!payload) {
     return null;
   }
+
+  // Expose the granted scopes so the per-procedure scope middleware can check
+  // them without re-verifying the token. `null` (absent) means "this request
+  // did not use an OAuth token", which is the bypass case.
+  event.locals.oauthScopes = payload.scope ? payload.scope.split(' ').filter(Boolean) : [];
 
   const db = mongo.db();
   const user = await db.collection<User>('users').findOne({ id: payload.sub });

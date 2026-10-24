@@ -1,8 +1,21 @@
 // ── Global region hierarchy types ───────────────────────────────────────────
-// Mirrors the production schema emitted by the globe-cn pipeline and stored
-// in the MongoDB `regions` collection.
 
 export type RegionLevel = 'country' | 'province' | 'city' | 'county' | 'street';
+
+/**
+ * True when a query-string value names a region level.
+ *
+ * The guard lives next to the union so the ranking load and the ranking
+ * handler cannot disagree about the vocabulary — the load used to rebuild it
+ * from `REGION_LEVELS`, which omits `street` and therefore accepted a
+ * different set than the handler did.
+ */
+export const isRegionLevel = (value: string | null | undefined): value is RegionLevel =>
+  value === 'country' ||
+  value === 'province' ||
+  value === 'city' ||
+  value === 'county' ||
+  value === 'street';
 
 export interface GeoPoint {
   type: 'Point';
@@ -52,9 +65,14 @@ export interface AdminRegionNode {
   hasChildren: boolean;
 }
 
-/** Admin region search hit: a node plus its ancestor chain from the root. */
+/**
+ * Admin region search hit: a node plus its ancestor chain from the root.
+ *
+ * The ancestor chain is only present on search hits — a node loaded as a child
+ * of another region carries no chain.
+ */
 export interface AdminRegionSearchHit extends AdminRegionNode {
-  ancestors: RegionNameEntry[];
+  ancestors?: RegionNameEntry[];
 }
 
 /**

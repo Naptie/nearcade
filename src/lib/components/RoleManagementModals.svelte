@@ -1,9 +1,15 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
-  import type { UniversityMemberWithUser, ClubMemberWithUser } from '$lib/types';
+  import type { UniversityMemberListEntry, ClubMemberListEntry } from '$lib/schemas/organizations';
   import { getDisplayName } from '$lib/utils';
 
-  type Member = UniversityMemberWithUser | ClubMemberWithUser;
+  /**
+   * A member of a member list.
+   *
+   * Both lists come from the API contract, so both have this shape — the
+   * modal does not have to know which organisation it is showing.
+   */
+  type Member = UniversityMemberListEntry | ClubMemberListEntry;
 
   interface Props {
     // Modal states

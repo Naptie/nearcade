@@ -7,7 +7,8 @@
   import { enhance } from '$app/forms';
   import type { Shop, Machine } from '$lib/types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { isApiError } from '$lib/utils/api-error';
   import AdminPage from '$lib/components/admin/AdminPage.svelte';
   import AdminStats from '$lib/components/admin/AdminStats.svelte';
   import AdminToolbar from '$lib/components/admin/AdminToolbar.svelte';
@@ -60,16 +61,11 @@
   let isSubmitting = $state(false);
 
   // User search state
+  /** A user row of the admin list, as the typed API returns it. */
+  type AdminUser = Awaited<ReturnType<typeof orpc.admin.searchUsers>>['users'][number];
+
   let userSearchQuery = $state('');
-  let userSearchResults = $state<
-    {
-      id: string;
-      name: string;
-      displayName?: string | null;
-      email?: string;
-      image?: string | null;
-    }[]
-  >([]);
+  let userSearchResults = $state<AdminUser[]>([]);
   let isSearchingUsers = $state(false);
   let userSearchTimeout: ReturnType<typeof setTimeout>;
 
@@ -141,21 +137,18 @@
     }
     isSearchingUsers = true;
     try {
-      const response = await fetch(
-        fromPath('/api/admin/users/search') + `?q=${encodeURIComponent(userSearchQuery.trim())}`
-      );
-      if (response.ok) {
-        const data = (await response.json()) as { users: typeof userSearchResults };
-        userSearchResults = data.users;
-      }
-    } catch {
-      userSearchResults = [];
+      const data = await orpc.admin.searchUsers({ q: userSearchQuery.trim() });
+      userSearchResults = data.users;
+    } catch (error) {
+      // A rejected search keeps the previous hits; only a broken connection
+      // clears them.
+      if (!isApiError(error)) userSearchResults = [];
     } finally {
       isSearchingUsers = false;
     }
   };
 
-  const selectOwner = (user: { id: string; name: string; displayName?: string | null }) => {
+  const selectOwner = (user: AdminUser) => {
     createForm.ownerId = user.id;
     createForm.ownerDisplay = user.displayName || user.name || user.id;
     showUserSearchModal = false;
@@ -189,15 +182,12 @@
     }
     isSearchingShops = true;
     try {
-      const response = await fetch(
-        fromPath('/api/admin/shops/search') + `?q=${encodeURIComponent(shopSearchQuery.trim())}`
-      );
-      if (response.ok) {
-        const data = (await response.json()) as { shops: typeof shopSearchResults };
-        shopSearchResults = data.shops;
-      }
-    } catch {
-      shopSearchResults = [];
+      const data = await orpc.admin.searchShops({ q: shopSearchQuery.trim() });
+      shopSearchResults = data.shops;
+    } catch (error) {
+      // A rejected search keeps the previous hits; only a broken connection
+      // clears them.
+      if (!isApiError(error)) shopSearchResults = [];
     } finally {
       isSearchingShops = false;
     }

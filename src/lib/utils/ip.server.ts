@@ -10,5 +10,12 @@ export function getClientIp(event: RequestEvent): string {
   const aliIp = event.request.headers.get('ali-cdn-real-ip');
   const xff = event.request.headers.get('x-forwarded-for');
 
-  return cfIp || aliIp || xff?.split(',')[0]?.trim() || event.getClientAddress();
+  const forwarded = cfIp || aliIp || xff?.split(',')[0]?.trim();
+  if (forwarded) return forwarded;
+
+  try {
+    return event.getClientAddress();
+  } catch {
+    return 'unknown';
+  }
 }

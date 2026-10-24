@@ -6,6 +6,14 @@ declare global {
     interface Locals {
       session: import('$lib/auth/types').AuthSession | null;
       user: import('$lib/auth/types').User | null;
+      /**
+       * Scopes granted to the OAuth access token that authorized this request.
+       *
+       * `undefined`/`null` means the request did not use an OAuth bearer token
+       * (session cookie, `nk_` API key, or `SSC_SECRET`) and therefore bypasses
+       * the OAuth scope matrix.
+       */
+      oauthScopes?: string[] | null;
     }
     // interface PageData {}
     // interface PageState {}

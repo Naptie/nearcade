@@ -2,9 +2,10 @@
   import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import { pageTitle } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import PostCard from '$lib/components/PostCard.svelte';
   import { markAnnouncementsRead } from '$lib/announcements/client';
+  import { isApiError } from '$lib/utils/api-error';
   import type { AnnouncementWithAuthor } from '$lib/types';
   import type { PageData } from './$types';
 
@@ -28,16 +29,7 @@
     isLoading = true;
     errorMessage = '';
     try {
-      const response = await fetch(fromPath(`/api/announcements?page=${pageNumber + 1}`));
-      if (!response.ok) {
-        errorMessage = m.failed_to_load_announcements();
-        return;
-      }
-      const result = (await response.json()) as {
-        announcements: Array<AnnouncementWithAuthor & { unread?: boolean }>;
-        hasMore: boolean;
-        page: number;
-      };
+      const result = await orpc.announcements.list({ page: pageNumber + 1 });
       announcements = [...announcements, ...result.announcements];
       hasMore = result.hasMore;
       pageNumber = result.page;
@@ -53,8 +45,8 @@
     markingAll = true;
     try {
       await markAnnouncementsRead({ all: true });
-    } catch {
-      errorMessage = m.network_error_try_again();
+    } catch (error) {
+      errorMessage = isApiError(error) ? error.message : m.network_error_try_again();
     } finally {
       markingAll = false;
     }

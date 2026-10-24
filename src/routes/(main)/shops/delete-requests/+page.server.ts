@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import type { ShopDeleteRequest } from '$lib/types';
+import type { ShopDeleteRequest } from '$lib/types/index.server';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { attachDeleteRequestUsers } from '$lib/utils/shops/delete-request.server';

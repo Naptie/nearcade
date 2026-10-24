@@ -6,7 +6,6 @@ bun.lock
 bun.lockb
 
 static/**
-!static/openapi.json
 
 .venv
 

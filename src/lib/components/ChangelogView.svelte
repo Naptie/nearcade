@@ -11,7 +11,7 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { formatDistanceToNow } from 'date-fns';
   import { getDisplayName, getFnsLocale } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
 
@@ -46,21 +46,11 @@
     }
 
     try {
-      const response = await fetch(
-        fromPath(`/api/universities/${universityId}/changelog?page=${page}&limit=${ITEMS_PER_PAGE}`)
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to load changelog');
-      }
-
-      const data = (await response.json()) as {
-        entries: ChangelogEntryWithUser[];
-        hasMore: boolean;
-        total: number;
-        page: number;
-        limit: number;
-      };
+      const data = await orpc.universities.changelog({
+        id: universityId,
+        page,
+        limit: ITEMS_PER_PAGE
+      });
 
       if (append) {
         entries = [...entries, ...data.entries];
@@ -193,7 +183,7 @@
                     />
                     <a
                       href={resolve('/(main)/users/[id]', {
-                        id: entry.user.name ? '@' + entry.user.name : entry.userId
+                        id: entry.user?.name ? '@' + entry.user.name : entry.userId
                       })}
                       class="hover:text-accent text-sm font-medium transition-colors"
                     >

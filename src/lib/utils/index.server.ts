@@ -137,6 +137,9 @@ export const initDatabase = async (mongo: MongoClient) => {
       .collection('university_members')
       .createIndex({ userId: 1, universityId: 1 }, { name: 'userId_1_universityId_1' }),
 
+    // invite_links — every lookup and the atomic use-claim filter on `code`.
+    db.collection('invite_links').createIndex({ code: 1 }, { name: 'code_1', unique: true }),
+
     // posts
     db.collection('posts').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
     // User profile feed + heatmap: per-author recency reads and day-range counts.

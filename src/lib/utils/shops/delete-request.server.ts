@@ -1,10 +1,6 @@
 import type { Db } from 'mongodb';
-import type {
-  Comment,
-  CommentWithAuthorAndVote,
-  ShopDeleteRequestVote,
-  ShopDeleteRequestVoteSummary
-} from '$lib/types';
+import type { Comment, CommentWithAuthorAndVote, ShopDeleteRequestVote } from '$lib/types';
+import type { ShopDeleteRequestVoteSummary } from '$lib/types/index.server';
 import type { PublicUser, User } from '$lib/auth/types';
 import { hydrateEntitiesWithImages } from '$lib/images/index.server';
 import { protect } from '$lib/utils';

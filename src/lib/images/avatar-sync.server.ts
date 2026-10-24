@@ -1,5 +1,5 @@
 import type { User } from '$lib/auth/types';
-import type { ImageAsset } from '$lib/types';
+import type { StoredImageAsset } from '$lib/types';
 import type { Db } from 'mongodb';
 import { deleteFile } from '$lib/oss/index';
 import { createUploadedImage, getImagesCollection } from './index.server';
@@ -24,7 +24,7 @@ const userHasNoAvatarImageFilter = {
 
 const cleanupImportedAvatar = async (
   db: Db,
-  image: Pick<ImageAsset, 'id' | 'storageProvider' | 'storageKey' | 'storageObjectId'>
+  image: Pick<StoredImageAsset, 'id' | 'storageProvider' | 'storageKey' | 'storageObjectId'>
 ) => {
   try {
     await deleteFile({

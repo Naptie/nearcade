@@ -2,7 +2,9 @@
   import { m } from '$lib/paraglide/messages';
   import { onDestroy } from 'svelte';
   import PhotoCarousel from '$lib/components/PhotoCarousel.svelte';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { discardDraftImages } from '$lib/api/draft-images';
+  import { isApiError } from '$lib/utils/api-error';
   import { buildImageUploadUrl } from '$lib/utils/image';
   import type { User } from '$lib/auth/types';
   import type { ImageAsset } from '$lib/types';
@@ -25,21 +27,9 @@
   let error = $state('');
   let success = $state('');
 
-  const cleanupDraftImages = async (ids: string[]) => {
-    await Promise.all(
-      ids.map(async (imageId) => {
-        try {
-          await fetch(fromPath(`/api/images/${imageId}`), { method: 'DELETE' });
-        } catch (err) {
-          console.error('Failed to delete draft image:', err);
-        }
-      })
-    );
-  };
-
   const reset = (cleanupDrafts = false) => {
     if (cleanupDrafts && imageIds.length > 0) {
-      void cleanupDraftImages(imageIds);
+      void discardDraftImages(imageIds);
     }
     open = false;
     reason = '';
@@ -50,7 +40,7 @@
 
   // Leftover drafts on navigation would otherwise be orphaned server-side.
   onDestroy(() => {
-    if (imageIds.length > 0) void cleanupDraftImages(imageIds);
+    if (imageIds.length > 0) void discardDraftImages(imageIds);
   });
 
   const handleSubmit = async () => {
@@ -58,24 +48,20 @@
     isSubmitting = true;
     error = '';
     try {
-      const response = await fetch(fromPath(`/api/shops/${shopId}/delete-request`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: reason.trim(), images: imageIds })
+      await orpc.shops.createDeleteRequest({
+        id: shopId,
+        reason: reason.trim(),
+        images: imageIds
       });
-      if (response.ok) {
-        success = m.shop_delete_request_submitted();
-        reason = '';
-        imageIds = [];
-        attachments = [];
-        open = false;
-        onSubmitted?.();
-      } else {
-        const err = (await response.json()) as { message?: string };
-        error = err.message || m.error_occurred();
-      }
-    } catch {
-      error = m.network_error_try_again();
+
+      success = m.shop_delete_request_submitted();
+      reason = '';
+      imageIds = [];
+      attachments = [];
+      open = false;
+      onSubmitted?.();
+    } catch (err) {
+      error = isApiError(err) ? err.message : m.network_error_try_again();
     } finally {
       isSubmitting = false;
     }

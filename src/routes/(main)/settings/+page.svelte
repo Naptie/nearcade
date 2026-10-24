@@ -2,10 +2,13 @@
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
+  import { apiUrl } from '$lib/api/urls';
   import type { SocialPlatform } from '$lib/constants';
   import { socialPlatformMessageKey } from '$lib/constants';
   import { m } from '$lib/paraglide/messages';
   import { getDisplayName, getProfileUrl, getProviders, pageTitle } from '$lib/utils';
+  import { orpc } from '$lib/api/client';
+  import { isApiError } from '$lib/utils/api-error';
   import { authClient } from '$lib/auth/client';
   import { toast } from '$lib/notifications/toast.svelte';
   import { resolveStatusMessage } from '$lib/notifications/messages';
@@ -422,9 +425,7 @@
     qqExpired = false;
     qqError = false;
     try {
-      const response = await fetch('/api/qbind/token', { method: 'POST' });
-      if (!response.ok) throw new Error('failed_to_issue_token');
-      const { token } = (await response.json()) as { token: string };
+      const { token } = await orpc.qbind.issueToken({});
       qqToken = token;
     } catch {
       qqToken = '';
@@ -457,17 +458,16 @@
         return;
       }
       try {
-        const response = await fetch(`/api/qbind?token=${encodeURIComponent(qqToken)}`);
-        if (response.ok) {
-          const result = (await response.json()) as { success: boolean; qq: number };
-          qqVerified = result.qq;
-          clearInterval(timer);
-        } else if (response.status !== 404) {
+        const result = await orpc.qbind.claim({ token: qqToken });
+        qqVerified = result.qq;
+        clearInterval(timer);
+      } catch (error) {
+        // A token that is not bound yet is not an error — the bot may still be
+        // working on it, so the poll keeps going. Every other failure ends it.
+        if (isApiError(error) && error.status !== 404) {
           qqError = true;
           clearInterval(timer);
         }
-      } catch {
-        // transient network error — keep polling
       }
     }, 5000);
     return () => clearInterval(timer);
@@ -537,7 +537,7 @@
 
     <UploadModal
       bind:isOpen={isAvatarUploadOpen}
-      uploadUrl="/api/users/avatar"
+      uploadUrl={apiUrl('postUsersAvatar')}
       title={m.upload_avatar()}
       confirmLabel={m.upload_avatar()}
       onSuccess={() => invalidateAll()}

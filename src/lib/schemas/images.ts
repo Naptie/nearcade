@@ -3,7 +3,6 @@ import { z } from 'zod';
 import {
   bilingual,
   dateTimeSchema,
-  objectIdSchema,
   shopIdParamSchema,
   userIdSchema,
   userSummarySchema
@@ -21,12 +20,34 @@ export const imageStorageProviderSchema = z
   .enum(['s3', 'leancloud'])
   .describe(bilingual('图片存储提供商。', 'Image storage provider.'));
 
+/**
+ * Where an image's bytes live.
+ *
+ * The storage layer's own bookkeeping: the backend the object was uploaded
+ * to, the key it was uploaded under, and the id the backend knows it by. The
+ * server needs all three to delete the object again — and nothing else does.
+ */
+const imageStorageFieldsShape = {
+  storageProvider: imageStorageProviderSchema,
+  storageKey: z.string().describe(bilingual('存储键。', 'Storage key.')),
+  storageObjectId: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(bilingual('远端存储对象 ID。', 'Remote storage object ID.'))
+};
+
+/**
+ * An image as the API returns it.
+ *
+ * The storage bookkeeping is not part of it: a consumer renders the `url` and
+ * refers to the image by its `id`. Which backend holds the bytes is decided
+ * when the image is uploaded, and it changes when the deployment moves — so
+ * publishing it would be publishing a decision the consumer cannot make and
+ * cannot rely on.
+ */
 export const imageAssetSchema = z
   .object({
-    _id: z
-      .union([z.string(), objectIdSchema])
-      .optional()
-      .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
     id: imageAssetIdSchema,
     shopId: shopIdParamSchema.shape.id
       .optional()
@@ -56,13 +77,6 @@ export const imageAssetSchema = z
       .optional()
       .describe(bilingual('关联社团 ID。', 'Associated club ID.')),
     url: z.string().describe(bilingual('图片 URL。', 'Image URL.')),
-    storageProvider: imageStorageProviderSchema,
-    storageKey: z.string().describe(bilingual('存储键。', 'Storage key.')),
-    storageObjectId: z
-      .string()
-      .nullable()
-      .optional()
-      .describe(bilingual('远端存储对象 ID。', 'Remote storage object ID.')),
     uploadedBy: userIdSchema.nullable().describe(bilingual('上传者用户 ID。', 'Uploader user ID.')),
     uploader: userSummarySchema
       .optional()
@@ -70,6 +84,14 @@ export const imageAssetSchema = z
     uploadedAt: dateTimeSchema(bilingual('上传时间。', 'Upload time.'))
   })
   .describe(bilingual('图片资源。', 'Image asset.'));
+
+/**
+ * A stored image: the published shape plus the storage bookkeeping.
+ *
+ * The collection keeps this, so the server can find and delete the bytes it
+ * uploaded — the published shape alone would not say where they are.
+ */
+export const imageDocumentSchema = imageAssetSchema.extend(imageStorageFieldsShape);
 
 const optionalTrimmedString = (description: string) =>
   z
@@ -105,33 +127,45 @@ export const imageDraftOrganizationTypeSchema = z
   .enum(['university', 'club'])
   .describe(bilingual('草稿所属组织类型。', 'Organization type for a draft image.'));
 
+/**
+ * The owner and draft references an image may carry.
+ *
+ * Exported as a shape because two schemas describe the same form fields: the
+ * one the upload handler re-parses after merging in the query-string
+ * fallbacks, and the one the contract publishes. Sharing the definitions is
+ * what keeps the published contract from advertising a wider vocabulary than
+ * the handler accepts — the contract used to declare `draftKind` and
+ * `organizationType` as arbitrary strings.
+ */
+export const imageOwnerFieldsShape = {
+  shopId: optionalPositiveIntegerInput(bilingual('关联店铺 ID。', 'Associated shop ID.')),
+  commentId: optionalTrimmedString(bilingual('关联评论 ID。', 'Associated comment ID.')),
+  postId: optionalTrimmedString(bilingual('关联帖子 ID。', 'Associated post ID.')),
+  announcementId: optionalTrimmedString(bilingual('关联公告 ID。', 'Associated announcement ID.')),
+  deleteRequestId: optionalTrimmedString(
+    bilingual('关联删除申请 ID。', 'Associated delete request ID.')
+  ),
+  draftKind: z
+    .union([z.string(), z.null(), z.undefined()])
+    .transform((value) => value?.trim() || undefined)
+    .pipe(z.union([imageDraftKindSchema, z.undefined()]))
+    .describe(bilingual('草稿图片用途。', 'Draft image purpose.')),
+  organizationType: z
+    .union([z.string(), z.null(), z.undefined()])
+    .transform((value) => value?.trim() || undefined)
+    .pipe(z.union([imageDraftOrganizationTypeSchema, z.undefined()]))
+    .describe(bilingual('草稿所属组织类型。', 'Organization type for a draft image.')),
+  organizationId: optionalTrimmedString(
+    bilingual('草稿所属组织 ID。', 'Organization ID for a draft image.')
+  )
+};
+
 export const imageUploadFormDataSchema = z
   .object({
     file: z
       .instanceof(File)
       .refine((file) => file.type.startsWith('image/'), 'Only image files are allowed'),
-    shopId: optionalPositiveIntegerInput(bilingual('关联店铺 ID。', 'Associated shop ID.')),
-    commentId: optionalTrimmedString(bilingual('关联评论 ID。', 'Associated comment ID.')),
-    postId: optionalTrimmedString(bilingual('关联帖子 ID。', 'Associated post ID.')),
-    announcementId: optionalTrimmedString(
-      bilingual('关联公告 ID。', 'Associated announcement ID.')
-    ),
-    deleteRequestId: optionalTrimmedString(
-      bilingual('关联删除申请 ID。', 'Associated delete request ID.')
-    ),
-    draftKind: z
-      .union([z.string(), z.null(), z.undefined()])
-      .transform((value) => value?.trim() || undefined)
-      .pipe(z.union([imageDraftKindSchema, z.undefined()]))
-      .describe(bilingual('草稿图片用途。', 'Draft image purpose.')),
-    organizationType: z
-      .union([z.string(), z.null(), z.undefined()])
-      .transform((value) => value?.trim() || undefined)
-      .pipe(z.union([imageDraftOrganizationTypeSchema, z.undefined()]))
-      .describe(bilingual('草稿所属组织类型。', 'Organization type for a draft image.')),
-    organizationId: optionalTrimmedString(
-      bilingual('草稿所属组织 ID。', 'Organization ID for a draft image.')
-    )
+    ...imageOwnerFieldsShape
   })
   .superRefine((value, ctx) => {
     const ownerCount = [

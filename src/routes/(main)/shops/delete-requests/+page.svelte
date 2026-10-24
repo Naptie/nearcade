@@ -4,7 +4,8 @@
   import { getDisplayName, pageTitle } from '$lib/utils';
   import { invalidateAll } from '$app/navigation';
   import type { PageData } from './$types';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { isApiError } from '$lib/utils/api-error';
 
   let { data }: { data: PageData } = $props();
 
@@ -18,20 +19,15 @@
     isProcessing[requestId] = true;
     processErrors[requestId] = '';
     try {
-      const response = await fetch(fromPath(`/api/shops/delete-requests/${requestId}`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, reviewNote: reviewNotes[requestId]?.trim() || null })
+      await orpc.shops.reviewDeleteRequest({
+        id: requestId,
+        action,
+        reviewNote: reviewNotes[requestId]?.trim() || null
       });
-      if (response.ok) {
-        reviewNotes[requestId] = '';
-        invalidateAll();
-      } else {
-        const err = (await response.json()) as { message?: string };
-        processErrors[requestId] = err.message || m.error_occurred();
-      }
-    } catch {
-      processErrors[requestId] = m.network_error_try_again();
+      reviewNotes[requestId] = '';
+      invalidateAll();
+    } catch (error) {
+      processErrors[requestId] = isApiError(error) ? error.message : m.network_error_try_again();
     } finally {
       isProcessing[requestId] = false;
     }
@@ -42,17 +38,10 @@
     isDeletingRequest[requestId] = true;
     processErrors[requestId] = '';
     try {
-      const response = await fetch(fromPath(`/api/shops/delete-requests/${requestId}`), {
-        method: 'DELETE'
-      });
-      if (response.ok) {
-        invalidateAll();
-      } else {
-        const err = (await response.json()) as { message?: string };
-        processErrors[requestId] = err.message || m.error_occurred();
-      }
-    } catch {
-      processErrors[requestId] = m.network_error_try_again();
+      await orpc.shops.deleteDeleteRequest({ id: requestId });
+      invalidateAll();
+    } catch (error) {
+      processErrors[requestId] = isApiError(error) ? error.message : m.network_error_try_again();
     } finally {
       isDeletingRequest[requestId] = false;
     }

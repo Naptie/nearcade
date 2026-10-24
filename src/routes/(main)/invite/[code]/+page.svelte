@@ -4,7 +4,8 @@
   import type { PageData } from './$types';
   import { resolve } from '$app/paths';
   import { adaptiveNewTab, formatDate, getDisplayName, pageTitle } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { apiErrorMessage } from '$lib/utils/api-error';
 
   let { data }: { data: PageData } = $props();
 
@@ -18,36 +19,23 @@
     messageType = '';
 
     try {
-      const response = await fetch(fromPath(`/api/invites/${data.invite.code}/redeem`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const result = await orpc.invites.redeem({ code: data.invite.code });
+      message = result.message || m.invite_used_successfully();
+      messageType = 'success';
 
-      if (response.ok) {
-        const result = (await response.json()) as { message?: string };
-        message = result.message || m.invite_used_successfully();
-        messageType = 'success';
-
-        // Redirect after a delay
-        setTimeout(() => {
-          goto(
-            data.invite.type === 'university'
-              ? resolve('/(main)/universities/[id]', {
-                  id: data.targetInfo.slug || data.targetInfo.id
-                })
-              : resolve('/(main)/clubs/[id]', { id: data.targetInfo.slug || data.targetInfo.id })
-          );
-        }, 2000);
-      } else {
-        const error = (await response.json()) as { message?: string };
-        message = error.message || m.error_occurred();
-        messageType = 'error';
-      }
+      // Redirect after a delay
+      setTimeout(() => {
+        goto(
+          data.invite.type === 'university'
+            ? resolve('/(main)/universities/[id]', {
+                id: data.targetInfo.slug || data.targetInfo.id
+              })
+            : resolve('/(main)/clubs/[id]', { id: data.targetInfo.slug || data.targetInfo.id })
+        );
+      }, 2000);
     } catch (error) {
       console.error('Error accepting invite:', error);
-      message = m.error_occurred();
+      message = apiErrorMessage(error, m.error_occurred());
       messageType = 'error';
     } finally {
       isProcessing = false;

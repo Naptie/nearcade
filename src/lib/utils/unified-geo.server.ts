@@ -1,5 +1,10 @@
 import { env } from '$env/dynamic/private';
 import { error } from '@sveltejs/kit';
+// Type-only import: the real Eden treaty types of the optional
+// `unified-geo-client` package. The runtime import stays dynamic (see
+// `getTypedUnifiedGeoClient`) so the app still runs when the package is not
+// installed, but the contract is no longer mirrored by hand.
+import type { Client as UnifiedGeoClient } from 'unified-geo-client';
 
 export interface UnifiedGeoCoordinate {
   longitude: number;
@@ -23,26 +28,16 @@ interface UnifiedGeoEnvelope {
 const baseUrl = (env.UNIFIED_GEO_URL?.trim() || 'http://localhost:3000').replace(/\/+$/, '');
 
 /**
- * Minimal structural surface of the optional `unified-geo-client` Eden treaty
- * package. Only the POST routes nearcade calls are modeled; everything else
- * keeps using the hand-rolled fetch fallback below.
+ * The typed client is the `unified-geo-client` Eden treaty package. Only the
+ * POST routes nearcade calls are used; everything else keeps using the
+ * hand-rolled fetch fallback below.
+ *
+ * The body is `never` on purpose: the treaty types collapse the discriminated
+ * coordinate unions to `never`, and the request bodies are assembled by the
+ * callers. The response is validated at runtime by the `success` envelope
+ * check in `requestViaTypedClient`.
  */
-interface UnifiedGeoClientSurface {
-  geo: {
-    convert: { post: (body: unknown) => Promise<unknown> };
-    reverse: { post: (body: unknown) => Promise<unknown> };
-    search: { post: (body: unknown) => Promise<unknown> };
-    resolve: { post: (body: unknown) => Promise<unknown> };
-    geocode: { post: (body: unknown) => Promise<unknown> };
-    directions: { post: (body: unknown) => Promise<unknown> };
-  };
-  maps: {
-    profile: { post: (body: unknown) => Promise<unknown> };
-    links: { post: (body: unknown) => Promise<unknown> };
-  };
-}
-
-type UnifiedGeoClientCall = (client: UnifiedGeoClientSurface, body: unknown) => Promise<unknown>;
+type UnifiedGeoClientCall = (client: UnifiedGeoClient, body: never) => Promise<unknown>;
 
 const unifiedGeoClientRoutes: Record<string, UnifiedGeoClientCall> = {
   '/geo/convert': (client, body) => client.geo.convert.post(body),
@@ -57,11 +52,9 @@ const unifiedGeoClientRoutes: Record<string, UnifiedGeoClientCall> = {
 
 // Cached typed client; `null` marks "package unavailable in this process" so a
 // failed dynamic import is not retried on every request.
-let typedClient: UnifiedGeoClientSurface | null | undefined;
+let typedClient: UnifiedGeoClient | null | undefined;
 
-async function getTypedUnifiedGeoClient(
-  secret: string
-): Promise<UnifiedGeoClientSurface | undefined> {
+async function getTypedUnifiedGeoClient(secret: string): Promise<UnifiedGeoClient | undefined> {
   if (typedClient !== undefined) return typedClient ?? undefined;
   try {
     // The specifier is kept in a variable on purpose: TypeScript must not
@@ -84,7 +77,7 @@ async function getTypedUnifiedGeoClient(
     }
     typedClient = createClient(baseUrl, {
       headers: { authorization: `Bearer ${secret}` }
-    }) as UnifiedGeoClientSurface;
+    }) as UnifiedGeoClient;
   } catch {
     typedClient = null;
   }
@@ -112,7 +105,7 @@ async function requestViaTypedClient<T extends UnifiedGeoEnvelope>(
   const call = unifiedGeoClientRoutes[endpoint];
   if (!client || !call) return undefined;
   try {
-    const payload = unwrapTreatyResult(await call(client, body));
+    const payload = unwrapTreatyResult(await call(client, body as never));
     if (
       !payload ||
       typeof payload !== 'object' ||
@@ -139,7 +132,7 @@ export async function requestUnifiedGeo<T extends UnifiedGeoEnvelope>(
   // Prefer the typed client when `unified-geo-client` is installed; any failure
   // (missing package, unexpected response shape, call error) falls back to the
   // hand-rolled fetch path below.
-  const viaClient = await requestViaTypedClient<T>(endpoint, body, secret);
+  const viaClient = await requestViaTypedClient<T>(endpoint, body as never, secret);
   if (viaClient) return viaClient;
 
   let response: Response;
@@ -189,6 +182,38 @@ export interface UnifiedGeoStyleResult {
   body: string;
   /** Upstream Cache-Control header to pass through verbatim. */
   cacheControl: string | null;
+}
+
+/** Fetch a MapLibre style document served by unified-geo (GET /maps/styles). */
+export async function requestUnifiedGeoStyle(params: {
+  provider: 'bing-cn' | 'amap' | 'google';
+  theme?: 'dark' | 'light';
+  locale?: 'zh-CN' | 'en-US';
+}): Promise<UnifiedGeoStyleResult> {
+  const secret = env.UNIFIED_GEO_API_SECRET;
+  if (!secret) error(503, 'The location service is not configured.');
+
+  const query = new URLSearchParams({ provider: params.provider });
+  if (params.theme) query.set('theme', params.theme);
+  if (params.locale) query.set('locale', params.locale);
+
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/maps/styles?${query.toString()}`, {
+      headers: { authorization: `Bearer ${secret}` },
+      signal: AbortSignal.timeout(10_000)
+    });
+  } catch (cause) {
+    console.error('Unified geo style request failed:', cause);
+    error(502, 'The location service is unavailable.');
+  }
+
+  if (!response.ok) {
+    console.error('Unified geo returned an error for a map style:', response.status);
+    error(502, 'The location service is unavailable.');
+  }
+
+  return { body: await response.text(), cacheControl: response.headers.get('cache-control') };
 }
 
 /** Make an authenticated GET request to unified-geo (e.g. /capabilities). */

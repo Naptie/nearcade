@@ -187,8 +187,6 @@ export type DiscoverMetroBlock = z.infer<typeof discoverMetroBlockSchema>;
 // in the sync task from existing assignments.
 
 export const metroStationRankingSchema = z.object({
-  /** Shared-row key used by the rankings table components (`RankingsTableItem`). */
-  _id: z.string().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
   id: z.string().describe(bilingual('`{networkId}:{stationId}`。', '`{networkId}:{stationId}`.')),
   networkId: z.string().describe(bilingual('地铁网络 ID。', 'Metro network ID.')),
   stationId: z.string().describe(bilingual('地铁站 ID。', 'Metro station ID.')),
@@ -221,7 +219,14 @@ export const metroStationRankingSchema = z.object({
     )
 });
 
-export type MetroStationRanking = z.infer<typeof metroStationRankingSchema>;
+/**
+ * A stored station ranking.
+ *
+ * The document's own key is the station's row key (or `metadata`), not an
+ * opaque storage identifier — but it is storage, so the published schema
+ * leaves it out and the stored type keeps it.
+ */
+export type MetroStationRanking = z.infer<typeof metroStationRankingSchema> & { _id: string };
 
 /**
  * API response item: the stored ranking plus the display rank resolved for

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
 
   interface Props {
     shopId: number;
@@ -49,21 +49,17 @@
     errorMessage = null;
 
     try {
-      const response = await fetch(fromPath(`/api/admin/shops/${shopId}/rollback`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetEntryId,
-          retention,
-          removePhotos,
-          notify: {
-            enabled: notifyEnabled,
-            ...(notifyMessage.trim() ? { message: notifyMessage.trim() } : {})
-          }
-        })
+      await orpc.admin.rollbackShop({
+        id: shopId,
+        targetEntryId,
+        retention,
+        removePhotos,
+        notify: {
+          enabled: notifyEnabled,
+          ...(notifyMessage.trim() ? { message: notifyMessage.trim() } : {})
+        }
       });
 
-      if (!response.ok) throw new Error(await response.text());
       open = false;
       await onApplied?.();
     } catch (err) {

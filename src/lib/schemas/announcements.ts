@@ -2,7 +2,6 @@ import { z } from 'zod';
 import {
   bilingual,
   dateTimeSchema,
-  objectIdSchema,
   positiveIntegerQueryParamSchema,
   successResponseSchema,
   userIdSchema,
@@ -21,7 +20,6 @@ export const announcementStatusSchema = z
 
 export const announcementSchema = z
   .object({
-    _id: z.union([z.string(), objectIdSchema]).optional(),
     id: z.string(),
     title: z.string(),
     content: z.string(),
@@ -37,7 +35,10 @@ export const announcementSchema = z
     expiresAt: dateTimeSchema(bilingual('公告过期时间。', 'Announcement expiration time.'))
       .nullable()
       .optional(),
-    isPinned: z.boolean()
+    isPinned: z
+      .boolean()
+      .default(false)
+      .describe(bilingual('是否置顶。', 'Whether the announcement is pinned.'))
   })
   .describe(bilingual('公告。', 'Announcement.'));
 

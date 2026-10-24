@@ -1,7 +1,7 @@
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
-import { fromPath } from './scoped';
+import { orpc } from '$lib/api/client';
 
 export const IS_IOS = (() => {
   const iosQuirkPresent = () => {
@@ -65,7 +65,7 @@ export interface IpOrigin {
   latitude: number;
   longitude: number;
   /** Hierarchy level the point was borrowed from: 'city' or 'province'. */
-  level: 'city' | 'province';
+  level: 'country' | 'province' | 'city' | 'county' | 'street';
 }
 
 let ipOriginRequest: Promise<IpOrigin | null> | null = null;
@@ -77,16 +77,13 @@ let ipOriginRequest: Promise<IpOrigin | null> | null = null;
  * share one request and repeats reuse it for the page's lifetime.
  */
 export const getIpOrigin = (): Promise<IpOrigin | null> => {
-  ipOriginRequest ??= fetch(fromPath('/api/geo/me'), { signal: AbortSignal.timeout(3000) })
-    .then(async (response) => {
-      if (!response.ok) throw new Error(`IP origin lookup failed (${response.status})`);
-      const data = (await response.json()) as {
-        origin: { lat: number; lng: number; level: 'city' | 'province' } | null;
-      };
-      return data.origin
+  ipOriginRequest ??= orpc.geo
+    .me({}, { signal: AbortSignal.timeout(3000) })
+    .then((data) =>
+      data.origin
         ? { latitude: data.origin.lat, longitude: data.origin.lng, level: data.origin.level }
-        : null;
-    })
+        : null
+    )
     .catch((cause) => {
       console.warn('IP origin lookup failed:', cause);
       // Allow a retry on the next call instead of caching the failure.
@@ -96,16 +93,31 @@ export const getIpOrigin = (): Promise<IpOrigin | null> => {
   return ipOriginRequest;
 };
 
-/** Normalize coordinates to the map profile selected by unified-geo. */
+/**
+ * Move a point into the map surface's coordinate system.
+ *
+ * A device fix is WGS84 — that is what the GPS reports, everywhere. The map
+ * surface (Bing CN) and the coordinates nearcade stores live in the surface's
+ * datum: GCJ02 on the mainland and in the SARs, WGS84 in Taiwan and abroad.
+ * So a WGS84 fix has to be converted before it can be compared with a stored
+ * shop, drawn on the map, or used as a search anchor — and a point that is
+ * already in the surface's space must not be converted again.
+ *
+ * The target datum is read from the geo service rather than assumed, so a fix
+ * outside the mainland is left in WGS84.
+ *
+ * A failure leaves the point untouched: the caller keeps working with a
+ * slightly-off coordinate instead of losing the location entirely.
+ */
 export const convertCoordinates = async <T extends { latitude: number; longitude: number }>(
   location: T
 ): Promise<T> => {
   try {
-    const response = await fetch(
-      fromPath(`/api/geo/translate?lat=${location.latitude}&lng=${location.longitude}&from=WGS84`)
-    );
-    const data = (await response.json()) as { converted: boolean; lng: number; lat: number };
-    if (!response.ok) throw new Error('Coordinate normalization failed');
+    const data = await orpc.geo.translate({
+      lat: location.latitude,
+      lng: location.longitude,
+      from: 'WGS84'
+    });
     location.longitude = data.lng;
     location.latitude = data.lat;
   } catch (cause) {

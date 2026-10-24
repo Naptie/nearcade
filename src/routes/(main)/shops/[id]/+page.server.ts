@@ -1,12 +1,7 @@
 import { error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type {
-  Shop,
-  Comment,
-  CommentWithAuthorAndVote,
-  ShopDeleteRequest,
-  ShopPhoto
-} from '$lib/types';
+import type { Shop, Comment, CommentWithAuthorAndVote, ShopPhoto } from '$lib/types';
+import type { ShopDeleteRequest } from '$lib/types/index.server';
 import { toPlainObject, toPlainArray, protect } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import { expandShopRegions } from '$lib/utils/region.server';

@@ -19,11 +19,12 @@
     isShopCurrentlyOpen
   } from '$lib/utils';
   import { convertCoordinates } from '$lib/utils/index.client';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import { viewport } from '$lib/utils/viewport.svelte';
   import { onMount } from 'svelte';
   import type { PageData } from './$types';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
+  import InlineAlert from '$lib/components/InlineAlert.svelte';
   import { fade, slide } from 'svelte/transition';
   import HomeContent from '$lib/components/home/HomeContent.svelte';
   import NavigationBar from '$lib/components/NavigationBar.svelte';
@@ -114,8 +115,7 @@
 
     isSearchingUniversities = true;
     try {
-      const response = await fetch(fromPath(`/api/universities?q=${encodeURIComponent(query)}`));
-      const data = (await response.json()) as { universities: University[] };
+      const data = await orpc.universities.search({ q: query });
 
       // Only update if this is still the latest request
       if (requestId === searchRequestId) {
@@ -202,13 +202,7 @@
   const handleLeave = async (shop: { id: number }) => {
     isLeavingShop = true;
     try {
-      const response = await fetch(fromPath(`/api/shops/${shop.id}/attendance`), {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to leave');
-      }
+      await orpc.shops.leaveAttendance({ id: shop.id });
 
       await invalidateAll();
     } catch (error) {
@@ -340,6 +334,18 @@
         class="xs:w-[97vw] ss:w-[90vw] pointer-events-auto flex w-screen flex-col gap-6 px-8 py-6 transition-all duration-600 sm:max-w-3xl"
         class:mt-72={showGlobe}
       >
+        {#if data.latestPinnedAnnouncement}
+          <InlineAlert type="info" soft icon="fa-bullhorn" class="w-full text-left">
+            <a
+              href={resolve('/(main)/announcements/[id]', {
+                id: data.latestPinnedAnnouncement.id
+              })}
+              class="link-hover font-semibold"
+            >
+              {m.pinned_announcement()}: {data.latestPinnedAnnouncement.title}
+            </a>
+          </InlineAlert>
+        {/if}
         <SiteTitle
           class="title xs:text-5xl ss:text-6xl text-4xl sm:text-8xl xl:text-9xl {showGlobe
             ? 'title-base-content'

@@ -37,3 +37,7 @@ data/*
 
 # ip2region database
 src/lib/assets/ip2region/*.xdb
+
+# The API reference bundle, copied out of the installed Scalar package by
+# `pnpm build`. It is a build artifact, not a source file.
+/static/api-reference.js

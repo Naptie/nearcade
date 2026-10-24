@@ -2,7 +2,8 @@
   import { m } from '$lib/paraglide/messages';
   import { resolve } from '$app/paths';
   import { invalidateAll } from '$app/navigation';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { isApiError } from '$lib/utils/api-error';
   import { phoneRequiredToast } from '$lib/notifications/phone-required';
   import type { Shop } from '$lib/types';
   import type { User } from '$lib/auth/types';
@@ -35,19 +36,10 @@
     if (!isAdmin || isTogglingLock) return;
     isTogglingLock = true;
     try {
-      const response = await fetch(fromPath(`/api/shops/${shop.id}`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isLocked: !shop.isLocked })
-      });
-      if (response.ok) {
-        await invalidateAll();
-      } else {
-        const err = (await response.json()) as { message?: string };
-        alert(err.message || m.error_occurred());
-      }
-    } catch {
-      alert(m.network_error_try_again());
+      await orpc.shops.adminUpdate({ id: shop.id, isLocked: !shop.isLocked });
+      await invalidateAll();
+    } catch (error) {
+      alert(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isTogglingLock = false;
     }

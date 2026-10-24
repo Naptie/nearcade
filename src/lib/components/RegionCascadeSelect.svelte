@@ -1,8 +1,8 @@
 <script lang="ts">
   /* eslint-disable no-useless-assignment */
-  import { base } from '$app/paths';
   import { getLocale } from '$lib/paraglide/runtime';
   import { m } from '$lib/paraglide/messages';
+  import { orpc } from '$lib/api/client';
 
   // ---- Types ----
 
@@ -49,10 +49,10 @@
 
   // ---- State ----
 
-  const REGIONS_ENDPOINT = `${base}/api/regions`;
-
   let regionLevels = $state<RegionLevel[]>([]);
   let regionPrefilled = $state(false);
+  // Invalidate in-flight requests whenever a newer selection or reset wins.
+  let selectionVersion = 0;
 
   // Derive outputs from internal state.
   $effect(() => {
@@ -82,11 +82,10 @@
   // ---- Fetching ----
 
   async function fetchRegionOptions(parentId: string | null): Promise<RegionOption[]> {
-    const response = await fetch(
-      `${REGIONS_ENDPOINT}?locale=${getLocale()}${parentId ? `&parentId=${encodeURIComponent(parentId)}` : ''}`
-    );
-    if (!response.ok) throw new Error('Failed to load region options');
-    return (await response.json()) as RegionOption[];
+    return await orpc.regions.list({
+      parentId: parentId ?? undefined,
+      locale: getLocale()
+    });
   }
 
   // Load top-level regions (countries) on mount.
@@ -101,14 +100,14 @@
   // ---- Selection handling ----
 
   async function handleRegionSelect(levelIndex: number, value: string) {
+    const version = ++selectionVersion;
     const truncated = regionLevels
       .slice(0, levelIndex + 1)
       .map((l, i) => (i === levelIndex ? { ...l, selectedId: value } : l));
 
-    if (!value) {
-      regionLevels = truncated;
-      return;
-    }
+    // Publish the selection immediately so Apply can use it while children load.
+    regionLevels = truncated;
+    if (!value) return;
 
     const level = truncated[levelIndex];
     const selected = level.options.find((o) => o.value === value);
@@ -116,13 +115,12 @@
     if (selected?.hasChildren) {
       try {
         const childOptions = await fetchRegionOptions(value);
+        if (version !== selectionVersion) return;
         regionLevels = [...truncated, { options: childOptions, selectedId: '' }];
       } catch (err) {
+        if (version !== selectionVersion) return;
         console.error(err);
-        regionLevels = truncated;
       }
-    } else {
-      regionLevels = truncated;
     }
   }
 
@@ -130,15 +128,11 @@
 
   /** Re-resolve the cascade levels from a full region-ID chain. */
   async function applyRegionIds(ids: string[]) {
-    const response = await fetch(`${REGIONS_ENDPOINT}/${ids.join('/')}?locale=${getLocale()}`);
-    if (!response.ok) throw new Error('Failed to resolve region hierarchy');
-
-    const data = (await response.json()) as {
-      levels: {
-        region: { id: string; label: string; level: string; hasChildren: boolean };
-        options: RegionOption[];
-      }[];
-    };
+    // Upstream added the version guard; the stash replaced the hand-written
+    // fetch with the typed procedure. Both belong here: the guard discards a
+    // resolution that a newer selection has already superseded.
+    const version = ++selectionVersion;
+    const data = await orpc.regions.hierarchy({ ids: ids.join('/'), locale: getLocale() });
 
     const levels: RegionLevel[] = data.levels.map((l) => ({
       options: l.options,
@@ -152,6 +146,7 @@
       levels.push({ options: childOptions, selectedId: '' });
     }
 
+    if (version !== selectionVersion) return;
     regionLevels = levels;
   }
 
@@ -171,8 +166,8 @@
     if (!ids || ids.length === 0) return;
     const key = ids.join('/');
     if (key === lastResolvedKey) return;
-    lastResolvedKey = key;
     if (regionLevels.length === 0 || regionLevels[0].options.length === 0) return;
+    lastResolvedKey = key;
     applyRegionIds(ids).catch(console.error);
   });
 
@@ -183,6 +178,7 @@
     if (key === undefined || key === lastResetKey) return;
     lastResetKey = key;
     if (regionLevels.length === 0) return;
+    selectionVersion += 1;
     // Reuse the already-loaded top level; only the selection is dropped.
     regionLevels = [{ ...regionLevels[0], selectedId: '' }];
   });

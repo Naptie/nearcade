@@ -2,7 +2,8 @@
   import { m } from '$lib/paraglide/messages';
   import { goto, invalidateAll } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { isApiError } from '$lib/utils/api-error';
   import { getDisplayName } from '$lib/utils';
   import type { User } from '$lib/auth/types';
 
@@ -46,17 +47,10 @@
     isProcessing = true;
     processError = '';
     try {
-      const response = await fetch(fromPath(`/api/shops/delete-requests/${request.id}`), {
-        method: 'DELETE'
-      });
-      if (response.ok) {
-        invalidateAll();
-      } else {
-        const err = (await response.json()) as { message?: string };
-        processError = err.message || m.error_occurred();
-      }
-    } catch {
-      processError = m.network_error_try_again();
+      await orpc.shops.deleteDeleteRequest({ id: request.id });
+      invalidateAll();
+    } catch (error) {
+      processError = isApiError(error) ? error.message : m.network_error_try_again();
     } finally {
       isProcessing = false;
     }
@@ -67,20 +61,16 @@
     isProcessing = true;
     processError = '';
     try {
-      const response = await fetch(fromPath(`/api/shops/delete-requests/${request.id}`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, reviewNote: reviewNote.trim() || null })
+      await orpc.shops.reviewDeleteRequest({
+        id: request.id,
+        action,
+        reviewNote: reviewNote.trim() || null
       });
-      if (response.ok) {
-        reviewNote = '';
-        await goto(resolve('/(main)/shops/delete-requests/[id]', { id: request.id }));
-      } else {
-        const err = (await response.json()) as { message?: string };
-        processError = err.message || m.error_occurred();
-      }
-    } catch {
-      processError = m.network_error_try_again();
+
+      reviewNote = '';
+      await goto(resolve('/(main)/shops/delete-requests/[id]', { id: request.id }));
+    } catch (error) {
+      processError = isApiError(error) ? error.message : m.network_error_try_again();
     } finally {
       isProcessing = false;
     }

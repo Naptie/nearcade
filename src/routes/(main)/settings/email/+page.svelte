@@ -72,13 +72,30 @@
       return;
     }
 
+    if (trimmedEmail.toLowerCase() === data.user.email?.toLowerCase()) {
+      toast(m.email_settings_change_same(), { type: 'error' });
+      return;
+    }
+
     isSubmitting = true;
 
     try {
-      await authClient.changeEmail({
+      const res = await authClient.changeEmail({
         newEmail: trimmedEmail,
         callbackURL: getCallbackURL()
       });
+
+      // better-auth resolves HTTP errors into `error` instead of throwing
+      if (res?.error) {
+        toast(
+          res.error.status === 429 ? m.email_settings_rate_limited() : m.email_settings_error(),
+          {
+            type: 'error'
+          }
+        );
+        return;
+      }
+
       newEmail = '';
       changeSubmitted = true;
       toast(m.email_settings_change_success(), { type: 'success' });
@@ -98,10 +115,14 @@
     isResending = true;
 
     try {
-      await authClient.sendVerificationEmail({
+      const res = await authClient.sendVerificationEmail({
         email: data.user.email,
         callbackURL: getCallbackURL()
       });
+      if (res?.error) {
+        toast(m.email_settings_error(), { type: 'error' });
+        return;
+      }
       toast(m.email_settings_resend_success(), { type: 'success' });
     } catch {
       toast(m.email_settings_error(), { type: 'error' });

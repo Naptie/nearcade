@@ -2,6 +2,9 @@
 
 import { API_KEY_TABLE_NAME, defaultKeyHasher, type ApiKey } from '@better-auth/api-key';
 import { MongoClient, MongoServerError, ObjectId, ServerApiVersion } from 'mongodb';
+// The prefix every nearcade API token carries. The module has no imports of
+// its own so that it resolves under `tsx`, outside the Vite pipeline.
+import { API_TOKEN_PREFIX } from '../src/lib/api-tokens';
 
 if (!('MONGODB_URI' in process.env)) {
   const dotenv = await import('dotenv');
@@ -18,7 +21,7 @@ if (!MONGODB_URI) {
 const API_KEY_COLLECTION_NAME = `${API_KEY_TABLE_NAME}s`;
 const DEFAULT_RATE_LIMIT_TIME_WINDOW = 1000 * 60 * 60 * 24;
 const DEFAULT_RATE_LIMIT_MAX = 10;
-const DEFAULT_API_KEY_PREFIX = 'nk_';
+const DEFAULT_API_KEY_PREFIX = API_TOKEN_PREFIX;
 const DEFAULT_START_LENGTH = 6;
 const DEFAULT_CONFIG_ID = 'default';
 const DRY_RUN = process.argv.includes('--dry-run');

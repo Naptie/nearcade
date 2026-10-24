@@ -24,12 +24,16 @@ jobs:
     name: Trigger data update tasks
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # The site the tasks are triggered on. A repository variable, so a fork
+      # or a staging deployment can point somewhere else.
+      SITE_URL: ${{ vars.SITE_URL }}
     steps:
       - name: University stats
         env:
           SSC_SECRET: ${{ secrets.SSC_SECRET }}
         run: |
-          curl -fsS -X POST "https://nearca.de/api/admin/data-updates" \
+          curl -fsS -X POST "${SITE_URL}/api/admin/data-updates" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${SSC_SECRET}" \
             -d '{"task":"university_stats"}'
@@ -38,7 +42,7 @@ jobs:
         env:
           SSC_SECRET: ${{ secrets.SSC_SECRET }}
         run: |
-          curl -fsS -X POST "https://nearca.de/api/admin/data-updates" \
+          curl -fsS -X POST "${SITE_URL}/api/admin/data-updates" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${SSC_SECRET}" \
             -d '{"task":"region_rankings"}'
@@ -47,7 +51,7 @@ jobs:
         env:
           SSC_SECRET: ${{ secrets.SSC_SECRET }}
         run: |
-          curl -fsS -X POST "https://nearca.de/api/admin/data-updates" \
+          curl -fsS -X POST "${SITE_URL}/api/admin/data-updates" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${SSC_SECRET}" \
             -d '{"task":"campus_rankings"}'
@@ -56,7 +60,7 @@ jobs:
         env:
           SSC_SECRET: ${{ secrets.SSC_SECRET }}
         run: |
-          curl -fsS -X POST "https://nearca.de/api/admin/data-updates" \
+          curl -fsS -X POST "${SITE_URL}/api/admin/data-updates" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${SSC_SECRET}" \
             -d '{"task":"metro_rankings"}'
@@ -65,7 +69,7 @@ jobs:
         env:
           SSC_SECRET: ${{ secrets.SSC_SECRET }}
         run: |
-          curl -fsS -X POST "https://nearca.de/api/admin/data-updates" \
+          curl -fsS -X POST "${SITE_URL}/api/admin/data-updates" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${SSC_SECRET}" \
             -d '{"task":"admin_stats_snapshot"}'
@@ -74,7 +78,7 @@ jobs:
         env:
           SSC_SECRET: ${{ secrets.SSC_SECRET }}
         run: |
-          curl -fsS -X POST "https://nearca.de/api/admin/data-updates" \
+          curl -fsS -X POST "${SITE_URL}/api/admin/data-updates" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${SSC_SECRET}" \
             -d '{"task":"meilisearch"}'

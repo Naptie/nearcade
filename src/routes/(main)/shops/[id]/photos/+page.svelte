@@ -8,7 +8,7 @@
   import type { ImageAsset, ShopPhoto } from '$lib/types';
   import ImageViewerModal from '$lib/components/ImageViewerModal.svelte';
   import UploadModal from '$lib/components/UploadModal.svelte';
-  import { fromPath } from '$lib/utils/scoped';
+  import { apiUrl } from '$lib/api/urls';
 
   let { data }: { data: PageData } = $props();
 
@@ -41,20 +41,11 @@
     photos = photos.filter((p) => p.id !== photo.id);
   };
 
-  const handleUploadSuccess = (result: {
-    id: string;
-    url: string;
-    storageProvider: ShopPhoto['storageProvider'];
-    storageKey: string;
-    storageObjectId?: string | null;
-  }) => {
+  const handleUploadSuccess = (result: { id: string; url: string }) => {
     const newPhoto: ShopPhoto = {
       id: result.id,
       shopId: data.shop.id,
       url: result.url,
-      storageProvider: result.storageProvider,
-      storageKey: result.storageKey,
-      storageObjectId: result.storageObjectId ?? null,
       uploadedBy: data.user?.id ?? null,
       uploader: data.user,
       uploadedAt: new Date()
@@ -156,7 +147,7 @@
 {#if canManagePhotos}
   <UploadModal
     bind:isOpen={uploadOpen}
-    uploadUrl={fromPath(`/api/shops/${data.shop.id}/photos`)}
+    uploadUrl={apiUrl('postShopsByIdPhotos', { id: data.shop.id })}
     confirmLabel={m.shop_photos_upload()}
     onSuccess={handleUploadSuccess}
   />

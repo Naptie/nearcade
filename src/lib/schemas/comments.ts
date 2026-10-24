@@ -3,7 +3,6 @@ import { z } from 'zod';
 import {
   bilingual,
   dateTimeSchema,
-  objectIdSchema,
   positiveIntegerString,
   successResponseSchema,
   userIdSchema,
@@ -23,10 +22,6 @@ export const commentVoteTypeSchema = z
 
 export const commentVoteSchema = z
   .object({
-    _id: z
-      .union([z.string(), objectIdSchema])
-      .optional()
-      .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
     id: z.string().describe(bilingual('评论投票 ID。', 'Comment vote ID.')),
     commentId: commentIdSchema,
     userId: userIdSchema,
@@ -38,10 +33,6 @@ export const commentVoteSchema = z
 
 export const commentSchema = z
   .object({
-    _id: z
-      .union([z.string(), objectIdSchema])
-      .optional()
-      .describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
     id: commentIdSchema,
     postId: z.string().optional().describe(bilingual('关联帖子 ID。', 'Associated post ID.')),
     shopId: positiveIntegerString

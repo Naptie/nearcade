@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { resolve } from '$app/paths';
   import { m } from '$lib/paraglide/messages';
   import NotificationItem from '$lib/components/NotificationItem.svelte';
   import type { Notification } from '$lib/types';
   import { invalidateAll } from '$app/navigation';
+  import { orpc } from '$lib/api/client';
   import { pageTitle } from '$lib/utils';
 
   // Notification loading state
@@ -27,21 +27,11 @@
     }
 
     try {
-      const response = await fetch(
-        resolve('/api/notifications') +
-          `?page=${page}&limit=10${unreadOnly ? '&unreadOnly=true' : ''}`
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to load notifications');
-      }
-
-      const result = (await response.json()) as {
-        notifications: Notification[];
-        hasMore: boolean;
-        page: number;
-        limit: number;
-      };
+      const result = await orpc.notifications.list({
+        page,
+        limit: 10,
+        ...(unreadOnly ? { unreadOnly: 'true' } : {})
+      });
 
       if (append) {
         notifications = [...notifications, ...result.notifications];
@@ -68,17 +58,7 @@
   const markAsRead = async () => {
     try {
       isSubmitting = true;
-      const response = await fetch(resolve('/api/notifications'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ action: 'markAsRead' })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to mark notifications as read');
-      }
+      await orpc.notifications.markRead({ action: 'markAsRead' });
 
       // Reload notifications
       loadNotifications();

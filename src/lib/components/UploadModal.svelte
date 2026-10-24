@@ -1,16 +1,18 @@
 <script lang="ts">
   import { portal } from '$lib/actions/portal';
   import { m } from '$lib/paraglide/messages';
-  import type { ImageStorageProvider } from '$lib/types';
   import { untrack } from 'svelte';
   import { fade } from 'svelte/transition';
 
+  /**
+   * What the upload answers with.
+   *
+   * The image's id and URL — the two things a caller needs to show it. Where
+   * the bytes live is the server's business and never leaves it.
+   */
   interface UploadResult {
     id: string;
     url: string;
-    storageProvider: ImageStorageProvider;
-    storageKey: string;
-    storageObjectId?: string | null;
   }
 
   interface Props {
@@ -119,9 +121,6 @@
         imageId?: string;
         photoId?: string;
         url?: string;
-        storageProvider?: ImageStorageProvider;
-        storageKey?: string;
-        storageObjectId?: string | null;
         message?: string;
       };
     } catch {
@@ -156,20 +155,11 @@
           return;
         }
 
-        if (
-          event.phase === 'done' &&
-          (event.imageId || event.photoId) &&
-          event.url &&
-          event.storageProvider &&
-          event.storageKey
-        ) {
+        if (event.phase === 'done' && (event.imageId || event.photoId) && event.url) {
           serverOssProgress = 1;
           uploadResult = {
             id: event.imageId || event.photoId || '',
-            url: event.url,
-            storageProvider: event.storageProvider,
-            storageKey: event.storageKey,
-            storageObjectId: event.storageObjectId ?? null
+            url: event.url
           };
           return;
         }

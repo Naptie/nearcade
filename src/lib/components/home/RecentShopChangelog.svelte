@@ -14,7 +14,7 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { formatDistanceToNow } from 'date-fns';
   import { getDisplayName, getFnsLocale } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import { slide } from 'svelte/transition';
 
   let entries = $state<ShopChangelogEntryWithUser[]>([]);
@@ -27,11 +27,7 @@
     isLoading = true;
     error = null;
     try {
-      const response = await fetch(fromPath(`/api/home/changelog?page=1&limit=${LIMIT}`));
-      if (!response.ok) throw new Error('Failed to load changelog');
-      const data = (await response.json()) as {
-        entries: ShopChangelogEntryWithUser[];
-      };
+      const data = await orpc.home.changelog({ page: 1, limit: LIMIT });
       entries = data.entries;
     } catch (err) {
       console.error('Error loading recent shop changelog:', err);

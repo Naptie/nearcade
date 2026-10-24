@@ -1,0 +1,38 @@
+# The dependency updater.
+#
+# It owns the two version facts that used to live in the repository by hand:
+# the Docker base image pin in `Dockerfile`, and the version numbers in
+# `package.json` — including the oRPC family, whose packages are
+# version-coupled and have to move together (they are declared once in the
+# `pnpm-workspace.yaml` catalog).
+#
+# Without it, both facts are maintained by whoever remembers, and the files
+# that mention them have to carry the reminder as well.
+
+version: 2
+
+updates:
+  - package-ecosystem: docker
+    directory: '/'
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # The oRPC packages are version-coupled: one of them moving without the
+      # others breaks the contract, so they are updated together.
+      orpc:
+        patterns:
+          - '@orpc/*'
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # The paraglide runtime is patched in this repository (`patches/`), so
+      # its version is not ours to move.
+      - dependency-name: '@inlang/paraglide-js'

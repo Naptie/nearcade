@@ -4,7 +4,8 @@
   import PostCard from './PostCard.svelte';
   import { PAGINATION } from '$lib/constants';
   import { onMount } from 'svelte';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { isApiError } from '$lib/utils/api-error';
   import { resolve } from '$app/paths';
 
   interface Props {
@@ -49,22 +50,17 @@
     isLoading = true;
     try {
       const nextPage = currentPage + 1;
-      const endpoint = fromPath(
-        `/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts?page=${nextPage}`
-      );
-      const response = await fetch(endpoint);
+      const result =
+        organizationType === 'university'
+          ? await orpc.universities.posts({ id: organizationId, page: nextPage })
+          : await orpc.clubs.posts({ id: organizationId, page: nextPage });
 
-      if (response.ok) {
-        const result = (await response.json()) as { posts: PostWithAuthor[]; hasMore: boolean };
-        const newPosts = result.posts || [];
-        posts = [...posts, ...newPosts];
-        hasMore = result.hasMore;
-        currentPage = nextPage;
-      } else {
-        error = m.failed_to_load_more_posts();
-      }
-    } catch {
-      error = m.network_error_loading_posts();
+      const newPosts = result.posts || [];
+      posts = [...posts, ...newPosts];
+      hasMore = result.hasMore;
+      currentPage = nextPage;
+    } catch (err) {
+      error = isApiError(err) ? m.failed_to_load_more_posts() : m.network_error_loading_posts();
     } finally {
       isLoading = false;
     }
@@ -73,20 +69,17 @@
   const refreshPosts = async () => {
     try {
       isLoading = true;
-      const endpoint = fromPath(
-        `/api/${organizationType === 'university' ? 'universities' : 'clubs'}/${organizationId}/posts?page=1`
-      );
-      const response = await fetch(endpoint);
+      const result =
+        organizationType === 'university'
+          ? await orpc.universities.posts({ id: organizationId, page: 1 })
+          : await orpc.clubs.posts({ id: organizationId, page: 1 });
 
-      if (response.ok) {
-        const result = (await response.json()) as { posts: PostWithAuthor[]; hasMore: boolean };
-        posts = result.posts || [];
-        hasMore = result.hasMore;
-        currentPage = 1;
-        error = '';
-      }
+      posts = result.posts || [];
+      hasMore = result.hasMore;
+      currentPage = 1;
+      error = '';
     } catch (err) {
-      console.error('Error refreshing posts:', err);
+      error = isApiError(err) ? err.message : m.network_error_loading_posts();
     } finally {
       isLoading = false;
     }

@@ -4,6 +4,7 @@ import {
   bilingual,
   dateTimeSchema,
   locationSchema,
+  mongoIdSchema,
   openingHoursSchema,
   optionalBooleanString,
   paginationQuerySchema,
@@ -14,7 +15,7 @@ import {
   userPublicSchema
 } from './common';
 import { commentVoteSchema } from './comments';
-import { imageAssetIdSchema, imageAssetSchema, imageStorageProviderSchema } from './images';
+import { imageAssetIdSchema, imageAssetSchema } from './images';
 import { shopTransitSchema } from './metro';
 import { shopSearchSortSchema } from './shop-filter';
 
@@ -448,8 +449,6 @@ export const shopApiSchema = z.object({
   updatedAt: dateTimeSchema(bilingual('更新时间。', 'Update time.'))
 });
 
-export type ShopApiInput = z.input<typeof shopApiSchema>;
-
 export const shopsListQuerySchema = paginationQuerySchema.extend({
   q: z.string().optional().default('').describe(bilingual('查询字符串。', 'Search query string.')),
   regionId: z
@@ -652,6 +651,31 @@ export const queuePositionSchema = z.object({
     .describe(bilingual('成员列表。', 'Members in this queue position.'))
 });
 
+/**
+ * One game's queue as it is *stored*.
+ *
+ * The shapes above are the wire shapes — what a client sends and what a
+ * response carries, with an ISO-string timestamp and no database identity. This
+ * and {@link queueRecordSchema} are the row itself: a MongoDB `_id` and a real
+ * `Date`. They live here, beside the wire schemas, for the same reason
+ * `shopDocumentSchema` sits beside `shopApiSchema`, rather than in a module of
+ * their own — a separate module would restate the members and positions above
+ * and quietly drift from them.
+ */
+export const queueGameEntrySchema = z.object({
+  gameId: z.number(),
+  queue: z.array(queuePositionSchema)
+});
+
+/** A shop's stored queue record. */
+export const queueRecordSchema = z.object({
+  _id: mongoIdSchema,
+  shopId: z.number(),
+  games: z.array(queueGameEntrySchema),
+  updatedAt: z.date(),
+  updatedBy: z.string()
+});
+
 export const queueReportRequestSchema = z.object({
   queues: z
     .array(
@@ -783,7 +807,6 @@ const shopChangelogUserSchema = z
 
 export const shopChangelogEntrySchema = z
   .object({
-    _id: z.string().optional().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
     id: z.string().describe(bilingual('更新记录 ID。', 'Changelog entry ID.')),
     shopId: shopIdSchema,
     shopName: shopNameSchema,
@@ -880,7 +903,6 @@ export const shopChangelogRollbackBodySchema = z.object({
  * legitimately predate later shop schema evolutions.
  */
 export const shopChangelogSnapshotSchema = z.object({
-  _id: z.string().optional().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
   entryId: z
     .string()
     .describe(
@@ -901,7 +923,6 @@ const attendanceHistoryGameSchema = z.object({
 });
 
 export const attendanceHistoryEntrySchema = z.object({
-  _id: z.string().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
   shopId: shopIdSchema,
   games: z
     .array(attendanceHistoryGameSchema)
@@ -975,7 +996,6 @@ export const shopPhotoSchema = imageAssetSchema
 
 export const shopDeleteRequestVoteSchema = z
   .object({
-    _id: z.string().optional().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
     id: z.string().describe(bilingual('投票 ID。', 'Vote ID.')),
     shopDeleteRequestId: shopDeleteRequestIdSchema,
     userId: userIdSchema,
@@ -996,7 +1016,6 @@ export const shopDeleteRequestVoteSummarySchema = z.object({
 
 export const shopDeleteRequestSchema = z
   .object({
-    _id: z.string().optional().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
     id: shopDeleteRequestIdSchema,
     shopId: shopIdSchema,
     shopName: shopNameSchema,
@@ -1105,7 +1124,6 @@ export const shopDeleteRequestReviewResponseSchema = successResponseSchema.exten
 
 export const shopDeleteRequestCommentSchema = z
   .object({
-    _id: z.string().optional().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
     id: z.string().describe(bilingual('评论 ID。', 'Comment ID.')),
     shopDeleteRequestId: shopDeleteRequestIdSchema,
     content: z
@@ -1187,7 +1205,6 @@ export const shopDeleteRequestVoteResponseSchema = successResponseSchema.extend(
 
 export const shopCommentEntrySchema = z
   .object({
-    _id: z.string().optional().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
     id: z.string().describe(bilingual('评论 ID。', 'Comment ID.')),
     shopId: shopIdSchema,
     content: z
@@ -1260,14 +1277,7 @@ export const shopPhotoUploadProgressEventSchema = z.object({
 export const shopPhotoUploadDoneEventSchema = z.object({
   phase: z.literal('done').describe(bilingual('上传阶段。', 'Upload phase.')),
   photoId: z.string().describe(bilingual('新照片 ID。', 'New photo ID.')),
-  url: z.string().describe(bilingual('上传后的照片 URL。', 'Uploaded photo URL.')),
-  storageProvider: imageStorageProviderSchema,
-  storageKey: z.string().describe(bilingual('存储键。', 'Storage key.')),
-  storageObjectId: z
-    .string()
-    .nullable()
-    .optional()
-    .describe(bilingual('远端存储对象 ID。', 'Remote storage object ID.'))
+  url: z.string().describe(bilingual('上传后的照片 URL。', 'Uploaded photo URL.'))
 });
 
 export const shopPhotoUploadErrorEventSchema = z.object({

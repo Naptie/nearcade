@@ -531,14 +531,11 @@ suite('rankings', async () => {
   const { fileURLToPath } = await import('node:url');
   const { error, isHttpError, redirect } = await import('@sveltejs/kit');
   const { createServer } = await import('vite');
-  const { createDocument } = await import('zod-openapi');
   const { GAME_TITLES, PAGINATION, METRO_RANKING_RADIUS_OPTIONS, metroRankingSortKey } =
     await import('../src/lib/constants');
-  const { metroRankingQuerySchema, metroRankingResponseSchema } =
-    await import('../src/lib/schemas/metro');
+  const { metroRankingQuerySchema } = await import('../src/lib/schemas/metro');
   type MetroStationRanking = import('../src/lib/schemas/metro').MetroStationRanking;
   const { parseQueryOrError } = await import('../src/lib/utils/validation.server');
-  const openapi = (await import('../src/routes/api/rankings/metro/openapi')).default;
 
   const urlFor = (query = '') => new URL(`http://localhost/api/rankings/metro${query}`);
   const parse = (query = '') => parseQueryOrError(metroRankingQuerySchema, urlFor(query));
@@ -603,11 +600,15 @@ suite('rankings', async () => {
   );
 
   // Generate only this path in memory; do not touch static/openapi.json.
-  const document = createDocument({
-    openapi: '3.0.0',
+  const { OpenAPIGenerator } = await import('@orpc/openapi');
+  const { ZodToJsonSchemaConverter } = await import('@orpc/zod/zod4');
+  const { rankingsContract } = await import('../src/lib/api/contracts/rankings');
+  const document = (await new OpenAPIGenerator({
+    schemaConverters: [new ZodToJsonSchemaConverter()]
+  }).generate({ rankings: rankingsContract } as never, {
     info: { title: 'Metro rankings validation', version: '1' },
-    paths: { '/rankings/metro': openapi.pathItem }
-  });
+    servers: [{ url: '/api' }]
+  })) as { paths?: Record<string, { get?: { parameters?: unknown[] } }> };
   assert.equal(document.paths?.['/rankings/metro']?.get?.parameters?.length, 5);
   console.log('  ✓ OpenAPI: shared input/output schemas generate successfully.');
 
@@ -753,12 +754,32 @@ suite('rankings', async () => {
         return collection;
       }
     });
-    const { GET } = await server.ssrLoadModule('/src/routes/api/rankings/metro/+server.ts');
-    const get = async (query = '') => {
-      const response: Response = await GET({ url: urlFor(query) });
-      assert.equal(response.status, 200);
-      return metroRankingResponseSchema.parse(await response.json());
-    };
+    // Load the actual rankings implementation while replacing only its Mongo
+    // dependency. The procedure is called in-process, so the assertions below
+    // cover the implementation itself rather than the HTTP plumbing.
+    const { createRouterClient } = await import('@orpc/server');
+    const { ORPCError } = await import('@orpc/client');
+    // `ssrLoadModule` is untyped, so the router is re-typed from the same
+    // module: the assertions below stay as strongly checked as the source.
+    type RankingsImplementation =
+      typeof import('../src/lib/api/implementations/rankings').rankingsImplementation;
+    type ApiContext = import('../src/lib/api/context').ApiContext;
+    const { rankingsImplementation } = await server.ssrLoadModule(
+      '/src/lib/api/implementations/rankings.ts'
+    );
+    const client = createRouterClient(
+      { rankings: rankingsImplementation as RankingsImplementation },
+      {
+        // The metro procedure reads only its validated input — never the
+        // request event, the session or the user. The client type requires a
+        // context, so an anonymous one is supplied and stays untouched.
+        context: { session: null, user: null, oauthScopes: null } as unknown as ApiContext
+      }
+    );
+    // The contract takes the raw query string, exactly as a GET request would
+    // deliver it; the schema applies the defaults and the radius mapping.
+    const get = (query = '') =>
+      client.rankings.metro(Object.fromEntries(urlFor(query).searchParams));
     const first = await get('?networkId=cn-bj&limit=2');
     assert.deepEqual(
       first.data.map((row) => row.rankOrder[metroRankingSortKey('shops', 2)]),
@@ -838,9 +859,15 @@ suite('rankings', async () => {
       networks: []
     });
     const readsBeforeInvalid = reads;
-    await assert.rejects(
-      () => GET({ url: urlFor('?after=0') }),
+    // Input validation now happens before the handler runs, so the request is
+    // rejected without ever reaching the database.
+    assert.throws(
+      () => parse('?after=0'),
       (err) => isHttpError(err, 400)
+    );
+    await assert.rejects(
+      () => client.rankings.metro({ after: '0' } as never),
+      (err) => err instanceof ORPCError && err.code === 'BAD_REQUEST'
     );
     assert.equal(reads, readsBeforeInvalid);
     for (const makeError of [() => error(503, 'unavailable'), () => redirect(307, '/retry')]) {
@@ -850,7 +877,7 @@ suite('rankings', async () => {
         failure = err;
       }
       await assert.rejects(
-        () => GET({ url: urlFor() }),
+        () => get(),
         (err) => err === failure
       );
     }
@@ -859,8 +886,8 @@ suite('rankings', async () => {
     try {
       console.error = () => {};
       await assert.rejects(
-        () => GET({ url: urlFor() }),
-        (err) => isHttpError(err, 500)
+        () => get(),
+        (err) => err instanceof ORPCError && err.status === 500
       );
     } finally {
       console.error = originalConsoleError;

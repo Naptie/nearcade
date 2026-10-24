@@ -1,11 +1,16 @@
 import type { PageServerLoad } from './$types';
-import type { ClubMember, Shop, ShopWithAttendance } from '$lib/types';
+import type { ClubMember, Shop } from '$lib/types';
+import type { ShopWithAttendance } from '$lib/types/index.server';
 import { toPlainArray } from '$lib/utils';
 import mongo from '$lib/db/index.server';
 import redis, { ensureConnected } from '$lib/db/redis.server';
 import { expandShopsRegions } from '$lib/utils/region.server';
 import { getShopsAttendanceData } from '$lib/endpoints/attendance.server';
 import type { AuthSession } from '$lib/auth/types';
+import {
+  findLatestUnreadPinnedAnnouncement,
+  getViewerAnnouncementReadState
+} from '$lib/announcements/server';
 
 const getAttendanceData = async (
   shops: Shop[],
@@ -60,13 +65,16 @@ const getAttendanceData = async (
   }
 };
 
-export const load: PageServerLoad = async ({ parent }) => {
-  const { session } = await parent();
+export const load: PageServerLoad = async (event) => {
+  const { session } = await event.parent();
+  const state = await getViewerAnnouncementReadState(event);
+  const latestPinnedAnnouncement = await findLatestUnreadPinnedAnnouncement({ state });
 
   if (!session || !session.user) {
     return {
       starredShops: [],
-      joinedClubsStarredShops: []
+      joinedClubsStarredShops: [],
+      latestPinnedAnnouncement
     };
   }
 
@@ -194,13 +202,15 @@ export const load: PageServerLoad = async ({ parent }) => {
     const shopsWithRegions = await expandShopsRegions(shopsWithAttendance);
 
     return {
-      starredShops: toPlainArray(shopsWithRegions)
+      starredShops: toPlainArray(shopsWithRegions),
+      latestPinnedAnnouncement
     };
   } catch (error) {
     console.error('Failed to load starred shops:', error);
     return {
       starredShops: [],
-      joinedClubsStarredShops: []
+      joinedClubsStarredShops: [],
+      latestPinnedAnnouncement
     };
   }
 };

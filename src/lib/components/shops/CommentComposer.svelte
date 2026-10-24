@@ -2,7 +2,9 @@
   import { m } from '$lib/paraglide/messages';
   import { onDestroy } from 'svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { discardDraftImages } from '$lib/api/draft-images';
+  import { isApiError } from '$lib/utils/api-error';
   import { buildImageUploadUrl } from '$lib/utils/image';
   import { toastError } from '$lib/notifications/toast.svelte';
   import type { User } from '$lib/auth/types';
@@ -36,23 +38,11 @@
   let attachments = $state<ImageAsset[]>([]);
   let isSubmitting = $state(false);
 
-  const cleanupDraftImages = async (ids: string[]) => {
-    await Promise.all(
-      ids.map(async (imageId) => {
-        try {
-          await fetch(fromPath(`/api/images/${imageId}`), { method: 'DELETE' });
-        } catch (error) {
-          console.error('Failed to delete draft image:', error);
-        }
-      })
-    );
-  };
-
   // Images left in a discarded draft are orphaned server-side; remove them.
   // A successful submit clears `imageIds` first, because those images now
   // belong to the posted comment.
   onDestroy(() => {
-    if (imageIds.length > 0) void cleanupDraftImages(imageIds);
+    if (imageIds.length > 0) void discardDraftImages(imageIds);
   });
 
   const handleSubmit = async () => {
@@ -61,27 +51,19 @@
     isSubmitting = true;
 
     try {
-      const response = await fetch(fromPath(`/api/shops/${shopId}/comments`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: content.trim(),
-          images: imageIds,
-          ...(parentCommentId ? { parentCommentId } : {})
-        })
+      await orpc.shops.createComment({
+        id: shopId,
+        content: content.trim(),
+        images: imageIds,
+        ...(parentCommentId ? { parentCommentId } : {})
       });
 
-      if (response.ok) {
-        content = '';
-        imageIds = [];
-        attachments = [];
-        onSubmitted?.();
-      } else {
-        const errorData = (await response.json()) as { message: string };
-        toastError(errorData.message || m.failed_to_post_comment());
-      }
-    } catch {
-      toastError(m.network_error_try_again());
+      content = '';
+      imageIds = [];
+      attachments = [];
+      onSubmitted?.();
+    } catch (error) {
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isSubmitting = false;
     }

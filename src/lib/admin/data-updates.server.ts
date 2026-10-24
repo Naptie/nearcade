@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/public';
+import { procedurePath } from '$lib/api/routes';
 import type { MongoClient } from 'mongodb';
 import mongo from '$lib/db/index.server';
 import { init as initMeilisearch } from '$lib/db/meili.server';
@@ -23,18 +24,10 @@ import { computeHomeStats, writeHomeStatsCache } from '$lib/utils/home-stats.ser
 import { captureAdminStatsSnapshot, DIFF_METRICS } from '$lib/admin/stats-snapshots.server';
 import { rebuildMetroRankings } from '$lib/openmetro/rankings.server';
 
-export const DATA_UPDATE_TASK_IDS = [
-  'university_stats',
-  'campus_rankings',
-  'metro_rankings',
-  'region_rankings',
-  'home_stats',
-  'admin_stats_snapshot',
-  'meilisearch',
-  'openmetro_sync'
-] as const;
+import { DATA_UPDATE_TASK_IDS, type DataUpdateTaskId } from '$lib/constants';
 
-export type DataUpdateTaskId = (typeof DATA_UPDATE_TASK_IDS)[number];
+export { DATA_UPDATE_TASK_IDS, type DataUpdateTaskId };
+
 export type DataUpdateTaskState = 'idle' | 'running' | 'succeeded' | 'failed';
 
 export interface DataUpdateTaskProgress {
@@ -96,12 +89,21 @@ interface RegionRankingsCacheMetadata {
   calculationStarted?: Date;
 }
 
-interface CachedRanking extends UniversityRankingData {
+/**
+ * A stored ranking row.
+ *
+ * Rows are persisted *without* a display `rank`: the tied rank is derived per
+ * request from the `ranks` map (see `competitionRanks` below) and attached on
+ * read, which is the shape the contract's output schema validates. So the
+ * storage shape is the response shape minus `rank` — it is not the response
+ * type itself.
+ */
+interface CachedRanking extends Omit<UniversityRankingData, 'rank'> {
   rankOrder: Record<string, number>;
   ranks: Record<string, number>;
 }
 
-interface CachedRegionRanking extends RegionRankingData {
+interface CachedRegionRanking extends Omit<RegionRankingData, 'rank'> {
   _id: string;
   rankOrder: Record<string, number>;
   ranks: Record<string, number>;
@@ -159,7 +161,8 @@ export interface TriggerDataUpdateResult {
 
 export const getAdminDataUpdateTriggerUrl = (request?: Request) => {
   const origin = request ? getOrigin(request) : env.PUBLIC_ORIGIN;
-  return origin ? `${origin}/api/admin/data-updates` : '/api/admin/data-updates';
+  const path = procedurePath('adminTriggerDataUpdate');
+  return origin ? `${origin}${path}` : path;
 };
 
 type ProgressReporter = (
@@ -744,7 +747,7 @@ const runCampusRankingsTask = async (
       (sum, university) => sum + (university.campuses?.length || 0),
       0
     );
-    const rankings: UniversityRankingData[] = [];
+    const rankings: Omit<UniversityRankingData, 'rank'>[] = [];
 
     await reportProgress({ processed: 0, total: totalCampuses });
 
@@ -935,7 +938,7 @@ const buildRegionNode = (
   locations
 });
 
-const nodeToRegionData = (node: RegionNode): RegionRankingData => {
+const nodeToRegionData = (node: RegionNode): Omit<RegionRankingData, 'rank'> => {
   const loc: Location =
     node.locations.length > 0
       ? {
@@ -977,7 +980,7 @@ const nodeToRegionData = (node: RegionNode): RegionRankingData => {
 const buildRegionRankings = async (
   shops: RankingsShop[],
   client: MongoClient
-): Promise<RegionRankingData[]> => {
+): Promise<Omit<RegionRankingData, 'rank'>[]> => {
   // Phase 0: load region hierarchy from MongoDB
   const db = client.db();
   const regionDocs = await db

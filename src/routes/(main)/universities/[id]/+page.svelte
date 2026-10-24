@@ -3,7 +3,8 @@
   import { browser } from '$app/environment';
   import { enhance } from '$app/forms';
   import type { PageData } from './$types';
-  import type { Campus, UniversityMemberWithUser } from '$lib/types';
+  import type { Campus } from '$lib/types';
+  import type { UniversityMemberListEntry } from '$lib/schemas/organizations';
   import CampusEditModal from '$lib/components/CampusEditModal.svelte';
   import InviteLinkModal from '$lib/components/InviteLinkModal.svelte';
   import RoleManagementModals from '$lib/components/RoleManagementModals.svelte';
@@ -11,11 +12,12 @@
   import ChangelogView from '$lib/components/ChangelogView.svelte';
   import PostsList from '$lib/components/PostsList.svelte';
   import { resolve } from '$app/paths';
-  import { PAGINATION } from '$lib/constants';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
   import { adaptiveNewTab, canWriteUnivPosts, pageTitle, aggregateGames } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
+  import { toastError } from '$lib/notifications/toast.svelte';
+  import { isApiError } from '$lib/utils/api-error';
   import { getLocale } from '$lib/paraglide/runtime';
   import T from '$lib/ugc/components/T.svelte';
   import VerifiedCheckMark from '$lib/components/VerifiedCheckMark.svelte';
@@ -96,7 +98,7 @@
   let showRevokeModeratorModal = $state(false);
   let showGrantAdminModal = $state(false);
   let showTransferAdminModal = $state(false);
-  let selectedMember = $state<UniversityMemberWithUser | null>(null);
+  let selectedMember = $state<UniversityMemberListEntry | null>(null);
 
   // Infinite scrolling state
   let displayedMembers = $derived(universityDataResolved?.members || []);
@@ -104,10 +106,11 @@
   let displayedFrequentingArcades = $derived(universityDataResolved?.frequentingArcades || []);
   let isLoadingMoreMembers = $state(false);
   let isLoadingMoreClubs = $state(false);
-  let hasMoreMembers = $derived(
-    (universityDataResolved?.members?.length || 0) >= PAGINATION.PAGE_SIZE
-  );
-  let hasMoreClubs = $derived((universityDataResolved?.clubs?.length || 0) >= PAGINATION.PAGE_SIZE);
+  // `hasMore` comes from the procedure, which owns the page size. Guessing it
+  // as `members.length >= PAGE_SIZE` was wrong for the final page and hid the
+  // "load more" control whenever a filtered page came back short.
+  let hasMoreMembers = $derived(universityDataResolved?.membersHasMore ?? false);
+  let hasMoreClubs = $derived(universityDataResolved?.clubsHasMore ?? false);
   let currentMembersPage = $state(1);
   let currentClubsPage = $state(1);
 
@@ -195,26 +198,18 @@
     isLoadingMoreMembers = true;
     try {
       const nextPage = currentMembersPage + 1;
-      const response = await fetch(
-        fromPath(
-          `/api/universities/${universityDataResolved.university.id}/members?page=${nextPage}`
-        )
-      );
-      if (response.ok) {
-        const result = (await response.json()) as {
-          members: typeof universityDataResolved.members;
-          hasMore: boolean;
-          page: number;
-        };
-        const newMembers = result.members;
-        displayedMembers = [...displayedMembers, ...newMembers];
-        hasMoreMembers = result.hasMore;
-        currentMembersPage = nextPage;
-      } else {
-        console.error('Failed to load more members:', response.statusText);
-      }
+      const result = await orpc.universities.members({
+        id: universityDataResolved.university.id,
+        page: nextPage
+      });
+
+      // The first page and the pages loaded after it come from the same
+      // contract, so they are the same shape and need no reconciliation.
+      displayedMembers = [...displayedMembers, ...result.members];
+      hasMoreMembers = result.hasMore;
+      currentMembersPage = nextPage;
     } catch (error) {
-      console.error('Error loading more members:', error);
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isLoadingMoreMembers = false;
     }
@@ -226,51 +221,45 @@
     isLoadingMoreClubs = true;
     try {
       const nextPage = currentClubsPage + 1;
-      const response = await fetch(
-        fromPath(`/api/universities/${universityDataResolved.university.id}/clubs?page=${nextPage}`)
-      );
-      if (response.ok) {
-        const result = (await response.json()) as {
-          clubs: typeof universityDataResolved.clubs;
-          hasMore: boolean;
-          page: number;
-        };
-        const newClubs = result.clubs;
-        displayedClubs = [...displayedClubs, ...newClubs];
-        hasMoreClubs = result.hasMore;
-        currentClubsPage = nextPage;
-      } else {
-        console.error('Failed to load more clubs:', response.statusText);
-      }
+      const result = await orpc.universities.clubs({
+        id: universityDataResolved.university.id,
+        page: nextPage
+      });
+
+      // The first page and the pages loaded after it come from the same
+      // contract, so they are the same shape and need no reconciliation.
+      displayedClubs = [...displayedClubs, ...result.clubs];
+      hasMoreClubs = result.hasMore;
+      currentClubsPage = nextPage;
     } catch (error) {
-      console.error('Error loading more clubs:', error);
+      toastError(isApiError(error) ? error.message : m.network_error_try_again());
     } finally {
       isLoadingMoreClubs = false;
     }
   };
 
   // Role management functions
-  const openRemoveMemberModal = (member: UniversityMemberWithUser) => {
+  const openRemoveMemberModal = (member: UniversityMemberListEntry) => {
     selectedMember = member;
     showRemoveMemberModal = true;
   };
 
-  const openGrantModeratorModal = (member: UniversityMemberWithUser) => {
+  const openGrantModeratorModal = (member: UniversityMemberListEntry) => {
     selectedMember = member;
     showGrantModeratorModal = true;
   };
 
-  const openRevokeModeratorModal = (member: UniversityMemberWithUser) => {
+  const openRevokeModeratorModal = (member: UniversityMemberListEntry) => {
     selectedMember = member;
     showRevokeModeratorModal = true;
   };
 
-  const openGrantAdminModal = (member: UniversityMemberWithUser) => {
+  const openGrantAdminModal = (member: UniversityMemberListEntry) => {
     selectedMember = member;
     showGrantAdminModal = true;
   };
 
-  const openTransferAdminModal = (member: UniversityMemberWithUser) => {
+  const openTransferAdminModal = (member: UniversityMemberListEntry) => {
     selectedMember = member;
     showTransferAdminModal = true;
   };
@@ -314,7 +303,7 @@
   };
 
   // Check what actions current user can perform on a university member
-  const canManageMember = (member: UniversityMemberWithUser) => {
+  const canManageMember = (member: UniversityMemberListEntry) => {
     if (!userPrivileges.canManage || !member.user || member.user.id === data.user?.id)
       return {
         remove: false,

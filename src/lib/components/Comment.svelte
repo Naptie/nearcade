@@ -3,7 +3,7 @@
   import { m } from '$lib/paraglide/messages';
   import type { CommentWithAuthorAndVote, ImageAsset, ShopDeleteRequestVoteType } from '$lib/types';
   import type { User } from '$lib/auth/types';
-  import { fromPath } from '$lib/utils/scoped';
+  import { discardDraftImages } from '$lib/api/draft-images';
   import UserAvatar from './UserAvatar.svelte';
   import ConfirmationModal from './ConfirmationModal.svelte';
   import PhotoCarousel from './PhotoCarousel.svelte';
@@ -86,18 +86,6 @@
     editAttachments = comment.resolvedImages ? [...comment.resolvedImages] : [];
   };
 
-  const cleanupDraftImages = async (imageIds: string[]) => {
-    await Promise.all(
-      imageIds.map(async (imageId) => {
-        try {
-          await fetch(fromPath(`/api/images/${imageId}`), { method: 'DELETE' });
-        } catch (error) {
-          console.error('Failed to delete draft image:', error);
-        }
-      })
-    );
-  };
-
   const startEditing = () => {
     resetEditState();
     isEditing = true;
@@ -108,7 +96,7 @@
     const originalImageIdSet = new Set(comment.images ?? []);
     const addedDraftImageIds = editImageIds.filter((imageId) => !originalImageIdSet.has(imageId));
     if (addedDraftImageIds.length > 0) {
-      void cleanupDraftImages(addedDraftImageIds);
+      void discardDraftImages(addedDraftImageIds);
     }
 
     isEditing = false;

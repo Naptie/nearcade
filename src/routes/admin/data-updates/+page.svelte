@@ -1,25 +1,21 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { formatDateTime } from '$lib/utils';
-  import { fromPath } from '$lib/utils/scoped';
+  import { orpc } from '$lib/api/client';
   import { m } from '$lib/paraglide/messages';
+  import { type DataUpdateTaskId } from '$lib/constants';
   import AdminPage from '$lib/components/admin/AdminPage.svelte';
   import AdminPanel from '$lib/components/admin/AdminPanel.svelte';
   import type { PageData } from './$types';
 
   type TaskState = 'idle' | 'running' | 'succeeded' | 'failed';
-  type TaskId =
-    | 'university_stats'
-    | 'campus_rankings'
-    | 'metro_rankings'
-    | 'region_rankings'
-    | 'home_stats'
-    | 'admin_stats_snapshot'
-    | 'meilisearch'
-    | 'openmetro_sync';
 
   type Task = {
-    id: TaskId;
+    // The contract carries a plain string, because a stale task id in the
+    // collection must not turn the whole monitor into a validation failure.
+    // The presentation table below is keyed by the closed set, and the lookup
+    // falls back for an id that is not in it.
+    id: string;
     status: TaskState;
     startedAt?: Date | string | null;
     finishedAt?: Date | string | null;
@@ -33,12 +29,11 @@
     triggerUserName?: string | null;
   };
 
+  type TaskMeta = { title: string; description: string; icon: string; summaryKeys: string[] };
+
   let { data }: { data: PageData } = $props();
 
-  const taskMeta: Record<
-    TaskId,
-    { title: string; description: string; icon: string; summaryKeys: string[] }
-  > = {
+  const taskMeta: Record<DataUpdateTaskId, TaskMeta> = {
     university_stats: {
       title: m.admin_data_update_university_stats(),
       description: m.admin_data_update_university_stats_description(),
@@ -110,8 +105,22 @@
   let tasks = $state<Task[]>([]);
   let triggerUrl = $state('');
   let isRefreshing = $state(false);
-  let activeTaskId = $state<TaskId | null>(null);
+  let activeTaskId = $state<string | null>(null);
   let pollHandle: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * The presentation of one task.
+   *
+   * Falls back to the raw id for a task the contract does not name, so a stale
+   * record stays visible — and stops the page from rendering `undefined`.
+   */
+  const metaFor = (id: string): TaskMeta =>
+    taskMeta[id as DataUpdateTaskId] ?? {
+      title: id,
+      description: '',
+      icon: 'fa-gear',
+      summaryKeys: []
+    };
 
   $effect(() => {
     if (tasks.length === 0 && data.tasks) {
@@ -131,13 +140,8 @@
     }
 
     try {
-      const response = await fetch(fromPath('/api/admin/data-updates'));
-      if (!response.ok) {
-        throw new Error('Failed to refresh tasks');
-      }
-
-      const result = await response.json();
-      tasks = result.tasks || [];
+      const result = await orpc.admin.dataUpdates({});
+      tasks = 'tasks' in result ? result.tasks : [result.task];
       triggerUrl = result.triggerUrl || triggerUrl;
     } catch (error) {
       console.error('Failed to refresh admin data update tasks:', error);
@@ -148,23 +152,12 @@
     }
   };
 
-  const triggerTask = async (taskId: TaskId) => {
+  const triggerTask = async (taskId: string) => {
     activeTaskId = taskId;
     try {
-      const response = await fetch(fromPath('/api/admin/data-updates'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ task: taskId })
-      });
+      const result = await orpc.admin.triggerDataUpdate({ task: taskId });
 
-      if (!response.ok) {
-        throw new Error('Failed to trigger data update task');
-      }
-
-      const result = await response.json();
-      const updatedTask = result.task as Task;
+      const updatedTask = result.task;
       tasks = tasks.some((task) => task.id === updatedTask.id)
         ? tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))
         : [...tasks, updatedTask];
@@ -260,7 +253,7 @@
 
   <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
     {#each tasks as task (task.id)}
-      {@const meta = taskMeta[task.id]}
+      {@const meta = metaFor(task.id)}
       <!-- `p-6` keeps the task-card density; `padded` would force p-4. -->
       <AdminPanel class="h-full p-6">
         <div class="flex flex-col gap-4">
