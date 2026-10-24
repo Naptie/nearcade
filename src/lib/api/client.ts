@@ -27,13 +27,13 @@ export type ApiClient = ContractRouterClient<typeof contractRouter>;
  * cannot drift from the other places that build an absolute URL.
  *
  * On the server use `createServerApiClient()` from
- * `src/lib/api/server-client.ts` instead — it calls the procedures in-process
+ * `src/lib/api/client.server.ts` instead — it calls the procedures in-process
  * and skips the HTTP round trip entirely.
  */
 const rpcBaseUrl = () => {
   if (typeof location === 'undefined') {
     throw new Error(
-      'The browser API client cannot be used on the server. Use createServerApiClient() from $lib/api/server-client instead.'
+      'The browser API client cannot be used on the server. Use createServerApiClient() from $lib/api/client.server instead.'
     );
   }
   return `${apiOrigin()}${RPC_MOUNT}`;

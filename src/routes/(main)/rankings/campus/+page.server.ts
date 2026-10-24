@@ -1,5 +1,5 @@
 import { PAGINATION, RANKING_RADIUS_OPTIONS, isPoiSortKey } from '$lib/constants';
-import { createServerApiClient } from '$lib/api/server-client';
+import { createServerApiClient } from '$lib/api/client.server';
 import type { SortCriteria, RankingRadiusFilter } from '$lib/types';
 import type { PageServerLoad } from './$types';
 

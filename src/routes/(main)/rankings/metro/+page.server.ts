@@ -1,5 +1,5 @@
 import { PAGINATION, METRO_RANKING_RADIUS_OPTIONS } from '$lib/constants';
-import { createServerApiClient } from '$lib/api/server-client';
+import { createServerApiClient } from '$lib/api/client.server';
 import type { MetroRankingRadiusFilter } from '$lib/types';
 import { metroRankingQuerySchema } from '$lib/schemas/metro';
 import type { PageServerLoad } from './$types';

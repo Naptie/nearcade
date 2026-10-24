@@ -6,13 +6,9 @@ import type { OAuthScope } from '$lib/auth/oauth/scopes';
 /**
  * The route index of the nearcade API, derived from the contract.
  *
- * The contract already declares, for every procedure, the HTTP method, the
- * path it is served on and the OAuth scope it requires. This module turns that
- * declaration into a lookup so a request can be matched to its procedure
- * without a second, hand-maintained table of URL prefixes.
- *
- * The scope a procedure requires therefore has exactly one home: the `scope`
- * on its contract route.
+ * The contract declares the method, the path and the OAuth scope of every
+ * procedure, so a request can be matched to its procedure without a second,
+ * hand-maintained table of URL prefixes.
  */
 
 /** One procedure of the contract, reduced to what a request can be matched on. */

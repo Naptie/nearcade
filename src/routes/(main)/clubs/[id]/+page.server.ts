@@ -2,7 +2,7 @@ import { error, fail, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { type Club, type University, type Shop } from '$lib/types';
 import { checkClubPermission, canWriteClubPosts, toPlainObject } from '$lib/utils';
-import { createServerApiClient } from '$lib/api/server-client';
+import { createServerApiClient } from '$lib/api/client.server';
 import { nanoid } from 'nanoid';
 import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';

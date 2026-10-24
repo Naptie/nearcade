@@ -3,7 +3,7 @@ import { OpenAPIHandler } from '@orpc/openapi/fetch';
 import { OpenAPIReferencePlugin } from '@orpc/openapi/plugins';
 import { ResponseHeadersPlugin } from '@orpc/server/plugins';
 import type { RequestHandler } from './$types';
-import { appRouter } from '$lib/api/router';
+import { appRouter } from '$lib/api/router.server';
 import { createApiContext } from '$lib/api/context';
 import { API_PREFIX } from '$lib/api/mount';
 import { encodeErrorBody, notFoundResponse } from '$lib/api/errors';

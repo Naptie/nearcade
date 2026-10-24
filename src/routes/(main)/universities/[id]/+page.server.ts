@@ -2,7 +2,7 @@ import { error, fail, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import type { University, Campus, Shop } from '$lib/types';
 import { checkUniversityPermission, toPlainArray, toPlainObject, updateUserType } from '$lib/utils';
-import { createServerApiClient } from '$lib/api/server-client';
+import { createServerApiClient } from '$lib/api/client.server';
 import { PAGINATION } from '$lib/constants';
 import { logCampusChanges } from '$lib/utils/universities-clubs/changelog.server';
 import { nanoid } from 'nanoid';

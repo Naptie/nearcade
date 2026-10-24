@@ -762,10 +762,10 @@ suite('rankings', async () => {
     // `ssrLoadModule` is untyped, so the router is re-typed from the same
     // module: the assertions below stay as strongly checked as the source.
     type RankingsImplementation =
-      typeof import('../src/lib/api/implementations/rankings').rankingsImplementation;
+      typeof import('../src/lib/api/implementations/rankings.server').rankingsImplementation;
     type ApiContext = import('../src/lib/api/context').ApiContext;
     const { rankingsImplementation } = await server.ssrLoadModule(
-      '/src/lib/api/implementations/rankings.ts'
+      '/src/lib/api/implementations/rankings.server'
     );
     const client = createRouterClient(
       { rankings: rankingsImplementation as RankingsImplementation },

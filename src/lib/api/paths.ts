@@ -17,18 +17,10 @@ export const RPC_MOUNT = '/api/_rpc';
 /**
  * The trailing path segment of the RPC mount, with its leading slash.
  *
- * Exists so the service worker's `/api/` cache rule can exclude the typed
- * surface by name instead of repeating the literal. A cached RPC call would be
- * replayed to the next caller, so the exclusion has to stay correct when the
- * mount moves.
- *
- * Derived from `RPC_MOUNT` rather than written out, so moving the mount cannot
- * leave the service worker's exclusion pointing at a stale segment.
- *
- * It lives here rather than next to `API_PREFIX` / `RPC_PREFIX` because those
- * fold in `paths.base` and therefore need `$app/paths` — which a service worker
- * cannot resolve. This module stays free of `$app/*` imports so both the
- * handlers, the offline contract checks, and `src/sw.ts` can read it.
+ * The service worker's `/api/` cache rule excludes the typed surface by name,
+ * so the exclusion stays correct when the mount moves. It lives here because
+ * this module carries no `$app/*` import, which a service worker cannot
+ * resolve.
  */
 export const RPC_PATH_SEGMENT = RPC_MOUNT.slice(API_MOUNT.length);
 
