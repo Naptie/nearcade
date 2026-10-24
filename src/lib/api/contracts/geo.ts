@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import { definePublic } from '../contract';
+import { definePrivate } from '../contract';
 import { bilingual, coordinateSystemSchema } from '$lib/schemas/common';
-import { regionResolutionShape } from '$lib/schemas/regions';
 
 /** A point in one of the public coordinate systems. */
 const coordinateSchema = z.object({
@@ -10,28 +9,7 @@ const coordinateSchema = z.object({
   coordinateSystem: coordinateSystemSchema
 });
 
-/**
- * The region chain unified-geo resolved for a point.
- *
- * `region` is absent when the chain could not be resolved; `needsManualRegion`
- * then tells the caller the user has to pick a region by hand.
- */
-const regionResolutionSchema = z.object({
-  resolved: regionResolutionShape.resolved.describe(
-    bilingual('是否解析出地区。', 'Whether a region was resolved.')
-  ),
-  region: regionResolutionShape.region.describe(bilingual('地区 ID 链。', 'Region ID chain.')),
-  general: regionResolutionShape.general.describe(bilingual('大致地址。', 'General address.')),
-  detailed: regionResolutionShape.detailed.describe(bilingual('详细地址。', 'Detailed address.')),
-  needsManualRegion: regionResolutionShape.needsManualRegion.describe(
-    bilingual('是否需要用户手动选择地区。', 'Whether the user has to pick a region manually.')
-  ),
-  matchedBy: regionResolutionShape.matchedBy.describe(
-    bilingual('地区的匹配方式。', 'How the region was matched.')
-  )
-});
-
-/** A place unified-geo's search returned. */
+/** A place the provider's search returned. */
 const placeSchema = z.object({
   id: z.string().optional().describe(bilingual('地点 ID。', 'Place ID.')),
   name: z.string().describe(bilingual('地点名称。', 'Place name.')),
@@ -58,14 +36,25 @@ const mapLibreStyleDocumentSchema = z.looseObject({
 /** A MapLibre style document, as served by unified-geo. */
 export type MapLibreStyleDocument = z.infer<typeof mapLibreStyleDocumentSchema>;
 
+/**
+ * The geo surface: the map's own plumbing.
+ *
+ * Every procedure here does what a map provider does — resolve a place,
+ * translate a coordinate, serve a basemap style, search for a point of
+ * interest. None of it is nearcade's own product, and a commercial map
+ * provider offers the same capabilities as a documented product, so none of it
+ * belongs in the published contract.
+ *
+ * The procedures are served — the first-party client uses them — but they are
+ * not published, and third-party OAuth clients cannot reach them.
+ */
 export const geoContract = {
   /** `GET /api/geo/me` — the visitor's coarse origin, derived from their IP. */
-  me: definePublic({
+  me: definePrivate({
     method: 'GET',
     path: '/geo/me',
     operationId: 'getGeoOrigin',
     tags: ['geo'],
-    scope: 'open',
     summary: bilingual('获取访客的大致位置。', "Get the visitor's coarse origin.", true),
     description: bilingual(
       '根据访客 IP 解析出所在城市/省份的中心点。无法解析时返回 null；该点仅供地图初始定位使用，不代表精确位置。',
@@ -89,12 +78,11 @@ export const geoContract = {
     ),
 
   /** `GET /api/geo/translate` — convert a point into the map surface's datum. */
-  translate: definePublic({
+  translate: definePrivate({
     method: 'GET',
     path: '/geo/translate',
     operationId: 'translateGeoCoordinate',
     tags: ['geo'],
-    scope: 'open',
     summary: bilingual('转换坐标。', 'Translate a coordinate.', true),
     description: bilingual(
       '将一个坐标转换为地图底图所选地区的坐标系（WGS84 或 GCJ02）。无法转换时原样返回。',
@@ -138,12 +126,11 @@ export const geoContract = {
     ),
 
   /** `GET /api/geo/style` — proxy unified-geo's MapLibre style documents. */
-  style: definePublic({
+  style: definePrivate({
     method: 'GET',
     path: '/geo/style',
     operationId: 'getGeoMapStyle',
     tags: ['geo'],
-    scope: 'open',
     // The style document is served as-is — not wrapped in an envelope — so the
     // response needs the detailed output structure.
     outputStructure: 'detailed',
@@ -188,12 +175,11 @@ export const geoContract = {
     ),
 
   /** `POST /api/geo/picker/search` — search places around a map centre. */
-  pickerSearch: definePublic({
+  pickerSearch: definePrivate({
     method: 'POST',
     path: '/geo/picker/search',
     operationId: 'searchGeoPlaces',
     tags: ['geo'],
-    scope: 'open',
     summary: bilingual('搜索地点。', 'Search places.', true),
     description: bilingual(
       '在给定中心点附近搜索地点，结果使用地图底图所选地区的坐标系。',
@@ -225,62 +211,6 @@ export const geoContract = {
       z.object({
         places: z.array(placeSchema).describe(bilingual('地点列表。', 'Matching places.')),
         coordinateSystem: coordinateSystemSchema
-      })
-    ),
-
-  /** `POST /api/geo/picker/confirm` — confirm a picked point and resolve its region. */
-  pickerConfirm: definePublic({
-    method: 'POST',
-    path: '/geo/picker/confirm',
-    operationId: 'confirmGeoLocation',
-    tags: ['geo'],
-    scope: 'open',
-    summary: bilingual('确认选中的位置。', 'Confirm a picked location.', true),
-    description: bilingual(
-      '将选中的坐标反向解析为地址与地区链，并按需转换到 GCJ02。',
-      'Reverse-geocodes the picked coordinate into an address and a region chain, converting it to GCJ02 where the territory requires it.'
-    )
-  })
-    .input(
-      z.object({
-        longitude: z.number().min(-180).max(180).describe(bilingual('经度。', 'Longitude.')),
-        latitude: z.number().min(-90).max(90).describe(bilingual('纬度。', 'Latitude.')),
-        language: z.string().min(2).max(12).describe(bilingual('语言代码。', 'Language code.')),
-        name: z
-          .string()
-          .max(300)
-          .optional()
-          .describe(bilingual('用户填写的名称。', 'Name entered by the user.')),
-        address: z
-          .string()
-          .max(1000)
-          .optional()
-          .describe(bilingual('用户填写的地址。', 'Address entered by the user.')),
-        coordinateSystem: coordinateSystemSchema
-          .optional()
-          .describe(
-            bilingual(
-              '坐标的原始坐标系；省略时由服务端按地图区域推断。',
-              'The datum of the incoming point; omitted, the server resolves the datum the map surface implies.'
-            )
-          )
-      })
-    )
-    .output(
-      z.object({
-        location: coordinateSchema,
-        serviceArea: z
-          .enum(['china', 'international'])
-          .describe(bilingual('服务区域。', 'Service area.')),
-        zone: z
-          .enum(['CN_MAINLAND', 'CN_HKMO', 'CN_TW', 'INTERNATIONAL', 'UNKNOWN'])
-          .optional()
-          .describe(bilingual('时区分区。', 'Zone.')),
-        provider: z.string().describe(bilingual('上游服务商。', 'Upstream provider.')),
-        name: z.string().describe(bilingual('地点名称。', 'Place name.')),
-        address: z.string().describe(bilingual('地点地址。', 'Place address.')),
-        city: z.string().optional().describe(bilingual('城市。', 'City.')),
-        ...regionResolutionSchema.shape
       })
     )
 };

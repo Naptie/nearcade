@@ -5,10 +5,6 @@ import { apiError } from '../errors';
 import mongo from '$lib/db/index.server';
 import { lookupIpRegion } from '$lib/endpoints/ip-lookup.server';
 import type { Region } from '$lib/regions/types';
-import {
-  resolveNearcadeRegion,
-  type UnifiedGeoReverseResponse
-} from '$lib/regions/unified-geo.server';
 import { isAllowedCorsOrigin } from '$lib/utils/cors.server';
 import { convertToMapProfile } from '$lib/utils/geo.server';
 import { getClientIp } from '$lib/utils/ip.server';
@@ -58,11 +54,6 @@ const findCoordinateRegion = async (
     coordinates: region.location.coordinates
   };
 };
-
-interface CoordinateConversionResponse {
-  success: true;
-  coordinate: UnifiedGeoCoordinate;
-}
 
 interface MapProfileResponse {
   success: true;
@@ -177,54 +168,5 @@ export const geoImplementation = {
     });
 
     return { places: response.results, coordinateSystem: profile.coordinateSystem };
-  }),
-
-  pickerConfirm: impl.pickerConfirm.handler(async ({ input, context }) => {
-    const { request, url } = context.event;
-    if (!isAllowedCorsOrigin(request.headers.get('origin'), url.origin)) {
-      apiError('FORBIDDEN', 'Cross-origin location confirmation is not allowed.');
-    }
-
-    const { longitude, latitude, language, name, address } = input;
-    let inputDatum = input.coordinateSystem;
-    if (!inputDatum) {
-      // Resolve the datum the map surface implies for this point (zone-based).
-      const profile = await requestUnifiedGeo<MapProfileResponse>('/maps/profile', {
-        coordinate: { longitude, latitude, coordinateSystem: 'WGS84' }
-      });
-      inputDatum = profile.coordinateSystem;
-    }
-    const coordinate: UnifiedGeoCoordinate = { longitude, latitude, coordinateSystem: inputDatum };
-    const reverse = await requestUnifiedGeo<UnifiedGeoReverseResponse>('/geo/reverse', {
-      coordinate,
-      outputCoordinateSystem: 'WGS84',
-      language
-    });
-    let selectedCoordinate = coordinate;
-
-    // Nearcade stores shop locations for China-provider regions in GCJ02 — the
-    // datum unified-geo assigns to CN_MAINLAND and CN_HKMO — while Taiwan
-    // (CN_TW) and everything else stay WGS84. Branch on the territory datum,
-    // never on serviceArea ('china' now includes TW but remains WGS84 there).
-    if (reverse.territory.datum === 'GCJ02' && inputDatum !== 'GCJ02') {
-      const converted = await requestUnifiedGeo<CoordinateConversionResponse>('/geo/convert', {
-        coordinate,
-        targetCoordinateSystem: 'GCJ02'
-      });
-      selectedCoordinate = converted.coordinate;
-    }
-
-    const result = reverse.results[0];
-    const region = await resolveNearcadeRegion(reverse, result?.formattedAddress || address);
-    return {
-      location: selectedCoordinate,
-      serviceArea: reverse.serviceArea,
-      zone: reverse.zone,
-      provider: reverse.provider,
-      name: name || result?.formattedAddress || address || '',
-      address: result?.formattedAddress || address || '',
-      city: result?.components.city ?? reverse.territory.city,
-      ...region
-    };
   })
 };

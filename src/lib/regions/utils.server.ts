@@ -1,7 +1,7 @@
 /**
  * ── Region Hierarchy Server Utilities ──────────────────────────────────────
- * Loads the globe-cn region collection from MongoDB, builds in-memory
- * lookup maps, and exposes selection/hierarchy/formatting helpers.
+ * Loads the region collection from MongoDB, builds in-memory lookup maps,
+ * and exposes selection/hierarchy/formatting helpers.
  *
  * **Initialisation**: Call `initRegionCache(client)` once before using any
  * public function. The returned promise is stored internally; public

@@ -289,13 +289,14 @@
     pickerError = '';
 
     try {
-      const result = await orpc.geo.pickerConfirm({
+      // The resolution is the one operation that answers "where is this
+      // point, and which region is it in" — the same one the shop form uses.
+      const result = await orpc.regions.resolve({
         longitude: selection.longitude,
         latitude: selection.latitude,
-        language: getLocale(),
-        name: selection.name,
-        address: selection.address,
-        ...(selection.coordinateSystem ? { coordinateSystem: selection.coordinateSystem } : {})
+        ...(selection.coordinateSystem ? { coordinateSystem: selection.coordinateSystem } : {}),
+        ...(selection.address ? { address: selection.address } : {}),
+        language: getLocale()
       });
       if (session !== pickerSession) return;
 
@@ -304,11 +305,14 @@
         latitude: result.location.latitude,
         coordinateSystem: result.location.coordinateSystem,
         serviceArea: result.serviceArea,
-        region: result.region,
-        detailed: result.detailed,
-        name: result.name,
-        address: result.address,
-        city: result.city ?? '',
+        region: result.region.chain,
+        detailed: result.region.detailed,
+        // The provider answers with an address, not with the name of a place.
+        // The name is the one the search returned for the picked place, and
+        // falls back to the address when the place has none.
+        name: selection.name || result.place.address,
+        address: result.place.address,
+        city: result.place.city ?? '',
         confirmed: true
       });
       isOpen = false;

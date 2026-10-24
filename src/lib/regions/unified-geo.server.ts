@@ -33,9 +33,48 @@ export interface UnifiedGeoReverseResponse {
   }[];
 }
 
+/**
+ * The part of a reverse-geocode answer the region derivation actually reads.
+ *
+ * The upstream envelope also carries `success` and `provider`. The region
+ * chain depends on neither — `provider` names which map provider answered,
+ * which is the geo service's business and not something a region is derived
+ * from — and naming the fields the derivation reads keeps that derivation
+ * independent of the envelope it happens to receive.
+ */
+export interface NearcadeReverseGeocode {
+  serviceArea: 'china' | 'international';
+  zone?: 'CN_MAINLAND' | 'CN_HKMO' | 'CN_TW' | 'INTERNATIONAL' | 'UNKNOWN';
+  territory: {
+    countryCode: string;
+    country: string;
+    region?: string;
+    city?: string;
+    district?: string;
+    datum?: 'WGS84' | 'GCJ02';
+    normalizedInput: UnifiedGeoCoordinate;
+  };
+  results: {
+    formattedAddress: string;
+    components: {
+      countryCode?: string;
+      country?: string;
+      region?: string;
+      city?: string;
+      district?: string;
+    };
+  }[];
+}
+
 export interface NearcadeRegionResolution {
   resolved: boolean;
-  region?: string[];
+  /**
+   * The region ID chain, root → leaf.
+   *
+   * Absent when the chain could not be resolved; `needsManualRegion` then
+   * tells the caller the user has to pick a region by hand.
+   */
+  chain?: string[];
   general: string[];
   detailed: string;
   needsManualRegion?: boolean;
@@ -82,7 +121,7 @@ function formatDetailedAddress(
 }
 
 export async function resolveNearcadeRegion(
-  reverse: UnifiedGeoReverseResponse,
+  reverse: NearcadeReverseGeocode,
   fallbackAddress?: string
 ): Promise<NearcadeRegionResolution> {
   const territory = reverse.territory;
@@ -107,30 +146,30 @@ export async function resolveNearcadeRegion(
     : uniqueParts([components.country ?? territory.country, ...administrativeParts]);
 
   await initRegionCache(mongo);
-  let region = isChinaHierarchy ? resolveRegionFromGeneral(general) : null;
-  if (!region && isChinaHierarchy) {
+  let chain = isChinaHierarchy ? resolveRegionFromGeneral(general) : null;
+  if (!chain && isChinaHierarchy) {
     const parsed = parseRegionChainFromText(
       reverse.results[0]?.formattedAddress ?? fallbackAddress ?? ''
     );
-    region = parsed?.chain ?? null;
+    chain = parsed?.chain ?? null;
   }
 
   let matchedBy: NearcadeRegionResolution['matchedBy'];
-  if (!region) {
+  if (!chain) {
     const countryId = isChinaHierarchy ? 'CN' : countryCode;
     const point = territory.normalizedInput;
     const nearest = await resolveRegionNearPoint(countryId, administrativeParts, [
       point.longitude,
       point.latitude
     ]);
-    region = nearest?.chain ?? null;
+    chain = nearest?.chain ?? null;
     matchedBy = nearest?.matchedBy;
   }
 
   const formattedAddress = reverse.results[0]?.formattedAddress ?? '';
   return {
     resolved: Boolean(countryCode),
-    ...(region?.length ? { region } : { needsManualRegion: true }),
+    ...(chain?.length ? { chain } : { needsManualRegion: true }),
     general,
     detailed: formatDetailedAddress(
       formattedAddress,

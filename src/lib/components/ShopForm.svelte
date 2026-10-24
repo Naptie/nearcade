@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { m } from '$lib/paraglide/messages';
+  import { getLocale } from '$lib/paraglide/runtime';
   import { toastError } from '$lib/notifications/toast.svelte';
   import { GAME_TITLES } from '$lib/constants';
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
@@ -164,31 +165,35 @@
   async function resolveFromLocation(
     coords: [number, number],
     fallbackAddress?: string,
-    coordinateSystem: 'WGS84' | 'GCJ02' = 'WGS84'
+    coordinateSystem?: 'WGS84' | 'GCJ02'
   ) {
     resolvingLocation = true;
     resolveFailed = false;
     try {
       const [lng, lat] = coords;
       const result = await orpc.regions.resolve({
-        lat,
-        lng,
-        coordinateSystem,
-        address: fallbackAddress ?? ''
+        longitude: lng,
+        latitude: lat,
+        // The coordinates this form starts from are the ones nearcade stores —
+        // the map surface's datum for that place — so the datum is left to the
+        // service unless a caller knows the point came from somewhere else.
+        ...(coordinateSystem ? { coordinateSystem } : {}),
+        ...(fallbackAddress ? { address: fallbackAddress } : {}),
+        language: getLocale()
       });
-      if (!result.resolved) {
+      if (!result.region.resolved) {
         resolveFailed = true;
         return;
       }
-      if (result.region?.length) {
-        resolvedRegionIds = result.region;
+      if (result.region.chain?.length) {
+        resolvedRegionIds = result.region.chain;
       } else {
         // Provider gave an address but no confident region match — the user
         // still picks the region manually.
         resolveFailed = true;
       }
-      if (result.detailed && !detailedTouchedManually) {
-        detailedAddress = result.detailed;
+      if (result.region.detailed && !detailedTouchedManually) {
+        detailedAddress = result.region.detailed;
       }
     } catch {
       resolveFailed = true;

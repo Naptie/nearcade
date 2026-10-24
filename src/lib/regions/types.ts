@@ -1,6 +1,4 @@
 // ── Global region hierarchy types ───────────────────────────────────────────
-// Mirrors the production schema emitted by the globe-cn pipeline and stored
-// in the MongoDB `regions` collection.
 
 export type RegionLevel = 'country' | 'province' | 'city' | 'county' | 'street';
 
