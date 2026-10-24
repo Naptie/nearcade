@@ -83,7 +83,7 @@
       </div>
     {:else}
       <div class="space-y-3">
-        {#each reports as report (report._id)}
+        {#each reports as report (`${report.reportedAt.getTime()}-${report.reportedBy}`)}
           <div class="bg-base-100 rounded-lg p-4">
             <div class="mb-2 flex items-start justify-between gap-2">
               <div class="flex items-center gap-2">

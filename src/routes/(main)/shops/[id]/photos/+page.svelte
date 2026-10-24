@@ -41,20 +41,11 @@
     photos = photos.filter((p) => p.id !== photo.id);
   };
 
-  const handleUploadSuccess = (result: {
-    id: string;
-    url: string;
-    storageProvider: ShopPhoto['storageProvider'];
-    storageKey: string;
-    storageObjectId?: string | null;
-  }) => {
+  const handleUploadSuccess = (result: { id: string; url: string }) => {
     const newPhoto: ShopPhoto = {
       id: result.id,
       shopId: data.shop.id,
       url: result.url,
-      storageProvider: result.storageProvider,
-      storageKey: result.storageKey,
-      storageObjectId: result.storageObjectId ?? null,
       uploadedBy: data.user?.id ?? null,
       uploader: data.user,
       uploadedAt: new Date()

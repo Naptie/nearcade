@@ -226,6 +226,16 @@ export const mongoIdSchema = z
   .describe(bilingual('MongoDB ID。', 'MongoDB ID.'));
 
 /**
+ * The storage identifier of a stored document.
+ *
+ * The published schemas deliberately leave it out — a response says which
+ * record it is with the record's own `id`, and the published document says
+ * nothing about how the records are stored — but the server still reads it
+ * off the stored document, so the storage types carry it.
+ */
+export type StorageId = z.infer<typeof mongoIdSchema>;
+
+/**
  * The single file of a multipart upload body.
  *
  * oRPC decodes the multipart body into the input before the handler runs, so
@@ -294,10 +304,6 @@ export const userSummarySchema = z.object({
 });
 
 export const userPublicSchema = z.object({
-  _id: z
-    .union([z.string(), objectIdSchema])
-    .optional()
-    .describe(bilingual('MongoDB ID。客户端请使用 id。', 'MongoDB ID. Use `id` in clients.')),
   id: userIdSchema,
   name: z
     .string()

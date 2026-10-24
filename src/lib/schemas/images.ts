@@ -3,7 +3,6 @@ import { z } from 'zod';
 import {
   bilingual,
   dateTimeSchema,
-  mongoIdSchema,
   shopIdParamSchema,
   userIdSchema,
   userSummarySchema
@@ -21,9 +20,34 @@ export const imageStorageProviderSchema = z
   .enum(['s3', 'leancloud'])
   .describe(bilingual('图片存储提供商。', 'Image storage provider.'));
 
+/**
+ * Where an image's bytes live.
+ *
+ * The storage layer's own bookkeeping: the backend the object was uploaded
+ * to, the key it was uploaded under, and the id the backend knows it by. The
+ * server needs all three to delete the object again — and nothing else does.
+ */
+const imageStorageFieldsShape = {
+  storageProvider: imageStorageProviderSchema,
+  storageKey: z.string().describe(bilingual('存储键。', 'Storage key.')),
+  storageObjectId: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(bilingual('远端存储对象 ID。', 'Remote storage object ID.'))
+};
+
+/**
+ * An image as the API returns it.
+ *
+ * The storage bookkeeping is not part of it: a consumer renders the `url` and
+ * refers to the image by its `id`. Which backend holds the bytes is decided
+ * when the image is uploaded, and it changes when the deployment moves — so
+ * publishing it would be publishing a decision the consumer cannot make and
+ * cannot rely on.
+ */
 export const imageAssetSchema = z
   .object({
-    _id: mongoIdSchema,
     id: imageAssetIdSchema,
     shopId: shopIdParamSchema.shape.id
       .optional()
@@ -53,13 +77,6 @@ export const imageAssetSchema = z
       .optional()
       .describe(bilingual('关联社团 ID。', 'Associated club ID.')),
     url: z.string().describe(bilingual('图片 URL。', 'Image URL.')),
-    storageProvider: imageStorageProviderSchema,
-    storageKey: z.string().describe(bilingual('存储键。', 'Storage key.')),
-    storageObjectId: z
-      .string()
-      .nullable()
-      .optional()
-      .describe(bilingual('远端存储对象 ID。', 'Remote storage object ID.')),
     uploadedBy: userIdSchema.nullable().describe(bilingual('上传者用户 ID。', 'Uploader user ID.')),
     uploader: userSummarySchema
       .optional()
@@ -67,6 +84,14 @@ export const imageAssetSchema = z
     uploadedAt: dateTimeSchema(bilingual('上传时间。', 'Upload time.'))
   })
   .describe(bilingual('图片资源。', 'Image asset.'));
+
+/**
+ * A stored image: the published shape plus the storage bookkeeping.
+ *
+ * The collection keeps this, so the server can find and delete the bytes it
+ * uploaded — the published shape alone would not say where they are.
+ */
+export const imageDocumentSchema = imageAssetSchema.extend(imageStorageFieldsShape);
 
 const optionalTrimmedString = (description: string) =>
   z

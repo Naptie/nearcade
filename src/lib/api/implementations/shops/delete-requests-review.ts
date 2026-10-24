@@ -17,7 +17,7 @@ import { requireBoundPhone } from '$lib/utils/index.server';
 import { logShopChange } from '$lib/utils/shops/changelog.server';
 import { apiError } from '../../errors';
 import { impl } from './delete-requests-shared';
-import type { ShopPhotoEntry } from './shared';
+import type { StoredImageAsset } from '$lib/types';
 
 export const shopsDeleteRequestsReviewImplementation = {
   /**
@@ -110,7 +110,7 @@ export const shopsDeleteRequestsReviewImplementation = {
 
     const db = mongo.db();
     const deleteRequestsCollection = db.collection('shop_delete_requests');
-    const photosCollection = db.collection<ShopPhotoEntry>('images');
+    const photosCollection = db.collection<StoredImageAsset>('images');
 
     const deleteRequest = await deleteRequestsCollection.findOne({ id });
 

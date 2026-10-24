@@ -203,7 +203,7 @@ const ugcAuditMirror = z.object({
   updatedAt: z.iso.datetime()
 });
 
-/** Mirror of `Region` (src/lib/regions/types.ts) — persisted by the worldwide-regions import pipeline. */
+/** Mirror of `Region` (src/lib/regions/types.ts) — the shape the region collection stores. */
 const regionLevelValues = ['country', 'province', 'city', 'county', 'street'] as const;
 
 const geoPointMirror = z.object({
@@ -701,7 +701,7 @@ const SCHEMA_BACKED: RegistryEntry[] = [
     collection: 'regions',
     schema: regionMirror,
     source:
-      'mirror of Region (src/lib/regions/types.ts) — persisted by the worldwide-regions import pipeline'
+      'mirror of Region (src/lib/regions/types.ts) — the shape the region collection stores'
   },
   {
     collection: 'invite_links',
@@ -945,7 +945,13 @@ try {
       const plain = plainify(raw) as Record<string, unknown>;
       // Every registry entry defines either `schema` or `pickSchema`.
       const schema = (entry.pickSchema ? entry.pickSchema(plain) : entry.schema)!;
-      const knownKeys = isObjectSchema(schema) ? new Set(Object.keys(schema.shape)) : null;
+      // `_id` is known on every stored document even though the schemas
+      // deliberately do not describe it: the published schemas leave the
+      // storage identifier out, so it would otherwise be reported as a field
+      // the schema does not know.
+      const knownKeys = isObjectSchema(schema)
+        ? new Set([...Object.keys(schema.shape), '_id'])
+        : null;
 
       const issues: DocIssue[] = [];
       const parsed = schema.safeParse(plain);

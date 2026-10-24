@@ -15,7 +15,7 @@ import {
   userPublicSchema
 } from './common';
 import { commentVoteSchema } from './comments';
-import { imageAssetIdSchema, imageAssetSchema, imageStorageProviderSchema } from './images';
+import { imageAssetIdSchema, imageAssetSchema } from './images';
 import { shopTransitSchema } from './metro';
 import { shopSearchSortSchema } from './shop-filter';
 
@@ -807,7 +807,6 @@ const shopChangelogUserSchema = z
 
 export const shopChangelogEntrySchema = z
   .object({
-    _id: z.string().optional().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
     id: z.string().describe(bilingual('更新记录 ID。', 'Changelog entry ID.')),
     shopId: shopIdSchema,
     shopName: shopNameSchema,
@@ -904,7 +903,6 @@ export const shopChangelogRollbackBodySchema = z.object({
  * legitimately predate later shop schema evolutions.
  */
 export const shopChangelogSnapshotSchema = z.object({
-  _id: z.string().optional().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
   entryId: z
     .string()
     .describe(
@@ -925,7 +923,6 @@ const attendanceHistoryGameSchema = z.object({
 });
 
 export const attendanceHistoryEntrySchema = z.object({
-  _id: z.string().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
   shopId: shopIdSchema,
   games: z
     .array(attendanceHistoryGameSchema)
@@ -999,7 +996,6 @@ export const shopPhotoSchema = imageAssetSchema
 
 export const shopDeleteRequestVoteSchema = z
   .object({
-    _id: z.string().optional().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
     id: z.string().describe(bilingual('投票 ID。', 'Vote ID.')),
     shopDeleteRequestId: shopDeleteRequestIdSchema,
     userId: userIdSchema,
@@ -1020,7 +1016,6 @@ export const shopDeleteRequestVoteSummarySchema = z.object({
 
 export const shopDeleteRequestSchema = z
   .object({
-    _id: z.string().optional().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
     id: shopDeleteRequestIdSchema,
     shopId: shopIdSchema,
     shopName: shopNameSchema,
@@ -1129,7 +1124,6 @@ export const shopDeleteRequestReviewResponseSchema = successResponseSchema.exten
 
 export const shopDeleteRequestCommentSchema = z
   .object({
-    _id: z.string().optional().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
     id: z.string().describe(bilingual('评论 ID。', 'Comment ID.')),
     shopDeleteRequestId: shopDeleteRequestIdSchema,
     content: z
@@ -1211,7 +1205,6 @@ export const shopDeleteRequestVoteResponseSchema = successResponseSchema.extend(
 
 export const shopCommentEntrySchema = z
   .object({
-    _id: z.string().optional().describe(bilingual('MongoDB ID。', 'MongoDB ID.')),
     id: z.string().describe(bilingual('评论 ID。', 'Comment ID.')),
     shopId: shopIdSchema,
     content: z
@@ -1284,14 +1277,7 @@ export const shopPhotoUploadProgressEventSchema = z.object({
 export const shopPhotoUploadDoneEventSchema = z.object({
   phase: z.literal('done').describe(bilingual('上传阶段。', 'Upload phase.')),
   photoId: z.string().describe(bilingual('新照片 ID。', 'New photo ID.')),
-  url: z.string().describe(bilingual('上传后的照片 URL。', 'Uploaded photo URL.')),
-  storageProvider: imageStorageProviderSchema,
-  storageKey: z.string().describe(bilingual('存储键。', 'Storage key.')),
-  storageObjectId: z
-    .string()
-    .nullable()
-    .optional()
-    .describe(bilingual('远端存储对象 ID。', 'Remote storage object ID.'))
+  url: z.string().describe(bilingual('上传后的照片 URL。', 'Uploaded photo URL.'))
 });
 
 export const shopPhotoUploadErrorEventSchema = z.object({

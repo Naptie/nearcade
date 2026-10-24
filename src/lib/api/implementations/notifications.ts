@@ -55,7 +55,20 @@ export const notificationsImplementation = {
         notifications.pop(); // Remove the extra item used for hasMore check
       }
 
-      return toWire(notificationListResponseSchema, { notifications, hasMore, page, limit });
+      // The notification object is loose — unknown fields are passed through —
+      // so the storage identifier is dropped here rather than by the schema.
+      const published = notifications.map((notification) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { _id, ...rest } = notification;
+        return rest;
+      });
+
+      return toWire(notificationListResponseSchema, {
+        notifications: published,
+        hasMore,
+        page,
+        limit
+      });
     } catch (err) {
       rethrowApiError(err, m.failed_to_load_notifications());
     }

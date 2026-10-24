@@ -102,20 +102,11 @@
     onPhotoDeleted?.(photo);
   };
 
-  const handleUploadSuccess = (result: {
-    id: string;
-    url: string;
-    storageProvider: ImageAsset['storageProvider'];
-    storageKey: string;
-    storageObjectId?: string | null;
-  }) => {
+  const handleUploadSuccess = (result: { id: string; url: string }) => {
     const newPhoto: ImageAsset = {
       id: result.id,
       ...(shopId !== undefined ? { shopId } : {}),
       url: result.url,
-      storageProvider: result.storageProvider,
-      storageKey: result.storageKey,
-      storageObjectId: result.storageObjectId ?? null,
       uploadedBy: currentUser?.id ?? null,
       uploader: currentUser,
       uploadedAt: new Date()

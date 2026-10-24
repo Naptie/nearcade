@@ -136,10 +136,7 @@ export const shopsPhotosImplementation = {
         emit({
           phase: 'done',
           photoId: photo.id,
-          url: photo.url,
-          storageProvider: photo.storageProvider,
-          storageKey: photo.storageKey,
-          storageObjectId: photo.storageObjectId ?? null
+          url: photo.url
         });
       }
     });

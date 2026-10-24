@@ -1,11 +1,6 @@
 import { z } from 'zod';
 import { definePrivate, definePublic } from '../contract';
-import {
-  NOTIFICATION_TYPES,
-  bilingual,
-  mongoIdSchema,
-  successResponseSchema
-} from '$lib/schemas/common';
+import { NOTIFICATION_TYPES, bilingual, successResponseSchema } from '$lib/schemas/common';
 import { UGC_CONTENT_TYPES, UGC_KINDS } from '$lib/ugc/types';
 import { PAGINATION } from '$lib/constants';
 
@@ -18,9 +13,12 @@ const notificationTypeSchema = z
  *
  * The legacy handler returned the raw MongoDB documents, so the object stays
  * loose: fields the schema does not know about are passed through unchanged.
+ *
+ * The storage identifier is the one field that does not travel: a notification
+ * is addressed by its own `id`, and the document says nothing about how it is
+ * stored.
  */
 const notificationSchema = z.looseObject({
-  _id: mongoIdSchema,
   id: z.string().describe(bilingual('通知 ID。', 'Notification ID.')),
   type: notificationTypeSchema,
   actorUserId: z.string().describe(bilingual('触发者用户 ID。', 'Actor user ID.')),

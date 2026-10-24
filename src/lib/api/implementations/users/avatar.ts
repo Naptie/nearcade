@@ -81,10 +81,7 @@ export const usersAvatarImplementation = {
         emit({
           phase: 'done',
           imageId: image.id,
-          url: image.url,
-          storageProvider: image.storageProvider,
-          storageKey: image.storageKey,
-          storageObjectId: image.storageObjectId ?? null
+          url: image.url
         });
       }
     });

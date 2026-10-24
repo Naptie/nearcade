@@ -4,7 +4,6 @@ import { commentSchema } from './comments';
 import {
   bilingual,
   dateTimeSchema,
-  mongoIdSchema,
   positiveIntegerQueryParamSchema,
   successResponseSchema,
   userIdSchema,
@@ -44,7 +43,6 @@ export const postVoteTypeSchema = z
 
 export const postVoteSchema = z
   .object({
-    _id: mongoIdSchema,
     id: z.string().describe(bilingual('帖子投票 ID。', 'Post vote ID.')),
     postId: postIdSchema,
     userId: userIdSchema.describe(bilingual('投票用户 ID。', 'Voting user ID.')),
@@ -56,7 +54,6 @@ export const postVoteSchema = z
 
 export const postSchema = z
   .object({
-    _id: mongoIdSchema,
     id: postIdSchema,
     title: z.string().describe(bilingual('帖子标题。', 'Post title.')),
     content: z.string().describe(bilingual('帖子内容（Markdown）。', 'Post content in Markdown.')),

@@ -133,14 +133,38 @@ for (const procedure of procedures) {
 // The machine activation is internal too: it hands out a machine's secret to
 // whoever presents the serial number printed on the device, which is not a
 // surface a third-party client is meant to build on.
+//
+// The geo surface is the map's own plumbing — resolving a place, translating
+// a coordinate, serving a basemap style, searching for a point of interest.
+// A commercial map provider offers every one of those as a documented
+// product, so none of them belongs in nearcade's published contract.
 
-const PRIVATE_SUBTREES = ['admin', 'invites', 'machines'];
+const PRIVATE_SUBTREES = ['admin', 'invites', 'machines', 'geo'];
+
+/**
+ * Private procedures outside a wholly private subtree.
+ *
+ * `regions.resolve` is the one operation that resolves a coordinate, and it
+ * is a map-provider capability (reverse geocoding), so it is served for the
+ * first-party client but never published. The rest of the `regions` subtree —
+ * the selector options and the hierarchy — is nearcade's own data and stays
+ * published.
+ */
+const PRIVATE_OPERATIONS = ['regions.resolve'];
 
 for (const procedure of procedures) {
+  const operation = procedure.path.join('.');
+
   if (PRIVATE_SUBTREES.includes(procedure.path[0]) && procedure.tier !== 'private') {
     failures.push(
-      `Private procedure "${procedure.path.join('.')}" is published. ` +
+      `Private procedure "${operation}" is published. ` +
         `${procedure.path[0]} endpoints must stay private.`
+    );
+  }
+
+  if (PRIVATE_OPERATIONS.includes(operation) && procedure.tier !== 'private') {
+    failures.push(
+      `Private procedure "${operation}" is published. ` + `${operation} must stay private.`
     );
   }
 }

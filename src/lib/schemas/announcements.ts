@@ -2,7 +2,6 @@ import { z } from 'zod';
 import {
   bilingual,
   dateTimeSchema,
-  objectIdSchema,
   positiveIntegerQueryParamSchema,
   successResponseSchema,
   userIdSchema,
@@ -21,7 +20,6 @@ export const announcementStatusSchema = z
 
 export const announcementSchema = z
   .object({
-    _id: z.union([z.string(), objectIdSchema]).optional(),
     id: z.string(),
     title: z.string(),
     content: z.string(),

@@ -1,7 +1,7 @@
 import { IMAGE_STORAGE_PREFIX } from '$lib/constants';
 import { deleteFile, uploadFile } from '$lib/oss/index';
 import type { User } from '$lib/auth/types';
-import type { Club, Comment, ImageAsset, University } from '$lib/types';
+import type { Club, Comment, ImageAsset, StoredImageAsset, University } from '$lib/types';
 import type { Post, ShopDeleteRequest } from '$lib/types/index.server';
 import { protect } from '$lib/utils';
 import { stripPostImageMarkdownByIds } from '$lib/utils/image';
@@ -173,7 +173,7 @@ const hasSameOwner = (image: ImageAsset, owner: ImageOwnerReference) => {
   );
 };
 
-export const getImagesCollection = (db: Db) => db.collection<ImageAsset>(IMAGES_COLLECTION);
+export const getImagesCollection = (db: Db) => db.collection<StoredImageAsset>(IMAGES_COLLECTION);
 
 export const getImagesByIds = async (db: Db, imageIds: string[]) => {
   const uniqueImageIds = [...new Set(imageIds.filter(Boolean))];
@@ -184,7 +184,7 @@ export const getImagesByIds = async (db: Db, imageIds: string[]) => {
     .toArray();
 };
 
-const hydrateImagesWithUploaders = async (db: Db, images: ImageAsset[]) => {
+const hydrateImagesWithUploaders = async (db: Db, images: StoredImageAsset[]) => {
   const uploaderIds = [
     ...new Set(
       images.flatMap((image) =>
@@ -275,7 +275,7 @@ export const createUploadedImage = async ({
     contentType: mimeType
   });
 
-  const image: ImageAsset = {
+  const image: StoredImageAsset = {
     id: imageId,
     ...normalizedOwner,
     url: uploadedFile.url,
@@ -290,9 +290,9 @@ export const createUploadedImage = async ({
   return image;
 };
 
-export const getImageOwnerFilter = (owner: ImageOwnerReference): Filter<ImageAsset> => {
+export const getImageOwnerFilter = (owner: ImageOwnerReference): Filter<StoredImageAsset> => {
   assertValidOwnerReference(owner, true);
-  return normalizeOwner(owner) as Filter<ImageAsset>;
+  return normalizeOwner(owner) as Filter<StoredImageAsset>;
 };
 
 export const listImagesForOwner = async (db: Db, owner: ImageOwnerReference) =>
@@ -338,7 +338,7 @@ export const attachImagesToOwner = async (
   return getOrderedImagesByIds(db, uniqueImageIds);
 };
 
-const detachImagesFromOwners = async (db: Db, images: ImageAsset[]) => {
+const detachImagesFromOwners = async (db: Db, images: StoredImageAsset[]) => {
   const commentImageIdsByOwner = new Map<string, string[]>();
   const postImageIdsByOwner = new Map<string, string[]>();
   const announcementImageIdsByOwner = new Map<string, string[]>();

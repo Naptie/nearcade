@@ -9,8 +9,12 @@ import type { PublicUser } from '$lib/auth/types';
 import { z } from 'zod';
 import { activitySchema } from '$lib/schemas/users';
 import { commentSchema, commentVoteSchema } from '$lib/schemas/comments';
-import { imageAssetSchema, imageStorageProviderSchema } from '$lib/schemas/images';
-import type { locationSchema, openingHourTimeSchema } from '$lib/schemas/common';
+import {
+  imageAssetSchema,
+  imageDocumentSchema,
+  imageStorageProviderSchema
+} from '$lib/schemas/images';
+import type { locationSchema, openingHourTimeSchema, StorageId } from '$lib/schemas/common';
 import type {
   campusSchema,
   clubMemberSchema,
@@ -112,7 +116,13 @@ export type Game = z.infer<typeof gameSchema> & UgcAttachable;
 
 export type Campus = z.infer<typeof campusSchema>;
 
-export type University = UgcAttachable & z.infer<typeof universitySchema>;
+/**
+ * A stored university.
+ *
+ * The published shape leaves the storage identifier out; the stored document
+ * still carries it, so the server's type adds it back.
+ */
+export type University = UgcAttachable & z.infer<typeof universitySchema> & { _id?: StorageId };
 
 /**
  * The ranking row, metric and response shapes belong to the API, so they are
@@ -178,9 +188,15 @@ export type UserType =
   | 'club_moderator'
   | 'site_admin';
 
-export type Club = UgcAttachable & z.infer<typeof clubSchema>;
+/**
+ * A stored club.
+ *
+ * The published shape leaves the storage identifier out; the stored document
+ * still carries it, so the server's type adds it back.
+ */
+export type Club = UgcAttachable & z.infer<typeof clubSchema> & { _id?: StorageId };
 
-export type ClubMember = z.infer<typeof clubMemberSchema>;
+export type ClubMember = z.infer<typeof clubMemberSchema> & { _id?: StorageId };
 
 // Composite type with user data joined
 export interface ClubMemberWithUser extends ClubMember {
@@ -208,7 +224,7 @@ export interface InviteLink {
   updatedAt?: Date;
 }
 
-export type UniversityMember = z.infer<typeof universityMemberSchema>;
+export type UniversityMember = z.infer<typeof universityMemberSchema> & { _id?: StorageId };
 
 // Composite type with user data joined
 export interface UniversityMemberWithUser extends Omit<UniversityMember, 'verificationEmail'> {
@@ -221,7 +237,17 @@ export type ShopDeleteRequestVote = z.infer<typeof shopDeleteRequestVoteSchema>;
 
 export type ImageStorageProvider = z.infer<typeof imageStorageProviderSchema>;
 
+/**
+ * An image as the API returns it: what a consumer needs to render it and to
+ * refer to it.
+ */
 export type ImageAsset = z.infer<typeof imageAssetSchema>;
+
+/**
+ * A stored image: the published shape plus the storage bookkeeping the server
+ * needs to delete the bytes again.
+ */
+export type StoredImageAsset = z.infer<typeof imageDocumentSchema>;
 
 export type ShopPhoto = z.infer<typeof shopPhotoSchema>;
 

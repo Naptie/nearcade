@@ -4,7 +4,7 @@ import type {
   Shop,
   ShopChangelogEntry,
   ShopChangelogEntryWithUser,
-  ShopPhoto
+  StoredImageAsset
 } from '$lib/types';
 import type { ShopChangelogAction } from '$lib/types/index.server';
 import { nanoid } from 'nanoid';
@@ -1167,7 +1167,7 @@ export const applyShopRollback = async (
   // separately is what lets the card own its full affected set.
   let removedPhotoEntryIds: string[] = [];
   if (options.removePhotos && preview.photos.length > 0) {
-    const photosCollection = db.collection<ShopPhoto>('images');
+    const photosCollection = db.collection<StoredImageAsset>('images');
     for (const photo of preview.photos) {
       const doc = await photosCollection.findOne({ id: photo.photoId, shopId }).catch((err) => {
         console.error(`Failed to look up photo ${photo.photoId} during rollback:`, err);
