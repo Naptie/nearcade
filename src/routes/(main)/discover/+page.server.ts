@@ -1,4 +1,4 @@
-import { createServerApiClient } from '$lib/api/server-client';
+import { createServerApiClient } from '$lib/api/client.server';
 import { parseShopFilterParam } from '$lib/utils/shops/filter';
 import { buildRegionLabelIndex } from '$lib/utils/region.server';
 import type { PageServerLoad } from './$types';

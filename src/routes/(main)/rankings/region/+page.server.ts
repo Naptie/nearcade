@@ -1,5 +1,5 @@
 import { PAGINATION, isPoiSortKey } from '$lib/constants';
-import { createServerApiClient } from '$lib/api/server-client';
+import { createServerApiClient } from '$lib/api/client.server';
 import { isRegionLevel } from '$lib/regions/types';
 import type { PageServerLoad } from './$types';
 

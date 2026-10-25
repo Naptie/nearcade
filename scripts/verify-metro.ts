@@ -31,7 +31,7 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
-const BASE_URL = process.env.PUBLIC_OPENMETRO_API_BASE?.trim() || 'https://openmetro.phi.zone';
+const BASE_URL = process.env.PUBLIC_OPENMETRO_API_BASE?.trim() || 'https://openmetro.dev';
 const PAIRS = Math.max(1, Number(process.argv[process.argv.indexOf('--pairs') + 1]) || 8);
 const NETWORK_FILTER = process.argv.includes('--network')
   ? process.argv[process.argv.indexOf('--network') + 1]

@@ -6,7 +6,7 @@ import redis, { ensureConnected } from '$lib/db/redis.server';
 import { m } from '$lib/paraglide/messages';
 import type { Shop } from '$lib/types';
 import { error } from 'console';
-import { MongoClient, ObjectId } from 'mongodb';
+import { MongoClient, ObjectId, type Db } from 'mongodb';
 import { hasBoundPhone } from '.';
 
 /**
@@ -77,6 +77,94 @@ export const resolveRedirectURI = (
   return resolved;
 };
 
+/** Group key expression for the indexed fields, e.g. `{ userId: '$userId' }`. */
+const groupByFields = (keys: Record<string, 1>) =>
+  Object.fromEntries(Object.keys(keys).map((field) => [field, `$${field}`]));
+
+/**
+ * Ensure the membership index enforces one row per (user, organization).
+ *
+ * MongoDB refuses `createIndex` when an index with the same name but different
+ * options exists, so an environment that still carries the old non-unique
+ * membership index would fail the whole boot on `initDatabase`. The uniqueness
+ * rule is the invariant; the leftover index is not — replace it instead.
+ */
+const ensureUniqueMembershipIndex = async (
+  db: Db,
+  collectionName: string,
+  keys: Record<string, 1>,
+  name: string
+) => {
+  const collection = db.collection(collectionName);
+  const existing = (await collection.indexes()).find((index) => index.name === name);
+
+  if (existing?.unique === true) {
+    return;
+  }
+
+  if (existing) {
+    const existingPattern = Object.entries(existing.key);
+    const wantedPattern = Object.entries(keys);
+    const samePattern =
+      existingPattern.length === wantedPattern.length &&
+      existingPattern.every(
+        ([field, direction], position) =>
+          field === wantedPattern[position][0] && Number(direction) === wantedPattern[position][1]
+      );
+
+    if (!samePattern) {
+      throw new Error(
+        `${collectionName}.${name} has a different key pattern than this build expects`
+      );
+    }
+  }
+
+  // Duplicate rows would make the unique index impossible to build. Say so
+  // plainly instead of letting a raw E11000 escape from the boot.
+  const duplicates = await collection
+    .aggregate([
+      { $group: { _id: groupByFields(keys), count: { $sum: 1 } } },
+      { $match: { count: { $gt: 1 } } },
+      { $limit: 1 }
+    ])
+    .toArray();
+
+  if (duplicates.length > 0) {
+    throw new Error(
+      `${collectionName} holds duplicate (user, organization) rows; merge them before ${name} can be unique`
+    );
+  }
+
+  if (existing) {
+    // Converting in place keeps the collection indexed throughout. MongoDB 8.0
+    // validates and prepares the index in a first command and finalizes it in
+    // a second; older servers convert in a single command.
+    try {
+      await db.command({ collMod: collectionName, index: { name, prepareUnique: true } });
+      await db.command({ collMod: collectionName, index: { name, unique: true } });
+      return;
+    } catch {
+      try {
+        await db.command({ collMod: collectionName, index: { name, unique: true } });
+        return;
+      } catch {
+        // The server cannot convert the index, so it is rebuilt below.
+      }
+    }
+
+    await collection.dropIndex(name);
+  }
+
+  try {
+    await collection.createIndex(keys, { name, unique: true });
+  } catch (error) {
+    // Never leave the collection without its index, not even when the unique
+    // build is what failed.
+    await collection.createIndex(keys, { name }).catch(() => {});
+    throw error;
+  }
+};
+
 export const initDatabase = async (mongo: MongoClient) => {
   const db = mongo.db();
 
@@ -127,15 +215,16 @@ export const initDatabase = async (mongo: MongoClient) => {
       .collection('notifications')
       .createIndex({ targetUserId: 1, readAt: 1 }, { name: 'targetUserId_1_readAt_1' }),
 
-    // club_members
-    db
-      .collection('club_members')
-      .createIndex({ userId: 1, clubId: 1 }, { name: 'userId_1_clubId_1' }),
+    // club_members — one membership row per (user, club).
+    ensureUniqueMembershipIndex(db, 'club_members', { userId: 1, clubId: 1 }, 'userId_1_clubId_1'),
 
-    // university_members
-    db
-      .collection('university_members')
-      .createIndex({ userId: 1, universityId: 1 }, { name: 'userId_1_universityId_1' }),
+    // university_members — one membership row per (user, university).
+    ensureUniqueMembershipIndex(
+      db,
+      'university_members',
+      { userId: 1, universityId: 1 },
+      'userId_1_universityId_1'
+    ),
 
     // invite_links — every lookup and the atomic use-claim filter on `code`.
     db.collection('invite_links').createIndex({ code: 1 }, { name: 'code_1', unique: true }),

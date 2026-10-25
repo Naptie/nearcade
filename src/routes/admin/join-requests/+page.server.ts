@@ -251,13 +251,22 @@ export const actions: Actions = {
       // Create membership
       if (joinRequest.type === 'university') {
         const universityMembersCollection = db.collection('university_members');
-        await universityMembersCollection.insertOne({
-          id: nanoid(),
+        const existingMember = await universityMembersCollection.findOne({
           universityId: joinRequest.targetId,
-          userId: joinRequest.userId,
-          memberType: 'student',
-          joinedAt: new Date()
+          userId: joinRequest.userId
         });
+
+        // A membership that already exists keeps its role — approving a join
+        // request must not demote an existing admin.
+        if (!existingMember) {
+          await universityMembersCollection.insertOne({
+            id: nanoid(),
+            universityId: joinRequest.targetId,
+            userId: joinRequest.userId,
+            memberType: 'student',
+            joinedAt: new Date()
+          });
+        }
       } else if (joinRequest.type === 'club') {
         const clubsCollection = db.collection('clubs');
         const club = await clubsCollection.findOne({ id: joinRequest.targetId });
@@ -281,14 +290,21 @@ export const actions: Actions = {
         }
 
         const clubMembersCollection = db.collection('club_members');
-        await clubMembersCollection.insertOne({
-          id: nanoid(),
+        const existingClubMember = await clubMembersCollection.findOne({
           clubId: joinRequest.targetId,
-          userId: joinRequest.userId,
-          memberType: 'member',
-          joinedAt: new Date(),
-          invitedBy: null
+          userId: joinRequest.userId
         });
+
+        if (!existingClubMember) {
+          await clubMembersCollection.insertOne({
+            id: nanoid(),
+            clubId: joinRequest.targetId,
+            userId: joinRequest.userId,
+            memberType: 'member',
+            joinedAt: new Date(),
+            invitedBy: null
+          });
+        }
       }
 
       // Update join request status

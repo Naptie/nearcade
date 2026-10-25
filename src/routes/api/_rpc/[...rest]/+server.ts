@@ -1,7 +1,7 @@
 import { RPCHandler } from '@orpc/server/fetch';
 import { ResponseHeadersPlugin } from '@orpc/server/plugins';
 import type { RequestHandler } from './$types';
-import { appRouter } from '$lib/api/router';
+import { appRouter } from '$lib/api/router.server';
 import { createApiContext } from '$lib/api/context';
 import { RPC_PREFIX } from '$lib/api/mount';
 import { notFoundResponse } from '$lib/api/errors';

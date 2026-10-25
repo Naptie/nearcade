@@ -20,7 +20,7 @@ export { procedurePath };
  *
  * The URL points at the REST surface, where the procedure is served under its
  * documented path. A deployment that points the front end at a separate API
- * host keeps working, the same way it did for the hand-written calls.
+ * host keeps working.
  *
  * @param operationId — the procedure's published `operationId`.
  * @param params — the values for the procedure's path parameters.
