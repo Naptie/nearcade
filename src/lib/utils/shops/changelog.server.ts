@@ -1028,8 +1028,7 @@ export const applyShopRollback = async (
   const address = await resolveShopAddress({
     general: preview.rolledBackShop.address.general ?? [],
     detailed: preview.rolledBackShop.address.detailed ?? '',
-    region,
-    coordinates: preview.rolledBackShop.location?.coordinates ?? null
+    region
   });
 
   if (address.region.length === 0) {

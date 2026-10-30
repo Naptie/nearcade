@@ -59,14 +59,11 @@ export const shopsCoreUpdateImplementation = {
       if (name !== undefined) updateFields.name = name;
       if (comment !== undefined) updateFields.comment = comment;
       if (address !== undefined) {
-        const coords = (location?.coordinates ?? existing.location?.coordinates ?? null) as
-          [number, number] | null;
         const regionIds = address.region;
         updateFields.address = await resolveShopAddress({
           general: address.general ?? [],
           detailed: address.detailed ?? '',
-          region: regionIds,
-          coordinates: coords
+          region: regionIds
         });
 
         if (!updateFields.address.region || updateFields.address.region.length === 0) {

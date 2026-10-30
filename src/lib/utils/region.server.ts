@@ -36,7 +36,6 @@ export async function resolveShopAddress(input: {
   general: string[];
   detailed: string;
   region?: string[];
-  coordinates?: [number, number] | null;
 }): Promise<ResolvedShopAddress> {
   const { general, detailed, region } = input;
 

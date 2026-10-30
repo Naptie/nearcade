@@ -78,10 +78,6 @@ export const shopsAttendanceWriteImplementation = {
   registerAttendance: impl.registerAttendance.handler(async ({ input, context }) => {
     const { games, plannedLeaveAt } = input;
 
-    if (!games || !Array.isArray(games) || !plannedLeaveAt) {
-      apiError('BAD_REQUEST', m.missing_required_parameters());
-    }
-
     try {
       const caller = await resolveAttendanceCaller(input, context);
       const { shop, shopGames, openTolerated, closeTolerated } = await resolveAttendanceTarget(

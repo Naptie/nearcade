@@ -600,6 +600,26 @@ export const attendanceRequestSchema = z.object({
   comment: optionalAttendancePostCommentSchema
 });
 
+export const attendanceRegisterGameRequestSchema = z.object({
+  id: gameIdSchema
+});
+
+export const attendanceRegisterRequestSchema = z.object({
+  games: z
+    .array(attendanceRegisterGameRequestSchema)
+    .min(1)
+    .describe(bilingual('登记在勤的游戏列表。', 'Games to register attendance for.')),
+  plannedLeaveAt: plannedLeaveAtSchema
+});
+
+export const attendanceReportRequestSchema = z.object({
+  games: z
+    .array(attendanceGameRequestSchema)
+    .min(1)
+    .describe(bilingual('上报在勤人数的游戏列表。', 'Games to report attendance counts for.')),
+  comment: optionalAttendancePostCommentSchema
+});
+
 export const attendanceQuerySchema = z.object({
   reported: z
     .string()
