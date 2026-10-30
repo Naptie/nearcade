@@ -113,7 +113,7 @@ const machineMirror = z.object({
   shopId: z.int(),
   ownerId: z.string().optional(),
   serialNumber: z.string(),
-  apiSecret: z.string().optional(),
+  apiSecretHash: z.string().optional(),
   isActivated: z.boolean(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime()

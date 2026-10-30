@@ -425,7 +425,7 @@ export interface Machine {
   shopId: number;
   ownerId?: string; // User ID of the owner assigned to this machine
   serialNumber: string; // Auto-generated, used for activation
-  apiSecret?: string; // Auto-generated upon activation
+  apiSecretHash?: string; // SHA-256 hex of the API secret, generated upon activation
   isActivated: boolean;
   createdAt: Date;
   updatedAt: Date;

@@ -6,6 +6,7 @@ import { apiError, toWire } from '../errors';
 import mongo from '$lib/db/index.server';
 import { syncShopDocument } from '$lib/db/meili.server';
 import { API_TOKEN_PREFIX } from '$lib/api-tokens';
+import { sha256Hex } from '$lib/hash';
 import type { Machine, Shop } from '$lib/types';
 import { m } from '$lib/paraglide/messages';
 import { activateMachineResponseSchema } from '$lib/schemas/machines';
@@ -32,7 +33,8 @@ export const machinesImplementation = {
       apiError('BAD_REQUEST', m.machine_already_activated());
     }
 
-    // Generate API secret
+    // Generate API secret. Only its digest is stored — the response below is
+    // the one time the secret itself is ever returned.
     const apiSecret = `${API_TOKEN_PREFIX}${nanoid(32)}`;
 
     // Update the machine to mark it as activated and store the API secret
@@ -41,7 +43,7 @@ export const machinesImplementation = {
       {
         $set: {
           isActivated: true,
-          apiSecret,
+          apiSecretHash: sha256Hex(apiSecret),
           updatedAt: new Date()
         }
       }

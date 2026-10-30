@@ -4,6 +4,7 @@ import type { Machine } from '$lib/types';
 import type { QueueRecord } from '$lib/types/index.server';
 import { m } from '$lib/paraglide/messages';
 import { API_TOKEN_PREFIX } from '$lib/api-tokens';
+import { sha256Hex } from '$lib/hash';
 
 /**
  * Whether the request presents an API token.
@@ -36,7 +37,10 @@ export const findMachineByApiSecret = async (request: Request): Promise<Machine 
   const db = mongo.db();
   const machinesCollection = db.collection<Machine>('machines');
 
-  return machinesCollection.findOne({ apiSecret, isActivated: true });
+  return machinesCollection.findOne({
+    apiSecretHash: sha256Hex(apiSecret),
+    isActivated: true
+  });
 };
 
 // Validate machine API secret and check shop binding
