@@ -700,8 +700,7 @@ const SCHEMA_BACKED: RegistryEntry[] = [
   {
     collection: 'regions',
     schema: regionMirror,
-    source:
-      'mirror of Region (src/lib/regions/types.ts) — the shape the region collection stores'
+    source: 'mirror of Region (src/lib/regions/types.ts) — the shape the region collection stores'
   },
   {
     collection: 'invite_links',
