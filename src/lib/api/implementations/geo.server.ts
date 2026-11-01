@@ -14,6 +14,8 @@ import {
   type UnifiedGeoCoordinate,
   type UnifiedGeoPlace
 } from '$lib/utils/unified-geo.server';
+import { getRegionById, parseRegionChainFromText } from '$lib/regions/utils.server';
+import { getLocale } from '$lib/paraglide/runtime';
 
 const escapeRegex = (value: string) => value.replace(/[.*+?${}()|[\]\\]/g, '\\$&');
 
@@ -63,6 +65,18 @@ interface MapProfileResponse {
 interface PlaceSearchResponse {
   success: true;
   results: UnifiedGeoPlace[];
+}
+
+interface GeocodeResponse {
+  success: true;
+  provider: string;
+  routingPolicy?: string;
+  results: Array<{
+    formattedAddress: string;
+    location: UnifiedGeoCoordinate;
+    accuracy?: string;
+    placeId?: string;
+  }>;
 }
 
 /**
@@ -168,5 +182,91 @@ export const geoImplementation = {
     });
 
     return { places: response.results, coordinateSystem: profile.coordinateSystem };
+  }),
+
+  geocode: impl.geocode.handler(async ({ input, context }) => {
+    const { request, url } = context.event;
+    if (!isAllowedCorsOrigin(request.headers.get('origin'), url.origin)) {
+      apiError('FORBIDDEN', 'Cross-origin address geocoding is not allowed.');
+    }
+
+    const { address, near, radius } = input;
+    // The result language follows the request's resolved locale — the same
+    // inference every other localizing API response uses (signed-in user's
+    // stored locale, else the cookie, else the Accept-Language header), so a
+    // caller that wants a specific language sends Accept-Language like it
+    // would for any other endpoint.
+    const language = getLocale();
+
+    // The bias point: the caller's wins. Without one, the deepest
+    // administrative region the address names provides it — region centres are
+    // stored in the map surface's datum (the same assumption /geo/me's origin
+    // makes), so the point is passed through unchanged and its datum is
+    // re-derived from the profile lookup below instead of named here.
+    let bias: UnifiedGeoCoordinate | null = near ? { ...near } : null;
+    let countryCode: string | undefined;
+    if (!bias) {
+      const parsed = parseRegionChainFromText(address);
+      if (parsed) {
+        for (const id of [...parsed.chain].reverse()) {
+          const region = await getRegionById(id);
+          if (region?.location) {
+            const [longitude, latitude] = region.location.coordinates;
+            bias = { longitude, latitude, coordinateSystem: 'WGS84' };
+            countryCode = id.split(/[-:]/)[0] || undefined;
+            break;
+          }
+        }
+      }
+    }
+
+    let coordinateSystem: UnifiedGeoCoordinate['coordinateSystem'] = 'WGS84';
+    if (bias) {
+      if (near) {
+        // A caller-supplied bias carries a trusted declaration, so it is
+        // normalized into the territory's datum (profile + convert, the same
+        // routing the discover endpoint applies to its origin).
+        const normalized = await convertToMapProfile(
+          bias.longitude,
+          bias.latitude,
+          bias.coordinateSystem
+        );
+        if (normalized) bias = normalized;
+      } else {
+        // A derived centre only needs its datum named: territory
+        // classification is insensitive to the datum offset at
+        // administrative-centre scale, exactly like pickerSearch's centre.
+        const profile = await requestUnifiedGeo<MapProfileResponse>('/maps/profile', {
+          coordinate: { ...bias, coordinateSystem: 'WGS84' }
+        });
+        bias = {
+          longitude: bias.longitude,
+          latitude: bias.latitude,
+          coordinateSystem: profile.coordinateSystem
+        };
+      }
+      coordinateSystem = bias.coordinateSystem;
+    }
+
+    const response = await requestUnifiedGeo<GeocodeResponse>('/geo/geocode', {
+      address,
+      ...(bias ? { near: bias } : {}),
+      ...(countryCode ? { countryCode } : {}),
+      outputCoordinateSystem: coordinateSystem,
+      ...(radius !== undefined && bias ? { radiusMeters: radius } : {}),
+      ...(language ? { language } : {})
+    });
+
+    return {
+      provider: response.provider,
+      routingPolicy: response.routingPolicy ?? null,
+      coordinateSystem,
+      results: response.results.map((result) => ({
+        formattedAddress: result.formattedAddress,
+        location: result.location,
+        ...(result.accuracy ? { accuracy: result.accuracy } : {}),
+        ...(result.placeId ? { placeId: result.placeId } : {})
+      }))
+    };
   })
 };

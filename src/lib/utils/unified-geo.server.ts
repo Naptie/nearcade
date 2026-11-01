@@ -41,6 +41,7 @@ type UnifiedGeoClientCall = (client: UnifiedGeoClient, body: never) => Promise<u
 
 const unifiedGeoClientRoutes: Record<string, UnifiedGeoClientCall> = {
   '/geo/convert': (client, body) => client.geo.convert.post(body),
+  '/geo/geocode': (client, body) => client.geo.geocode.post(body),
   '/geo/reverse': (client, body) => client.geo.reverse.post(body),
   '/geo/search': (client, body) => client.geo.search.post(body),
   '/maps/profile': (client, body) => client.maps.profile.post(body)
