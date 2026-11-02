@@ -80,7 +80,7 @@
 
     isAttending = true;
     try {
-      await orpc.shops.reportAttendance({
+      await orpc.shops.registerAttendance({
         id: shop.id,
         games: games.map((id) => ({ id })),
         plannedLeaveAt: plannedLeaveAt.toISOString()
@@ -114,7 +114,7 @@
 
     isReporting = true;
     try {
-      await orpc.shops.reportAttendance({
+      await orpc.shops.reportAttendanceCounts({
         id: shop.id,
         games: [
           {

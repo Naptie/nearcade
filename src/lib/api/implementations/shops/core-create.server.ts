@@ -61,8 +61,7 @@ export const shopsCoreCreateImplementation = {
       const resolvedAddress = await resolveShopAddress({
         general: address?.general ?? [],
         detailed: address?.detailed ?? '',
-        region: address?.region as string[] | undefined,
-        coordinates: location?.coordinates ?? null
+        region: address?.region as string[] | undefined
       });
 
       if (resolvedAddress.region.length === 0) {

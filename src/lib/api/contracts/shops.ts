@@ -4,6 +4,8 @@ import { bilingual, fileUploadSchema, successResponseSchema } from '$lib/schemas
 import {
   adminUpdateShopRequestSchema,
   attendanceQuerySchema,
+  attendanceRegisterRequestSchema,
+  attendanceReportRequestSchema,
   attendanceRequestSchema,
   attendanceResponseSchema,
   createShopRequestSchema,
@@ -94,6 +96,8 @@ const adminUpdateShopInputSchema = z
   .refine((value) => Object.keys(value).some((key) => key !== 'id'), 'No fields to update');
 
 const attendancePostInputSchema = attendanceRequestSchema.extend({ id: shopIdInput });
+const attendanceRegisterInputSchema = attendanceRegisterRequestSchema.extend({ id: shopIdInput });
+const attendanceReportCountsInputSchema = attendanceReportRequestSchema.extend({ id: shopIdInput });
 const registrationPostInputSchema = attendanceRegistrationPostRequestSchema.extend({
   id: shopIdInput
 });
@@ -277,7 +281,7 @@ export const shopsContract = {
       "Register the caller's own attendance, so they appear in the player list of the machine they are playing. Once the number of visits crosses your own threshold, the arcade joins your frequently-visited list automatically. A signed-in user only; a machine key can only report attendance counts."
     )
   })
-    .input(attendancePostInputSchema)
+    .input(attendanceRegisterInputSchema)
     .output(successResponseSchema),
 
   /** `POST /api/shops/{id}/attendance/reports` — report the live occupancy. */
@@ -297,7 +301,7 @@ export const shopsContract = {
       'Report how many people are currently playing each game at an arcade. An unclaimed arcade is reported by any signed-in user; a claimed arcade only by the agent key bound to it.'
     )
   })
-    .input(attendancePostInputSchema)
+    .input(attendanceReportCountsInputSchema)
     .output(successResponseSchema),
 
   /** `DELETE /api/shops/{id}/attendance` — leave the shop. */

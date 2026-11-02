@@ -113,7 +113,7 @@ const machineMirror = z.object({
   shopId: z.int(),
   ownerId: z.string().optional(),
   serialNumber: z.string(),
-  apiSecret: z.string().optional(),
+  apiSecretHash: z.string().optional(),
   isActivated: z.boolean(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime()
@@ -700,8 +700,7 @@ const SCHEMA_BACKED: RegistryEntry[] = [
   {
     collection: 'regions',
     schema: regionMirror,
-    source:
-      'mirror of Region (src/lib/regions/types.ts) — the shape the region collection stores'
+    source: 'mirror of Region (src/lib/regions/types.ts) — the shape the region collection stores'
   },
   {
     collection: 'invite_links',

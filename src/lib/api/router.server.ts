@@ -28,6 +28,7 @@ import { wechatImplementation } from './implementations/wechat.server';
 import { enforceOAuthScope } from './middleware/scope.server';
 import { preserveHttpErrorStatus } from './middleware/http-error.server';
 import { enforceAuthGuard } from './middleware/auth.server';
+import { enforceRateLimit } from './middleware/rate-limit.server';
 import type { ApiContext } from './context';
 
 /**
@@ -43,13 +44,17 @@ import type { ApiContext } from './context';
  *
  * 1. `preserveHttpErrorStatus` — a SvelteKit `error()` raised by a shared
  *    helper keeps its status instead of becoming a generic 500.
- * 2. `enforceAuthGuard` — the authorization requirement a procedure declares.
- * 3. `enforceOAuthScope` — the per-procedure OAuth scope, read from the
+ * 2. `enforceRateLimit` — the tiered per-identity ceiling the rate-limit table
+ *    declares for the procedure's contract path; a no-op for every path the
+ *    table does not cover.
+ * 3. `enforceAuthGuard` — the authorization requirement a procedure declares.
+ * 4. `enforceOAuthScope` — the per-procedure OAuth scope, read from the
  *    contract, so the middleware never has to know anything about URL paths.
  */
 export const appRouter = implement(contractRouter)
   .$context<ApiContext>()
   .use(preserveHttpErrorStatus)
+  .use(enforceRateLimit)
   .use(enforceAuthGuard)
   .use(enforceOAuthScope)
   .router({

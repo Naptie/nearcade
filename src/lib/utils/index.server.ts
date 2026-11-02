@@ -198,7 +198,16 @@ export const initDatabase = async (mongo: MongoClient) => {
 
     // machines
     db.collection('machines').createIndex({ id: 1 }, { name: 'id_1', unique: true }),
-    db.collection('machines').createIndex({ apiSecret: 1 }, { name: 'apiSecret_1' }),
+    // unique only among machines that have one — never-activated machines
+    // carry no field
+    db.collection('machines').createIndex(
+      { apiSecretHash: 1 },
+      {
+        name: 'apiSecretHash_1',
+        unique: true,
+        partialFilterExpression: { apiSecretHash: { $exists: true } }
+      }
+    ),
 
     // queues
     db

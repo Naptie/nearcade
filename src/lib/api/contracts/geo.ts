@@ -212,5 +212,65 @@ export const geoContract = {
         places: z.array(placeSchema).describe(bilingual('地点列表。', 'Matching places.')),
         coordinateSystem: coordinateSystemSchema
       })
+    ),
+
+  /** `POST /api/geo/geocode` — resolve an address or place name into coordinates. */
+  geocode: definePrivate({
+    method: 'POST',
+    path: '/geo/geocode',
+    operationId: 'geocodeAddress',
+    tags: ['geo'],
+    summary: bilingual('地址解析。', 'Geocode an address.', true),
+    description: bilingual(
+      '将 `name`（地点名）或 `address` 解析为坐标，结果使用地图底图所选地区的坐标系；' +
+        '偏置点缺省时从 `address` 的行政区划前缀推导。',
+      'Resolves `name` (a place name) or `address` into coordinates; the results use the ' +
+        'coordinate system chosen for the map surface. The bias point is derived from the ' +
+        'administrative prefix of `address` when `near` is absent.'
+    )
+  })
+    .input(
+      z.object({
+        address: z
+          .string()
+          .trim()
+          .min(1)
+          .max(500)
+          .describe(bilingual('地址文本。', 'Address text.')),
+        name: z
+          .string()
+          .trim()
+          .min(1)
+          .max(500)
+          .optional()
+          .describe(bilingual('地点名。', 'Place name.')),
+        near: coordinateSchema.optional().describe(bilingual('偏置点。', 'Bias point.')),
+        radius: z
+          .number()
+          .int()
+          .min(1)
+          .max(50_000)
+          .optional()
+          .describe(bilingual('偏置半径（米）。', 'Bias radius in metres.'))
+      })
+    )
+    .output(
+      z.object({
+        provider: z.string().describe(bilingual('结果来源。', 'Provider.')),
+        routingPolicy: z.string().nullable().describe(bilingual('路由策略。', 'Routing policy.')),
+        coordinateSystem: coordinateSystemSchema,
+        results: z
+          .array(
+            z.object({
+              formattedAddress: z
+                .string()
+                .describe(bilingual('格式化地址。', 'Formatted address.')),
+              location: coordinateSchema,
+              accuracy: z.string().optional().describe(bilingual('精度。', 'Accuracy.')),
+              placeId: z.string().optional().describe(bilingual('地点 ID。', 'Place ID.'))
+            })
+          )
+          .describe(bilingual('解析结果。', 'Resolved results.'))
+      })
     )
 };
