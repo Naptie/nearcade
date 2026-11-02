@@ -214,7 +214,7 @@ export const geoContract = {
       })
     ),
 
-  /** `POST /api/geo/geocode` — resolve an address into coordinates. */
+  /** `POST /api/geo/geocode` — resolve an address or place name into coordinates. */
   geocode: definePrivate({
     method: 'POST',
     path: '/geo/geocode',
@@ -222,13 +222,11 @@ export const geoContract = {
     tags: ['geo'],
     summary: bilingual('地址解析。', 'Geocode an address.', true),
     description: bilingual(
-      '将地址文本解析为坐标。`near` 缺省时会从地址的行政区划前缀（省/市/区县）推导一个偏置点：' +
-        '结果使用该偏置点所在地区的底图坐标系，无法推导偏置时按全局查询解析（结果为 WGS84）。' +
-        '`radius` 仅在有偏置点时生效。',
-      'Resolves an address into coordinates. When `near` is omitted, a bias point is derived from ' +
-        'the administrative prefix (province/city/county) of the address: the results use the basemap ' +
-        'coordinate system chosen for that point, and an address with no derivable prefix falls back ' +
-        'to a bias-free global query (WGS84 results). `radius` only applies with a bias point.'
+      '将 `name`（地点名）或 `address` 解析为坐标，结果使用地图底图所选地区的坐标系；' +
+        '偏置点缺省时从 `address` 的行政区划前缀推导。',
+      'Resolves `name` (a place name) or `address` into coordinates; the results use the ' +
+        'coordinate system chosen for the map surface. The bias point is derived from the ' +
+        'administrative prefix of `address` when `near` is absent.'
     )
   })
     .input(
@@ -239,6 +237,13 @@ export const geoContract = {
           .min(1)
           .max(500)
           .describe(bilingual('地址文本。', 'Address text.')),
+        name: z
+          .string()
+          .trim()
+          .min(1)
+          .max(500)
+          .optional()
+          .describe(bilingual('地点名。', 'Place name.')),
         near: coordinateSchema.optional().describe(bilingual('偏置点。', 'Bias point.')),
         radius: z
           .number()
@@ -251,21 +256,9 @@ export const geoContract = {
     )
     .output(
       z.object({
-        provider: z
-          .string()
-          .describe(bilingual('结果来源服务商。', 'Provider that produced the results.')),
-        routingPolicy: z
-          .string()
-          .nullable()
-          .describe(
-            bilingual(
-              '路由策略（仅无偏置的全局查询提供）。',
-              'Routing policy (global bias-free queries only).'
-            )
-          ),
-        coordinateSystem: coordinateSystemSchema.describe(
-          bilingual('结果坐标系。', 'Coordinate system of the results.')
-        ),
+        provider: z.string().describe(bilingual('结果来源。', 'Provider.')),
+        routingPolicy: z.string().nullable().describe(bilingual('路由策略。', 'Routing policy.')),
+        coordinateSystem: coordinateSystemSchema,
         results: z
           .array(
             z.object({
@@ -273,22 +266,11 @@ export const geoContract = {
                 .string()
                 .describe(bilingual('格式化地址。', 'Formatted address.')),
               location: coordinateSchema,
-              accuracy: z
-                .string()
-                .optional()
-                .describe(bilingual('精度说明。', 'Accuracy qualifier.')),
-              placeId: z
-                .string()
-                .optional()
-                .describe(bilingual('服务商地点 ID。', "Provider's place ID."))
+              accuracy: z.string().optional().describe(bilingual('精度。', 'Accuracy.')),
+              placeId: z.string().optional().describe(bilingual('地点 ID。', 'Place ID.'))
             })
           )
-          .describe(
-            bilingual(
-              '解析结果，按服务商置信度排序。',
-              'Resolved candidates, ordered by provider confidence.'
-            )
-          )
+          .describe(bilingual('解析结果。', 'Resolved results.'))
       })
     )
 };

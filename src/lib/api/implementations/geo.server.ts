@@ -190,7 +190,7 @@ export const geoImplementation = {
       apiError('FORBIDDEN', 'Cross-origin address geocoding is not allowed.');
     }
 
-    const { address, near, radius } = input;
+    const { address, name, near, radius } = input;
     // The result language follows the request's resolved locale — the same
     // inference every other localizing API response uses (signed-in user's
     // stored locale, else the cookie, else the Accept-Language header), so a
@@ -198,10 +198,14 @@ export const geoImplementation = {
     // would for any other endpoint.
     const language = getLocale();
 
+    // The text to resolve: the place name when given, else the address.
+    const query = name || address;
+
     // The bias point: the caller's wins. Without one, the deepest
-    // administrative region the address names provides it — region centres are
-    // stored in the map surface's datum (the same assumption /geo/me's origin
-    // makes), so the point is passed through unchanged and its datum is
+    // administrative region the ADDRESS names provides it — even when a place
+    // name is being resolved, the address is the bias's source. Region centres
+    // are stored in the map surface's datum (the same assumption /geo/me's
+    // origin makes), so the point is passed through unchanged and its datum is
     // re-derived from the profile lookup below instead of named here.
     let bias: UnifiedGeoCoordinate | null = near ? { ...near } : null;
     let countryCode: string | undefined;
@@ -209,9 +213,9 @@ export const geoImplementation = {
       const parsed = parseRegionChainFromText(address);
       if (parsed) {
         for (const id of [...parsed.chain].reverse()) {
-          const region = await getRegionById(id);
-          if (region?.location) {
-            const [longitude, latitude] = region.location.coordinates;
+          const chainRegion = await getRegionById(id);
+          if (chainRegion?.location) {
+            const [longitude, latitude] = chainRegion.location.coordinates;
             bias = { longitude, latitude, coordinateSystem: 'WGS84' };
             countryCode = id.split(/[-:]/)[0] || undefined;
             break;
@@ -249,7 +253,7 @@ export const geoImplementation = {
     }
 
     const response = await requestUnifiedGeo<GeocodeResponse>('/geo/geocode', {
-      address,
+      address: query,
       ...(bias ? { near: bias } : {}),
       ...(countryCode ? { countryCode } : {}),
       outputCoordinateSystem: coordinateSystem,
