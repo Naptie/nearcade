@@ -34,10 +34,18 @@
     /** Set when the viewer is currently attending another shop. */
     otherAttendance?: { shop: Shop; attendedAt: Date | string } | null;
     isShopOpen: boolean;
-    /** `null` while the proximity check is still running. */
+    /** `null` until the click-triggered proximity check ran; `false` disables attendance. */
     isUserNearShop: boolean | null;
     distance: number | null;
     locationError: string | null;
+    /** `true` while the parent runs the click-triggered proximity check. */
+    isCheckingProximity: boolean;
+    /**
+     * Runs the proximity check on demand (attend/report clicks), resolving
+     * `true` when the viewer may proceed. Failure feedback (toast + disabled
+     * actions) is the parent's job.
+     */
+    onProximityCheck: () => Promise<boolean>;
     canProtectedShopAction: boolean;
     protectedShopActionMessage?: string;
     /** Refreshes the parent's attendance data after a successful mutation. */
@@ -56,6 +64,8 @@
     isUserNearShop,
     distance,
     locationError,
+    isCheckingProximity,
+    onProximityCheck,
     canProtectedShopAction,
     protectedShopActionMessage,
     onChanged,
@@ -136,8 +146,9 @@
   };
 
   /** Opens the report-attendance modal for a game; called from the games list. */
-  export function openReport(game: { id: number; name: string; version: string }) {
+  export async function openReport(game: { id: number; name: string; version: string }) {
     if (!canProtectedShopAction) return;
+    if (!(await onProximityCheck())) return;
 
     selectedGameForReport = game;
     reportedAttendance = reportedAttendances.find((g) => g.id === game.id)?.count || 0;
@@ -186,14 +197,21 @@
   >
     <button
       class="btn btn-primary w-full"
-      onclick={() => (showAttendanceModal = true)}
+      onclick={async () => {
+        if (await onProximityCheck()) showAttendanceModal = true;
+      }}
       disabled={!isShopOpen ||
         shop.isClaimed ||
         !!otherAttendance ||
         isAttending ||
-        !isUserNearShop}
+        isCheckingProximity ||
+        isUserNearShop === false}
     >
-      <i class="fa-solid fa-play"></i>
+      {#if isCheckingProximity}
+        <span class="loading loading-spinner loading-xs"></span>
+      {:else}
+        <i class="fa-solid fa-play"></i>
+      {/if}
       {m.attend()}
     </button>
   </div>

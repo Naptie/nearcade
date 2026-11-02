@@ -7,6 +7,7 @@
     aggregateGames,
     calculateDistance,
     formatDateTime,
+    formatDistance,
     formatHourLiteral,
     formatOpeningHourLiteral,
     formatShopAddress,
@@ -37,6 +38,7 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { hasBoundPhone } from '$lib/utils';
   import { phoneRequiredToast } from '$lib/notifications/phone-required';
+  import { toast } from '$lib/notifications/toast.svelte';
   import FancyButton from '$lib/components/FancyButton.svelte';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import JsonLd from '$lib/components/JsonLd.svelte';
@@ -196,8 +198,9 @@
 
   // Location checking for attendance
   let distance = $state<number | null>(null); // Distance to shop
-  let isUserNearShop = $state<boolean | null>(null); // null = checking, true/false = result
+  let isUserNearShop = $state<boolean | null>(null); // null = not checked yet, true/false = result
   let locationError = $state<string | null>(null);
+  let isCheckingProximity = $state(false);
   let shopComment = $state({ rendered: false, content: '' });
   let gameComments: Record<string, string> = $state({});
 
@@ -277,38 +280,57 @@
           costs[game.gameId] = await sanitizeHTML(game.cost);
         })
       );
-
-      // Check user location proximity to shop
-      if (!isPreview) {
-        checkUserProximity();
-      }
     }
   });
 
-  const checkUserProximity = async () => {
-    if (!shop || shop.isClaimed) return;
-    try {
-      // Get user's current location
-      const location = await getMyLocation();
+  let proximityCheck: Promise<boolean> | null = null;
+  /**
+   * Verifies the viewer is within attendance radius of the shop.
+   */
+  const verifyProximity = (): Promise<boolean> => {
+    if (!shop || shop.isClaimed) return Promise.resolve(false);
+    if (isUserNearShop === true) return Promise.resolve(true);
+    if (proximityCheck) return proximityCheck;
 
-      const convertedLocation = await convertCoordinates({ ...location });
+    proximityCheck = (async () => {
+      isCheckingProximity = true;
+      try {
+        // Get user's current location
+        const location = await getMyLocation();
 
-      // Calculate distance to shop
-      const shopCoords = shop.location.coordinates;
-      distance = calculateDistance(
-        convertedLocation.latitude,
-        convertedLocation.longitude,
-        shopCoords[1], // latitude
-        shopCoords[0] // longitude
-      );
+        const convertedLocation = await convertCoordinates({ ...location });
 
-      // Check if within attendance radius
-      isUserNearShop = distance <= ATTENDANCE_RADIUS_KM;
-    } catch (error) {
-      console.warn('Failed to get user location:', error);
-      locationError = typeof error === 'string' ? error : m.location_unknown_error();
-      isUserNearShop = false;
-    }
+        // Calculate distance to shop
+        const shopCoords = shop.location.coordinates;
+        distance = calculateDistance(
+          convertedLocation.latitude,
+          convertedLocation.longitude,
+          shopCoords[1], // latitude
+          shopCoords[0] // longitude
+        );
+
+        // Check if within attendance radius
+        isUserNearShop = distance <= ATTENDANCE_RADIUS_KM;
+
+        if (!isUserNearShop) {
+          toast(m.not_near_shop({ distance: formatDistance(distance, 2) }), {
+            type: 'warning',
+            icon: 'fa-location-dot'
+          });
+        }
+      } catch (error) {
+        console.warn('Failed to get user location:', error);
+        locationError = typeof error === 'string' ? error : m.location_unknown_error();
+        isUserNearShop = false;
+        toast(locationError, { type: 'error', icon: 'fa-location-dot' });
+      } finally {
+        isCheckingProximity = false;
+        proximityCheck = null;
+      }
+      return isUserNearShop === true;
+    })();
+
+    return proximityCheck;
   };
 
   const getGameInfo = (titleId: number) => {
@@ -764,6 +786,8 @@
           {isUserNearShop}
           {distance}
           {locationError}
+          {isCheckingProximity}
+          onProximityCheck={verifyProximity}
           {canProtectedShopAction}
           {protectedShopActionMessage}
           onChanged={getAttendanceData}
@@ -1222,7 +1246,7 @@
                     </h3>
                     <div class="flex items-center gap-1">
                       {#if data.user && !shop.isClaimed && !isPreview}
-                        {#if canProtectedShopAction && isShopOpen && isUserNearShop}
+                        {#if canProtectedShopAction && isShopOpen && isUserNearShop !== false}
                           <FancyButton
                             callback={() =>
                               attendanceActions?.openReport({
