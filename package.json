@@ -107,7 +107,7 @@
     "@orpc/openapi-client": "catalog:orpc",
     "@orpc/server": "catalog:orpc",
     "@orpc/zod": "catalog:orpc",
-    "@photostructure/tz-lookup": "^11.5.0",
+    "@photostructure/tz-lookup": "^11.7.0",
     "@scalar/api-reference": "^1.75.0",
     "@types/qrcode": "^1.5.6",
     "better-auth": "^1.6.23",
