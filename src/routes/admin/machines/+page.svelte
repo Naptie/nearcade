@@ -4,6 +4,7 @@
   import { resolve } from '$app/paths';
   import type { PageData, ActionData } from './$types';
   import { adaptiveNewTab } from '$lib/utils';
+  import { useCopyFeedback } from '$lib/utils/clipboard.svelte';
   import { enhance } from '$app/forms';
   import type { Shop, Machine } from '$lib/types';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
@@ -32,7 +33,7 @@
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
-  let copied = $state<string | null>(null);
+  const copyFeedback = useCopyFeedback();
 
   // Modal states
   let showCreateModal = $state(false);
@@ -110,16 +111,6 @@
     showDeleteModal = false;
     selectedMachine = null;
     deleteError = '';
-  };
-
-  const copyToClipboard = async (text: string) => {
-    await navigator.clipboard.writeText(text);
-    copied = text;
-    setTimeout(() => {
-      if (copied === text) {
-        copied = null;
-      }
-    }, 2000);
   };
 
   // User search
@@ -256,12 +247,12 @@
                 </code>
                 <button
                   class="btn btn-sm btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
-                  class:btn-success={copied === machine.serialNumber}
-                  class:btn-active={copied === machine.serialNumber}
-                  onclick={() => copyToClipboard(machine.serialNumber)}
+                  class:btn-success={copyFeedback.copiedKey === machine.serialNumber}
+                  class:btn-active={copyFeedback.copiedKey === machine.serialNumber}
+                  onclick={() => copyFeedback.copy(machine.serialNumber, machine.serialNumber)}
                   title={m.copy()}
                 >
-                  {#if copied === machine.serialNumber}
+                  {#if copyFeedback.copiedKey === machine.serialNumber}
                     <i class="fa-solid fa-check fa-lg"></i>
                   {:else}
                     <i class="fa-solid fa-copy fa-lg"></i>

@@ -461,5 +461,3 @@ export interface ShopWithExtras extends Shop {
   currentAttendance: number;
   density: number;
 }
-
-

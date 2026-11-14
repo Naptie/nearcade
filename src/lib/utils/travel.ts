@@ -16,6 +16,7 @@
  */
 import type { TransportMethod } from '$lib/types';
 import type { TransportSearchResult } from '$lib/types/routing';
+import { LEG_STYLES } from '$lib/utils/route-style';
 import {
   METRO_ENTRY_OVERHEAD_SECONDS,
   METRO_EXIT_OVERHEAD_SECONDS,
@@ -135,20 +136,11 @@ export const getTravelIcon = (
   if (method !== 'transit') return 'fa-person-walking';
 
   if (result && typeof result === 'object' && 'routes' in result) {
-    const segments = result.routes[selectedRouteIndex]?.segments;
-    if (segments?.length) {
-      // Metro itineraries label ride segments with their operator color;
-      // walking-only journeys carry none.
-      const rides = segments.filter((segment) => segment.color);
-      if (rides.length === 0) return 'fa-person-walking';
-      const names = rides
-        .map((segment) => segment.instruction ?? '')
-        .join(' ')
-        .toLowerCase();
-      if (/bus|公交/.test(names)) return 'fa-bus';
-      if (/tram/.test(names)) return 'fa-train-tram';
-      if (/rail/.test(names)) return 'fa-train';
-      return 'fa-train-subway';
+    const legs = result.routes[selectedRouteIndex]?.legs;
+    if (legs?.length) {
+      // The route's headline vehicle is its first non-walking leg.
+      const vehicle = legs.find((leg) => leg.kind !== 'walk');
+      return vehicle ? LEG_STYLES[vehicle.kind].icon : 'fa-person-walking';
     }
   }
 

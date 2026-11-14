@@ -32,11 +32,14 @@
   const canManageShop = $derived(!!data.user && hasPhone);
 
   const baseInitialData: Partial<ShopFormData> = $derived.by(() => {
-    if (data.initialLat !== null && data.initialLng !== null) {
+    if (data.initialLat !== null && data.initialLng !== null && data.initialCoordinateSystem) {
       return {
         location: {
           type: 'Point' as const,
-          coordinates: [data.initialLng, data.initialLat] as [number, number]
+          coordinates: [data.initialLng, data.initialLat] as [number, number],
+          // The globe surface follows the territory datum; the server load
+          // resolved which one this point is in.
+          coordinateSystem: data.initialCoordinateSystem
         }
       };
     }

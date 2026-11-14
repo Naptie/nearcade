@@ -23,15 +23,19 @@ import {
   METRO_WALK_SPEED_KMH
 } from '$lib/constants';
 import type { DiscoverMetroBlock, MetroShopItinerary, ShopApi, ShopMetro } from '$lib/types';
-import type { RouteResult, RouteSegment, TransportSearchResult } from '$lib/types/routing';
+import type { RouteLeg, RouteResult, TransportSearchResult } from '$lib/types/routing';
+import { LEG_STYLES } from '$lib/utils/route-style';
 
 /** Neutral color for legs that carry no official line color. */
 const METRO_FALLBACK_COLOR = '#64748b';
 /**
- * Walking legs (access, transfer, egress) are drawn dashed grey — openmetro's
- * own frontend uses the same neutral treatment so walks never read as a line.
+ * Walking legs (access, transfer, egress) wear the same colour as every other
+ * walking segment on the map. They used to be a neutral grey of their own, but
+ * that grey is what a footpath looked like on the map — a faint smudge under
+ * the route's own dashes. The shared palette keeps one colour per mode, so the
+ * metro overlay and the itinerary agree on what a walk looks like.
  */
-export const METRO_WALK_COLOR = '#6b7280';
+export const METRO_WALK_COLOR = LEG_STYLES.walk.color;
 export const METRO_WALK_DASH: [number, number] = [6, 3];
 
 /** Fallback ride speed used only when a leg omits `distanceKm` (~35 km/h). */
@@ -399,23 +403,23 @@ export const buildMetroRoute = (
 
   const stationName = (stationId: string) => localizedStationName(block, stationId);
 
-  const walkSegment = (walk: ResolvedWalk, instruction: string): RouteSegment => ({
-    instruction,
+  const walkLeg = (walk: ResolvedWalk, name: string): RouteLeg => ({
+    kind: 'walk',
+    name,
     durationSeconds: walk.seconds,
     distanceMeters: Math.round(walk.km * 1000),
-    geometry: walk.path
+    geometry: walk.path,
+    steps: []
   });
 
-  const segments: RouteSegment[] = [
-    walkSegment(geometry.access, m.walk_to_station({ station: geometry.access.stationName }))
+  const legs: RouteLeg[] = [
+    walkLeg(geometry.access, m.walk_to_station({ station: geometry.access.stationName }))
   ];
   const lines: RouteResult['lines'] = [];
 
   for (const [index, step] of geometry.orderedSteps.entries()) {
     if (step.kind === 'transfer') {
-      segments.push(
-        walkSegment(step.transfer, m.transfer_at({ station: step.transfer.stationName }))
-      );
+      legs.push(walkLeg(step.transfer, m.transfer_at({ station: step.transfer.stationName })));
       continue;
     }
 
@@ -446,12 +450,14 @@ export const buildMetroRoute = (
     const exitOverhead =
       index === geometry.orderedSteps.length - 1 ? METRO_EXIT_OVERHEAD_SECONDS : 0;
 
-    segments.push({
-      instruction: lineLabel,
+    legs.push({
+      kind: 'subway',
+      name: lineLabel,
       durationSeconds: ride.seconds + entryOverhead + exitOverhead,
       distanceMeters: Math.round(ride.km * 1000),
       geometry: ride.path,
       color,
+      steps: [],
       stations: {
         on: onName,
         off: offName,
@@ -460,14 +466,14 @@ export const buildMetroRoute = (
     });
   }
 
-  segments.push(walkSegment(geometry.egress, m.walk_to_shop()));
+  legs.push(walkLeg(geometry.egress, m.walk_to_shop()));
 
   return {
     mode: 'transit',
     distanceMeters: Math.round(geometry.totalKm * 1000),
     durationSeconds: itinerary.totalSeconds,
     geometry: geometry.fullPath,
-    segments,
+    legs,
     // China metro networks operate in GCJ02; openmetro station coordinates
     // are published in the storage datum.
     coordinateSystem: 'GCJ02',

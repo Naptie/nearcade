@@ -176,7 +176,9 @@ export const draftToInitialData = (draft: ShopCreateDraft): Partial<ShopFormData
     region: draft.regionIds
   },
   openingHours: draftToOpeningHours(draft.slots),
-  location: draft.location ?? undefined,
+  // Drafts written before locations carried their datum have no trustworthy
+  // coordinate system — drop the pin rather than guess it; the user re-picks.
+  location: draft.location?.coordinateSystem ? draft.location : undefined,
   games: draft.games.map(draftToGame),
   isClosed: draft.isClosed ?? false,
   closedReason: draft.closedReason ?? ''

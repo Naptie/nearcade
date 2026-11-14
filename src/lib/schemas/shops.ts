@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { PAGINATION } from '../constants';
 import {
   bilingual,
+  coordinateSystemSchema,
   dateTimeSchema,
   locationSchema,
   mongoIdSchema,
@@ -103,8 +104,15 @@ export const includeTimeInfoSchema = optionalBooleanString
       'Include computed timezone and open status. Defaults to true.'
     )
   );
-const shopLocationSchema = locationSchema.describe(bilingual('店铺坐标。', 'Shop coordinates.'));
-const optionalShopLocationSchema = locationSchema
+
+export const shopLocationSchema = locationSchema
+  .extend({
+    coordinateSystem: coordinateSystemSchema.describe(
+      bilingual('坐标所在坐标系。', 'The datum the coordinates are expressed in.')
+    )
+  })
+  .describe(bilingual('店铺坐标。', 'Shop coordinates.'));
+const optionalShopLocationSchema = shopLocationSchema
   .optional()
   .describe(bilingual('店铺坐标。', 'Shop coordinates.'));
 

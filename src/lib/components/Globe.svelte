@@ -28,7 +28,7 @@
   import ShopFilterPanel from '$lib/components/ShopFilterPanel.svelte';
   import { viewport } from '$lib/utils/viewport.svelte';
   import { isTouchscreen, getCachedLocation } from '$lib/utils';
-import { orpc } from '$lib/api/client';
+  import { orpc } from '$lib/api/client';
   import { getIpOrigin, convertCoordinates } from '$lib/utils/index.client';
   import { fromPath } from '$lib/utils/scoped';
   import type { GlobeShop } from '$lib/types';
@@ -724,11 +724,7 @@ import { orpc } from '$lib/api/client';
    * the flyTo arrives on an already-drawn map. Reads the style's tile URL
    * templates generically — any XYZ source the style declares.
    */
-  const prefetchStyleTiles = (
-    instance: maplibregl.Map,
-    center: [number, number],
-    zoom: number
-  ) => {
+  const prefetchStyleTiles = (instance: maplibregl.Map, center: [number, number], zoom: number) => {
     if (!instance.isStyleLoaded()) return;
     const style = instance.getStyle();
     const z = Math.floor(zoom);
@@ -736,8 +732,9 @@ import { orpc } from '$lib/api/client';
     const cx = Math.floor(((center[0] + 180) / 360) * scale);
     const cy = Math.floor(
       ((1 -
-        Math.log(Math.tan((center[1] * Math.PI) / 180) +
-          1 / Math.cos((center[1] * Math.PI) / 180)) /
+        Math.log(
+          Math.tan((center[1] * Math.PI) / 180) + 1 / Math.cos((center[1] * Math.PI) / 180)
+        ) /
           Math.PI) /
         2) *
         scale
@@ -756,9 +753,7 @@ import { orpc } from '$lib/api/client';
             .replaceAll('{x}', String(x))
             .replaceAll('{y}', String(y));
           // Fire-and-forget: warm the browser cache before the camera arrives.
-          void fetch(url, { method: 'GET', priority: 'low' } as RequestInit).catch(
-            () => undefined
-          );
+          void fetch(url, { method: 'GET', priority: 'low' } as RequestInit).catch(() => undefined);
         }
       }
     }
@@ -1598,18 +1593,13 @@ import { orpc } from '$lib/api/client';
     theme: ThemeMode,
     center: [number, number]
   ): Promise<maplibregl.StyleSpecification> => {
-    const response = await fetch(
-      fromPath(
-        `/api/geo/map-style?longitude=${center[0]}&latitude=${center[1]}&theme=${theme}&locale=${locale}&scope=global`
-      )
-    );
-    if (!response.ok) {
-      throw new Error(`Map style request failed: ${response.status}`);
-    }
-    const { profile, style: servedStyle } = (await response.json()) as {
-      profile: Record<string, unknown>;
-      style: unknown;
-    };
+    const { profile, style: servedStyle } = await orpc.geo.mapStyle({
+      longitude: center[0],
+      latitude: center[1],
+      theme,
+      locale,
+      scope: 'global'
+    });
     const adapter = createMapLibreAdapter(profile as never, {
       localFonts: { stacks: ['Sora', 'Noto'], baseUrl: fromPath('/') }
     });
@@ -1632,6 +1622,8 @@ import { orpc } from '$lib/api/client';
       const bearing = instance.getBearing();
       lastAppliedStyle = { locale, theme };
       instance.setStyle(style);
+      // The replacement adapter must re-attach to the live map.
+      styleAdapter?.observeMap(instance);
       instance.once('style.load', () => {
         instance.jumpTo({ center, zoom, pitch, bearing });
         instance.setProjection({ type: 'globe' });
@@ -1718,12 +1710,11 @@ import { orpc } from '$lib/api/client';
       if (destroyed || !mapContainer || featureSettingsKey !== globeFeatureSettingsKey) return;
 
       isMapStyleLoading = true;
-      const initialCenter: [number, number] =
-        cameraSnapshot?.center
-          ? [cameraSnapshot.center.lng, cameraSnapshot.center.lat]
-          : mode === 'landing'
-            ? [LANDING_LONGITUDE, LANDING_LATITUDE]
-            : [155, 45];
+      const initialCenter: [number, number] = cameraSnapshot?.center
+        ? [cameraSnapshot.center.lng, cameraSnapshot.center.lat]
+        : mode === 'landing'
+          ? [LANDING_LONGITUDE, LANDING_LATITUDE]
+          : [155, 45];
       // The globe covers the whole earth, so any center resolves to the same
       // global profile; the camera restore below re-applies the snapshot.
       const style = await fetchGlobeStyle(currentLocale, currentTheme, initialCenter);
@@ -1747,6 +1738,8 @@ import { orpc } from '$lib/api/client';
         canvasContextAttributes: getCanvasContextAttributes()
       });
       map = instance;
+      // The fresh adapter keeps the attribution in step with this map's view.
+      styleAdapter?.observeMap(instance);
       applyLandingInteractionMode(instance, mode);
 
       // Register style.load IMMEDIATEALLY after construction — when passing a
@@ -1812,7 +1805,9 @@ import { orpc } from '$lib/api/client';
 
       navigationControl = new maplibregl.NavigationControl();
       instance.addControl(navigationControl, 'top-right');
-      instance.addControl(new maplibregl.AttributionControl());
+      instance.addControl(
+        new maplibregl.AttributionControl({ compact: true, customAttribution: '' })
+      );
 
       const handleMoveEnd = () => {
         if (mode === 'fullscreen') {
@@ -2758,13 +2753,29 @@ import { orpc } from '$lib/api/client';
 </div>
 
 <style>
-  :global(.maplibregl-ctrl-top-right) {
+  /* Scoped to the globe's own map container: without the #id the offset
+     (navbar avoidance) would leak into every other maplibre map, e.g. the
+     location picker modal, where there is no navbar to avoid. */
+  :global(#globe-map-container .maplibregl-ctrl-top-right) {
     top: 3.6rem;
     transition: opacity 0.3s ease;
   }
   :global(.landing-mode .maplibregl-ctrl-top-right) {
     opacity: 0;
     pointer-events: none;
+  }
+
+  /* Keep the attribution pill clear of the bottom HUD row (mobile sidebar
+     toggle chip + dev FPS meter); expanded it is wide enough to run the
+     full width of the screen and would otherwise slide in behind them.
+     The HUD chips are mobile-only, so desktop keeps the default offset. */
+  :global(#globe-map-container .maplibregl-ctrl-bottom-right) {
+    bottom: 3.5rem;
+  }
+  @media (min-width: 48rem) {
+    :global(#globe-map-container .maplibregl-ctrl-bottom-right) {
+      bottom: 0;
+    }
   }
 
   /* In landing mode, let one-finger touch drags scroll the page vertically

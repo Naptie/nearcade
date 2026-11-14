@@ -28,7 +28,35 @@ import type { AnyMiddleware } from './types.server';
 
 const WINDOW_SECONDS = 60;
 
+/**
+ * The table, most specific first: the first matching row wins, so a row for a
+ * sub-path has to be listed before the row that covers it.
+ */
 const RATE_LIMIT_TABLE = [
+  {
+    /** Contract-path prefix the rule covers. */
+    prefix: '/geo/directions',
+    /**
+     * The discover map routes every rendered shop, one request each, and the
+     * route table holds up to 150 of them per transport method. Cycling through
+     * the four methods is therefore 600 requests inside one window, so the
+     * ceiling has to clear that or the map loses its travel data halfway
+     * through a mode switch.
+     */
+    anonymous: 600,
+    authenticated: 1200
+  },
+  {
+    /** Contract-path prefix the rule covers. */
+    prefix: '/geo/attribution',
+    /**
+     * The browser refreshes the map's attribution whenever the camera enters a
+     * new viewport, so the calls are frequent but bursty. A refresh that is
+     * refused only leaves the previous attribution line in place.
+     */
+    anonymous: 120,
+    authenticated: 300
+  },
   {
     /** Contract-path prefix the rule covers. */
     prefix: '/geo',

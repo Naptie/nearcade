@@ -45,7 +45,6 @@ const unifiedGeoClientRoutes: Record<string, UnifiedGeoClientCall> = {
   '/geo/reverse': (client, body) => client.geo.reverse.post(body),
   '/geo/search': (client, body) => client.geo.search.post(body),
   '/geo/resolve': (client, body) => client.geo.resolve.post(body),
-  '/geo/geocode': (client, body) => client.geo.geocode.post(body),
   '/geo/directions': (client, body) => client.geo.directions.post(body),
   '/maps/profile': (client, body) => client.maps.profile.post(body),
   '/maps/links': (client, body) => client.maps.links.post(body)
@@ -185,38 +184,6 @@ export interface UnifiedGeoStyleResult {
   cacheControl: string | null;
 }
 
-/** Fetch a MapLibre style document served by unified-geo (GET /maps/styles). */
-export async function requestUnifiedGeoStyle(params: {
-  provider: 'bing-cn' | 'amap' | 'google';
-  theme?: 'dark' | 'light';
-  locale?: 'zh-CN' | 'en-US';
-}): Promise<UnifiedGeoStyleResult> {
-  const secret = env.UNIFIED_GEO_API_SECRET;
-  if (!secret) error(503, 'The location service is not configured.');
-
-  const query = new URLSearchParams({ provider: params.provider });
-  if (params.theme) query.set('theme', params.theme);
-  if (params.locale) query.set('locale', params.locale);
-
-  let response: Response;
-  try {
-    response = await fetch(`${baseUrl}/maps/styles?${query.toString()}`, {
-      headers: { authorization: `Bearer ${secret}` },
-      signal: AbortSignal.timeout(10_000)
-    });
-  } catch (cause) {
-    console.error('Unified geo style request failed:', cause);
-    error(502, 'The location service is unavailable.');
-  }
-
-  if (!response.ok) {
-    console.error('Unified geo returned an error for a map style:', response.status);
-    error(502, 'The location service is unavailable.');
-  }
-
-  return { body: await response.text(), cacheControl: response.headers.get('cache-control') };
-}
-
 /** Make an authenticated GET request to unified-geo (e.g. /capabilities). */
 export async function requestUnifiedGeoGet<T extends UnifiedGeoEnvelope>(
   endpoint: string
@@ -262,6 +229,54 @@ export function requestUnifiedGeoProfile(body: {
   locale?: string;
 }): Promise<UnifiedGeoEnvelope & Record<string, unknown>> {
   return requestUnifiedGeo('/maps/profile', body);
+}
+
+/**
+ * Fetch the map data attribution for a viewport (GET /maps/attribution).
+ *
+ * This endpoint is not enveloped like the rest of unified-geo's API: it answers
+ * with the attribution text alone, because the browser's map adapter reads it
+ * off the body. It therefore gets its own helper instead of
+ * `requestUnifiedGeoGet`, which insists on a `success` envelope.
+ */
+export async function requestUnifiedGeoAttribution(input: {
+  zoom: number;
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}): Promise<{ copyright: string }> {
+  const secret = env.UNIFIED_GEO_API_SECRET;
+  if (!secret) error(503, 'The location service is not configured.');
+
+  const query = new URLSearchParams({
+    zoom: String(input.zoom),
+    north: String(input.north),
+    south: String(input.south),
+    east: String(input.east),
+    west: String(input.west)
+  });
+
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/maps/attribution?${query}`, {
+      headers: { authorization: `Bearer ${secret}` },
+      signal: AbortSignal.timeout(10_000)
+    });
+  } catch (cause) {
+    console.error('Unified geo attribution request failed:', cause);
+    error(502, 'The location service is unavailable.');
+  }
+
+  if (!response.ok) {
+    console.error(`Unified geo returned an error for an attribution: ${response.status}`);
+    error(502, 'The location service is unavailable.');
+  }
+
+  const payload = (await response.json().catch(() => null)) as { copyright?: unknown } | null;
+  const copyright = typeof payload?.copyright === 'string' ? payload.copyright : '';
+  if (!copyright) error(502, 'The location service returned no attribution.');
+  return { copyright };
 }
 
 /**

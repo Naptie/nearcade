@@ -3,6 +3,7 @@ import {
   type NearcadeRegionResolution,
   type UnifiedGeoReverseResponse
 } from '$lib/regions/unified-geo.server';
+import { resolveTerritoryDatum } from '$lib/utils/geo.server';
 import { requestUnifiedGeo, type UnifiedGeoCoordinate } from '$lib/utils/unified-geo.server';
 
 /**
@@ -81,11 +82,6 @@ export interface ResolvePointInput {
   language?: string;
 }
 
-interface MapProfileResponse {
-  success: true;
-  coordinateSystem: PointDatum;
-}
-
 interface CoordinateConversionResponse {
   success: true;
   coordinate: UnifiedGeoCoordinate;
@@ -136,21 +132,6 @@ const remember = (key: string, value: ResolvedPoint): void => {
 };
 
 /**
- * The map surface's datum for a point.
- *
- * The provider knows which datum a territory uses; asking it is one cheap
- * routing call, and it is the only way to tell what a point that did not
- * declare its datum should be read as.
- */
-const resolveSurfaceDatum = async (longitude: number, latitude: number): Promise<PointDatum> => {
-  const profile = await requestUnifiedGeo<MapProfileResponse>('/maps/profile', {
-    coordinate: { longitude, latitude, coordinateSystem: 'WGS84' }
-  });
-
-  return profile.coordinateSystem;
-};
-
-/**
  * Resolve a point into its place and its region.
  *
  * The one implementation of the operation. It answers with the point in the
@@ -159,7 +140,7 @@ const resolveSurfaceDatum = async (longitude: number, latitude: number): Promise
  */
 export const resolvePoint = async (input: ResolvePointInput): Promise<ResolvedPoint> => {
   const datum =
-    input.coordinateSystem ?? (await resolveSurfaceDatum(input.longitude, input.latitude));
+    input.coordinateSystem ?? (await resolveTerritoryDatum(input.longitude, input.latitude));
 
   const key = cacheKey(input, datum);
   const hit = cache.get(key);
@@ -189,16 +170,18 @@ export const resolvePoint = async (input: ResolvePointInput): Promise<ResolvedPo
     coordinateSystem: datum
   };
 
-  if (reverse.territory.datum === 'GCJ02' && datum !== 'GCJ02') {
+  // Either direction: a GCJ02 pick in a WGS84 territory and a WGS84 pick in a
+  // GCJ02 territory both leave as the territory's datum.
+  if (reverse.territory.datum !== datum) {
     const converted = await requestUnifiedGeo<CoordinateConversionResponse>('/geo/convert', {
       coordinate,
-      targetCoordinateSystem: 'GCJ02'
+      targetCoordinateSystem: reverse.territory.datum
     });
 
     location = {
       longitude: converted.coordinate.longitude,
       latitude: converted.coordinate.latitude,
-      coordinateSystem: 'GCJ02'
+      coordinateSystem: converted.coordinate.coordinateSystem
     };
   }
 

@@ -17,7 +17,7 @@
   import type { WindowMessage } from '$lib/types';
   import NavigationTracker from '$lib/components/NavigationTracker.svelte';
   import SocialMediaModal from '$lib/components/SocialMediaModal.svelte';
-import { isDarkMode } from '$lib/utils/scoped';
+  import { isDarkMode } from '$lib/utils/scoped';
   import { orpc } from '$lib/api/client';
   import { getDisplayName } from '$lib/utils';
   import { m } from '$lib/paraglide/messages';
@@ -31,6 +31,8 @@ import { isDarkMode } from '$lib/utils/scoped';
   import ToastRegion from '$lib/components/ToastRegion.svelte';
   import BannerRegion from '$lib/components/BannerRegion.svelte';
   import { resetUgcClientState } from '$lib/ugc/client';
+  // Animates MapLibre's attribution pill globally; covers every map instance.
+  import '$lib/utils/map-attribution.client';
 
   const noindexPaths = ['/admin', '/settings', '/auth', '/oauth', '/api'];
   const shouldNoIndex = $derived(
@@ -135,7 +137,6 @@ import { isDarkMode } from '$lib/utils/scoped';
       initFirebase().catch((error) => {
         console.error('Failed to initialize Firebase:', error);
       });
-
     }
 
     let redirect = page.url.searchParams.get('redirect');

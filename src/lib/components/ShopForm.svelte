@@ -5,7 +5,6 @@
   import { toastError } from '$lib/notifications/toast.svelte';
   import { GAME_TITLES } from '$lib/constants';
   import LocationPickerModal from '$lib/components/LocationPickerModal.svelte';
-  import { regionDatum } from '$lib/utils/geo-datum';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
   import RegionCascadeSelect from '$lib/components/RegionCascadeSelect.svelte';
   import { getGameName } from '$lib/utils';
@@ -748,14 +747,16 @@
     ? {
         longitude: location.coordinates[0],
         latitude: location.coordinates[1],
-        // Stored coordinates live in the region's surface datum (GCJ02 on the
-        // mainland and in the SARs, WGS84 for Taiwan and abroad).
-        coordinateSystem: regionDatum(initialData.address.region)
+        // Stored coordinates carry the datum they were persisted in — the
+        // location service's answer at write time — so the picker starts
+        // from it directly instead of re-deriving it.
+        coordinateSystem: location.coordinateSystem
       }
     : null}
   onLocationSelected={(loc: {
     longitude: number;
     latitude: number;
+    coordinateSystem: 'WGS84' | 'GCJ02';
     name: string;
     address: string;
     region?: string[];
@@ -763,9 +764,12 @@
   }) => {
     hasUserEdited = true;
     onFirstEdit?.();
+    // Confirmation resolved the point into its territory's storage datum;
+    // the datum travels with the coordinates from here on.
     location = {
       type: 'Point',
-      coordinates: [loc.longitude, loc.latitude]
+      coordinates: [loc.longitude, loc.latitude],
+      coordinateSystem: loc.coordinateSystem
     };
     locationName = loc.name ?? '';
     // Confirmation already returned the provider-resolved region chain, so the

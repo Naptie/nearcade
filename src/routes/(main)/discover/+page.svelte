@@ -23,19 +23,16 @@
     formatShopAddress,
     getGameName,
     adaptiveNewTab,
-    isShopCurrentlyOpen,
-    regionDatum
+    isShopCurrentlyOpen
   } from '$lib/utils';
   import {
-    buildMetroOverlay,
     buildMetroRouteData,
     fetchMetroFare,
     getMetroItinerary,
     getMetroBadgeTextColor,
     getMetroLocalizedName,
     getMetroShopLines,
-    type MetroFare,
-    METRO_WALK_COLOR
+    type MetroFare
   } from '$lib/utils/metro.client';
   import { fetchMapLink } from '$lib/utils/map-links.client';
   import { getTravelIcon, inferTravelSeconds } from '$lib/utils/travel';
@@ -52,6 +49,7 @@
     getTravelBudgetMinutes
   } from '$lib/constants';
   import { createMapLibreAdapter } from 'unified-geo-client/maplibre';
+  import { orpc } from '$lib/api/client';
   import { isDarkMode, fromPath } from '$lib/utils/scoped';
   import AttendanceReportBlame from '$lib/components/AttendanceReportBlame.svelte';
   import ShopFilterPanel from '$lib/components/ShopFilterPanel.svelte';
@@ -405,7 +403,9 @@
   let datumOfOrigin: 'WGS84' | 'GCJ02' = 'WGS84';
 
   /** Cache entries from the previous engine carry incompatible shapes. */
-  const isValidRouteData = (value: unknown): value is { routes: import('$lib/types/routing').RouteResult[] } =>
+  const isValidRouteData = (
+    value: unknown
+  ): value is { routes: import('$lib/types/routing').RouteResult[] } =>
     typeof value === 'object' &&
     value !== null &&
     'routes' in value &&
@@ -415,7 +415,9 @@
         typeof route === 'object' &&
         route !== null &&
         'geometry' in route &&
-        'durationSeconds' in route
+        'durationSeconds' in route &&
+        'legs' in route &&
+        Array.isArray(route.legs)
     );
 
   /**
@@ -448,7 +450,10 @@
           distance: selectedRoute.distanceMeters / 1000,
           path: selectedRoute.geometry,
           selectedRouteIndex: selectedIndex,
-          routeData: { routes: result.routes }
+          // Stored sorted, so the Directions panel's tab order — which indexes
+          // this array directly — matches the `selectedRouteIndex` the map's
+          // drawn path and the travel figures above are based on.
+          routeData: { routes: sorted }
         };
       };
 
@@ -468,30 +473,24 @@
       }
 
       try {
-        const response = await fetch('/api/geo/directions', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            origin: {
-              longitude: data.location.longitude,
-              latitude: data.location.latitude,
-              // The discover origin arrives in the map surface's datum (the
-              // globe or picker sent it that way); keep it labeled so routes
-              // come back drawable on this map without conversion.
-              coordinateSystem: datumOfOrigin
-            },
-            destination: {
-              longitude: shop.location.coordinates[0],
-              latitude: shop.location.coordinates[1],
-              // Shops persist in their region's storage datum.
-              coordinateSystem: regionDatum(shop.address?.region ?? [])
-            },
-            mode,
-            language: getLocale()
-          })
+        const result = await orpc.geo.directions({
+          origin: {
+            longitude: data.location.longitude,
+            latitude: data.location.latitude,
+            // The discover origin arrives in the map surface's datum (the
+            // globe or picker sent it that way); keep it labeled so routes
+            // come back drawable on this map without conversion.
+            coordinateSystem: datumOfOrigin
+          },
+          destination: {
+            longitude: shop.location.coordinates[0],
+            latitude: shop.location.coordinates[1],
+            // Shops persist in the datum carried on their stored location.
+            coordinateSystem: shop.location.coordinateSystem
+          },
+          mode,
+          language: getLocale()
         });
-        if (!response.ok) throw new Error(`routing failed: ${response.status}`);
-        const result = (await response.json()) as TransportSearchResult;
         if (isValidRouteData(result)) {
           setCachedRouteData(cacheKey, result, 0);
           cachedRoutes[cacheKey] = { routeData: result, selectedRouteIndex: 0 };
@@ -654,8 +653,10 @@
    * A shop marker: a dot that sits on the shop's coordinate plus a name chip
    * that floats beside it. MapLibre centres the marker's own box on the
    * coordinate and the chip is positioned outside that box, so the dot — not
-   * the label — marks the place. `data-side` flips the chip to the dot's left
-   * near the map's right edge; `data-state` carries selection/hover, which the
+   * the label — marks the place. The chip sits to the right of the dot and
+   * moves to its left when it would land on the origin's chip; how much of
+   * it fits is decided by the declutter pass, which cuts and fades it where
+   * the map runs out of room. `data-state` carries selection/hover, which the
    * stylesheet turns into the dot's colour.
    */
   const createShopMarkerElement = (shop: DiscoverShop) => {
@@ -671,6 +672,11 @@
 
     const label = document.createElement('span');
     label.className = 'discover-marker-label';
+    // The chip is masked and the cut is animated (see the stylesheet). The
+    // animation is off until the map has measured every name once: a chip
+    // that is cut for the first time has to *appear* cut, not grow out of
+    // nothing.
+    label.style.setProperty('--clip-anim-duration', '0s');
     if (metroEnabled && shop.transit?.metro) {
       const lineGroup = document.createElement('span');
       lineGroup.className = 'discover-marker-lines';
@@ -696,7 +702,11 @@
 
   const createOriginMarkerElement = () => {
     const element = document.createElement('div');
-    element.className = 'discover-marker discover-marker-origin cursor-pointer';
+    // No `cursor-pointer`: the origin is not a target. It sits *above* the
+    // shop markers so it can never be hidden by one, and it lets the pointer
+    // through to the shop underneath (see the stylesheet) so the shop can
+    // still be hovered and clicked when the origin is the same place.
+    element.className = 'discover-marker discover-marker-origin';
     element.dataset.state = 'origin';
     element.dataset.side = 'end';
 
@@ -713,25 +723,145 @@
 
   let activePopup: maplibregl.Popup | null = null;
 
+  /** Glow the shop's table row for three seconds — the "this row is it" cue. */
+  const highlightShopRow = (shopId: string) => {
+    if (highlightedShopIdTimeout) {
+      clearTimeout(highlightedShopIdTimeout);
+      highlightedShopIdTimeout = null;
+    }
+    highlightedShopId = shopId;
+    highlightedShopIdTimeout = setTimeout(() => {
+      highlightedShopId = null;
+      highlightedShopIdTimeout = null;
+    }, 3000);
+  };
+
+  /**
+   * Bring the shop's table row into view under the glow above. Only reachable
+   * through the popup card's "view in list" button — a marker click no longer
+   * scrolls on its own, so the card the click just opened stays on screen
+   * (the old auto-scroll pushed the map, card included, out of view). Popups
+   * only open from marker clicks and closed shops' markers are hidden, so the
+   * target row is always rendered in the active-shops tbody.
+   */
+  const focusShopRow = (shopId: string) => {
+    highlightShopRow(shopId);
+    document.getElementById(`shop-${shopId}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
+  };
+
   const popupContent = (shop: DiscoverShop, address: string): HTMLElement => {
     const container = document.createElement('div');
-    container.className = 'mt-2 min-w-48 max-w-80 space-y-2';
+    // The popup receives maplibregl's default white background — that is the
+    // first thing that does not match the dark theme. We carry the look
+    // ourselves: a card coloured with theme tokens, a dim divider, and the
+    // buttons use `btn-block`/`flex-1` so the bar fills the card's width
+    // rather than hugging the icons.
+    // There is no close button in the card — the card is dismissed by
+    // clicking anywhere else on the map (or with Escape) — so nothing has to
+    // reserve room in the top-right corner and the title gets the full width.
+    // `discover-popup` also re-seeds the site font stack in CSS — maplibregl's
+    // own `font: 12px/20px Helvetica Neue…` on `.maplibregl-map` would
+    // otherwise leak into every popup and the card reads as a different site.
+    //
+    // No `backdrop-blur`: `bg-base-100` is opaque, so the blur had nothing to
+    // sample — but its backdrop root still re-rasterised the text on every
+    // animated frame, which is what made the whole card read soft.
+    container.className =
+      'discover-popup bg-base-100 text-base-content border-base-content/10 relative min-w-56 max-w-80 space-y-2 rounded-xl border p-3 shadow-lg';
+
     const header = document.createElement('div');
-    header.className = 'space-y-0.25';
+    header.className = 'space-y-1';
     const title = document.createElement('div');
-    title.className = 'font-semibold text-lg';
+    title.className = 'text-base-content text-base font-semibold leading-tight break-words';
     title.textContent = shop.name;
-    const addressLine = document.createElement('div');
-    addressLine.className = 'text-sm opacity-70';
-    addressLine.textContent = address;
-    header.append(title, addressLine);
+    header.append(title);
+    if (address) {
+      const addressLine = document.createElement('div');
+      addressLine.className = 'text-base-content/65 text-xs leading-snug';
+      addressLine.textContent = address;
+      header.append(addressLine);
+    }
+    container.append(header);
+
+    // Metro chip (line badges + station name) — only when the response
+    // carries a worthwhile itinerary for the shop. Mirrors the inline cell
+    // on the discover table so the popup never contradicts it.
+    if (metroEnabled && shop.transit?.metro && data.metro) {
+      const metroLines = getMetroShopLines(shop, data.metro);
+      const stationLabel = getMetroLocalizedName(
+        shop.transit.metro.names,
+        shop.transit.metro.stationName,
+        getLocale()
+      );
+      if (metroLines.length > 0 || stationLabel) {
+        const metroRow = document.createElement('div');
+        metroRow.className =
+          'border-base-content/10 bg-base-200/60 inline-flex w-full max-w-full items-center gap-1.5 rounded-md border px-1.5 py-1 text-xs';
+        metroRow.title = `${m.metro_station()}: ${stationLabel}`;
+        if (metroLines.length > 0) {
+          const lineGroup = document.createElement('span');
+          lineGroup.className = 'inline-flex shrink-0 items-center gap-0.5';
+          for (const line of metroLines) {
+            const chip = document.createElement('span');
+            const metroColor = line.color ?? '#64748b';
+            chip.className =
+              'min-w-5 rounded-sm px-1 text-center leading-5 font-bold whitespace-nowrap';
+            chip.style.backgroundColor = metroColor;
+            chip.style.color = getMetroBadgeTextColor(metroColor);
+            chip.textContent = line.shortName;
+            lineGroup.appendChild(chip);
+          }
+          metroRow.appendChild(lineGroup);
+        }
+        const stationText = document.createElement('span');
+        stationText.className = 'text-base-content/85 min-w-0 truncate font-medium';
+        stationText.textContent = stationLabel;
+        metroRow.appendChild(stationText);
+        container.append(metroRow);
+      }
+    }
+
     const actions = document.createElement('div');
-    actions.className = 'flex gap-2';
+    actions.className = 'flex flex-wrap gap-2';
+
+    /**
+     * Jump to the shop's row in the table below — the explicit replacement
+     * for the old marker-click auto-scroll, which pushed the page (and this
+     * card with it) out of view right after the card opened. Closing goes
+     * through `dismissPopupNow` — not the animated close — so the `close`
+     * event fires *inside* the `popupReplacement` window (the animated path
+     * fires it from a timer, after the flag has been reset): leaving for the
+     * table is navigation, not a plain dismissal, and the selection must
+     * survive it so re-clicking the marker still reopens the card.
+     */
+    const rowButton = document.createElement('button');
+    rowButton.type = 'button';
+    rowButton.className =
+      'btn btn-sm border-base-content/15 bg-base-100 hover:bg-base-200 text-base-content btn-block flex-1 rounded-md border font-medium';
+    const rowIcon = document.createElement('i');
+    rowIcon.className = 'fa-solid fa-table-list';
+    const rowText = document.createElement('span');
+    rowText.className = 'truncate';
+    rowText.textContent = m.view_in_list();
+    rowButton.append(rowIcon, rowText);
+    rowButton.onclick = () => {
+      popupReplacement = true;
+      dismissPopupNow();
+      popupReplacement = false;
+      focusShopRow(`${shop.id}`);
+    };
+
     const link = document.createElement('button');
-    link.className = 'btn btn-dash btn-neutral';
+    link.type = 'button';
+    link.className =
+      'btn btn-sm border-base-content/15 bg-base-100 hover:bg-base-200 text-base-content btn-block flex-1 rounded-md border font-medium';
     const icon = document.createElement('i');
-    icon.className = 'fas fa-external-link-alt';
+    icon.className = 'fa-solid fa-up-right-from-square';
     const text = document.createElement('span');
+    text.className = 'truncate';
     text.textContent = m.open_in_maps_app();
     link.append(icon, text);
     link.onclick = async () => {
@@ -742,20 +872,201 @@
       });
       if (target) window.open(target, '_blank', 'noopener,noreferrer');
     };
-    actions.appendChild(link);
-    container.append(header, actions);
+    actions.append(rowButton, link);
+    container.append(actions);
+
     return container;
   };
 
+  /**
+   * Exit animation duration. Must stay in step with the `discover-popup-out`
+   * keyframes in the stylesheet below — the timeout below is what actually
+   * removes the node, so a drift here would clip the animation or leave a
+   * transparent card stuck on the map.
+   */
+  const POPUP_EXIT_MS = 160;
+
+  let popupCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  let popupEscapeHandler: ((event: KeyboardEvent) => void) | null = null;
+
+  /** Drop the popup immediately, cancelling any in-flight exit animation. */
+  const dismissPopupNow = () => {
+    if (popupCloseTimer !== null) {
+      clearTimeout(popupCloseTimer);
+      popupCloseTimer = null;
+    }
+    if (popupEscapeHandler) {
+      document.removeEventListener('keydown', popupEscapeHandler);
+      popupEscapeHandler = null;
+    }
+    activePopup?.remove();
+    activePopup = null;
+  };
+
+  /**
+   * Close the popup with its exit animation.
+   *
+   * MapLibre's own close paths (its close button, `closeOnClick`, Escape) all
+   * call `remove()` synchronously, which kills the card mid-frame — so they are
+   * taken over here: `closeButton: false` and `closeOnClick: false`, plus a map
+   * click handler and a document-level Escape listener, both routed through
+   * this function. `is-closing` plays the keyframes; the timer then does the
+   * actual `remove()`.
+   */
+  const dismissPopupAnimated = (onClosed?: () => void) => {
+    const popup = activePopup;
+    if (!popup) {
+      onClosed?.();
+      return;
+    }
+    if (popupCloseTimer !== null) return; // already animating out
+
+    const wrapper = popup.getElement();
+    if (!wrapper) {
+      popup.remove();
+      activePopup = null;
+      onClosed?.();
+      return;
+    }
+
+    wrapper.classList.add('is-closing');
+    popupCloseTimer = setTimeout(() => {
+      popupCloseTimer = null;
+      if (popupEscapeHandler) {
+        document.removeEventListener('keydown', popupEscapeHandler);
+        popupEscapeHandler = null;
+      }
+      // `remove()` detaches content and container; clearing the reference first
+      // keeps a mid-flight `activePopup?.remove()` from touching a dead node.
+      if (activePopup === popup) activePopup = null;
+      popup.remove();
+      onClosed?.();
+    }, POPUP_EXIT_MS);
+  };
+
+  /**
+   * MapLibre attaches its `wheel` listener to `getCanvasContainer()`, but a
+   * Popup is appended to `getContainer()` — a *different* element. Wheel events
+   * over the card therefore never reached the scroll-zoom handler, so the page
+   * scrolled instead of the map zooming. Forwarding the event to the canvas
+   * container lets MapLibre's own handler run: it reads the client coordinates
+   * off the event, so the zoom anchors under the cursor exactly as it does over
+   * the bare map, and it calls `preventDefault()` itself, killing the page
+   * scroll.
+   *
+   * `passive: false` is required — the forwarded dispatch has to be cancelable.
+   */
+  const forwardWheelToMap = (container: HTMLElement, canvasContainer: HTMLElement): void => {
+    container.addEventListener(
+      'wheel',
+      (event) => {
+        // Already handled natively: the pointer was over the canvas, not the card.
+        if (event.defaultPrevented) return;
+        canvasContainer.dispatchEvent(
+          new WheelEvent('wheel', {
+            deltaX: event.deltaX,
+            deltaY: event.deltaY,
+            deltaZ: event.deltaZ,
+            deltaMode: event.deltaMode,
+            clientX: event.clientX,
+            clientY: event.clientY,
+            screenX: event.screenX,
+            screenY: event.screenY,
+            ctrlKey: event.ctrlKey,
+            shiftKey: event.shiftKey,
+            altKey: event.altKey,
+            metaKey: event.metaKey,
+            bubbles: false,
+            cancelable: true
+          })
+        );
+        // Whether or not the handler consumed it, the page must not scroll: the
+        // pointer is over the map's own surface.
+        event.preventDefault();
+      },
+      { passive: false }
+    );
+  };
+
+  /**
+   * True while a popup is being swapped for another one. The outgoing card's
+   * `close` handler treats a plain dismissal as "defocus this shop", but a
+   * replacement is not a dismissal — and the deselect must not fire before
+   * `handleMarkerClick` reads the current selection, or a re-click on the
+   * selected shop would forget it was selected at all.
+   */
+  let popupReplacement = false;
+
   const showShopPopup = (instance: maplibregl.Map, shop: DiscoverShop) => {
+    // Any card still fading out would collide with the new one.
+    popupReplacement = true;
+    dismissPopupNow();
+    popupReplacement = false;
+
     const address = formatShopAddress(shop);
-    const popup = new maplibregl.Popup({ offset: 24, closeButton: true })
+    const card = popupContent(shop, address);
+
+    const popup = new maplibregl.Popup({
+      offset: 24,
+      // MapLibre's own close affordances are taken over so the exit animation
+      // can play: `closeOnClick` would remove the popup synchronously and
+      // kill the animation, and the close button is not wanted at all — the
+      // card is dismissed by clicking elsewhere on the map.
+      closeButton: false,
+      closeOnClick: false,
+      // MapLibre focuses the first focusable element inside the card when it
+      // opens, which puts a bright focus ring on the "open in maps app"
+      // button the instant the card appears. The card is opened by a map
+      // click rather than by keyboard navigation, so that ring is pure noise.
+      focusAfterOpen: false
+    })
       .setLngLat([shop.location.coordinates[0], shop.location.coordinates[1]])
-      .setDOMContent(popupContent(shop, address))
+      .setDOMContent(card)
       .addTo(instance);
+
+    const wrapper = popup.getElement();
+    if (wrapper) {
+      wrapper.style.zIndex = '1200';
+      forwardWheelToMap(wrapper, instance.getCanvasContainer());
+    }
+
+    /**
+     * Clicking elsewhere on the map closes the card.
+     *
+     * This is MapLibre's `closeOnClick` behaviour, re-implemented: the
+     * built-in one calls `remove()` synchronously, which would cut the exit
+     * animation off mid-frame. Going through `dismissPopupAnimated` keeps
+     * the card's own outro.
+     *
+     * The marker listeners stop the DOM event from propagating, so clicking
+     * a *marker* never reaches the map's click handler — that click opens
+     * the other shop's card instead. Clicking the card itself does not
+     * reach it either: the popup lives in `map.getContainer()`, not in the
+     * canvas container the map's handlers are bound to.
+     */
+    const onMapClick = () => {
+      dismissPopupAnimated();
+    };
+    instance.on('click', onMapClick);
+
+    popupEscapeHandler = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      dismissPopupAnimated();
+    };
+    document.addEventListener('keydown', popupEscapeHandler);
+
     popup.on('close', () => {
+      instance.off('click', onMapClick);
+      if (popupEscapeHandler) {
+        document.removeEventListener('keydown', popupEscapeHandler);
+        popupEscapeHandler = null;
+      }
+      // A replacement popup taking over is not a dismissal: the selection
+      // follows the new marker instead of dropping to none.
+      if (popupReplacement) return;
       if (selectedShopId === `${shop.id}`) selectedShopId = null;
     });
+
     activePopup = popup;
   };
 
@@ -770,25 +1081,26 @@
     }
     highlightedShopId = null;
 
-    if (hasRoute && !wasSelected) return;
+    // Re-clicking the already-selected shop reopens its panel: the selection
+    // effects only react to a *changed* selection, so without this the second
+    // click would do nothing once the panel had been closed.
+    if (wasSelected) {
+      if (hasRoute) openDirections();
+      return;
+    }
 
-    highlightedShopId = shopId;
-    highlightedShopIdTimeout = setTimeout(() => {
-      highlightedShopId = null;
-      highlightedShopIdTimeout = null;
-    }, 3000);
-    document.getElementById(`shop-${shopId}`)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center'
-    });
+    if (hasRoute) return;
+
+    // No auto-scroll: a marker click means "look at the map", and yanking the
+    // page down to the table hid the card the click just opened. The glow
+    // still helps when the table is on screen beside the map (desktop).
+    highlightShopRow(shopId);
   };
 
   // ── Map lifecycle ─────────────────────────────────────────────────────────
 
   const ROUTES_SOURCE_ID = 'shop-routes';
   const ROUTE_LINE_LAYER_ID = 'shop-routes-line';
-  const METRO_SOURCE_ID = 'metro-overlay';
-  const METRO_LAYER_ID = 'metro-overlay-line';
 
   const removeLayerAndSource = (instance: maplibregl.Map, id: string) => {
     try {
@@ -811,41 +1123,256 @@
     }
   };
 
-  let shopMarkerElements: Record<string, HTMLElement> = $state({});
+  /**
+   * The shop markers' DOM elements, keyed by shop id.
+   *
+   * Deliberately a plain `Map` and not a reactive one: these are imperative
+   * handles that the marker listeners and the highlight pass below write to
+   * directly, and a reactive collection would hand back wrapped elements
+   * instead of the real nodes. The map lifecycle owns their lifetime (the
+   * init effect clears the map when it tears the map down), so nothing here
+   * needs to be reactive.
+   */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain Map on purpose, see above
+  const shopMarkerElements = new Map<string, HTMLElement>();
+
+  /**
+   * The origin marker's element. Kept around for the label declutter pass:
+   * the origin chip competes for the same pixels as the shop chips and has to
+   * take part in the same collision resolution.
+   */
+  let originMarkerElement: HTMLElement | null = null;
+
+  /**
+   * Paint one marker's visual state.
+   *
+   * Two axes: `data-state` carries idle / hovered / selected, and the
+   * orthogonal `data-route='on'` marks the shop whose metro itinerary is
+   * drawn on the map. The route-active marker wins even when another shop is
+   * hovered or selected, so the focused ride always reads as highlighted.
+   * The stacking order follows from the same three flags.
+   */
+  const paintMarkerState = (
+    element: HTMLElement,
+    id: string,
+    selected: string | null,
+    hovered: string | null,
+    routeActive: string | null
+  ) => {
+    element.dataset.state = selected === id ? 'selected' : hovered === id ? 'hovered' : 'idle';
+    element.dataset.route = routeActive === id ? 'on' : '';
+    element.style.zIndex =
+      selected === id ? '650' : routeActive === id ? '600' : hovered === id ? '550' : '400';
+  };
+
+  /**
+   * Repaint a marker from the current state.
+   *
+   * The marker listeners call this directly instead of waiting for the
+   * highlight effect: the hover feedback has to land on the very next frame,
+   * and a state write that has to travel through Svelte's effect queue is
+   * either a frame late — or, if anything else in that queue throws, never
+   * applied at all.
+   */
+  const repaintMarker = (element: HTMLElement, id: string) =>
+    paintMarkerState(element, id, selectedShopId, hoveredShopId, selectedShopId);
 
   // ── Marker labels ─────────────────────────────────────────────────────────
 
-  /** Label placement order: the selection, then the hover, then table order. */
-  const markerLabelPriority = (shopId: string): number => {
-    if (shopId === selectedShopId) return 0;
-    if (shopId === hoveredShopId) return 1;
-    return 2;
-  };
-
   /**
-   * How many name chips the map may show at once: fewer on a phone-sized
-   * viewport, more as the map zooms in — a city-wide view keeps only its
-   * leading shops labelled, a street-level view can afford most of them.
+   * The root font size in pixels. The minimum readable width of a name is
+   * expressed in rem, so the JS side has to read the same scale to convert
+   * between the two.
    */
-  const markerLabelBudget = (zoom: number): number => {
-    const base = isMobileView ? 3 : 6;
-    const perZoom = isMobileView ? 1.5 : 2.5;
-    return Math.round(base + Math.max(0, zoom - 10) * perZoom);
+  const rootRemPx = (): number => {
+    const size = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    return Number.isFinite(size) && size > 0 ? size : 16;
   };
 
-  const rectsOverlap = (a: DOMRect, b: DOMRect, padding: number): boolean =>
-    a.left - padding < b.right &&
-    a.right + padding > b.left &&
-    a.top - padding < b.bottom &&
-    a.bottom + padding > b.top;
+  /**
+   * Which side of its dot a chip sits on: `end` is to the right, `start` is to
+   * the left. A chip starts on the right and moves aside when the origin's
+   * chip is in the way — the origin is the user's own position and keeps its
+   * place, so the shop that would sit under it steps aside.
+   */
+  type MarkerSide = 'end' | 'start';
 
   /**
-   * Decide which name chips are readable. Every marker keeps its dot; only the
-   * chips compete for room, so a chip that would overlap a chip with a stronger
-   * claim fades out instead of fighting over the same pixels. The selected and
-   * hovered shops always keep theirs.
+   * Something a name has to stay clear of: a shop's dot, the origin's chip, or
+   * the box a name already claimed. The id says whose it is, so a name can
+   * recognise its own dot (see `clipWindow`).
+   */
+  type LabelObstacle = { id: string; rect: DOMRect };
+
+  /**
+   * How narrow a name may get before it stops being worth showing: a stub of
+   * a few characters is noise, so the name is hidden and the shop keeps its
+   * dot alone.
+   */
+  const MIN_NAME_WIDTH_REM = 8;
+
+  /**
+   * The gap between a chip and its dot, in rem. It has to match the
+   * stylesheet, which places the chip with the same value.
+   */
+  const CHIP_GAP_REM = 0.4;
+
+  /** A chip's box on the map. */
+  type ChipBox = { left: number; right: number; top: number; bottom: number };
+
+  /**
+   * The box a chip occupies on a given side of its dot.
    *
-   * Colliding chips are hidden with `visibility`, never `display`, so their
+   * The chip is anchored to the dot's box and slides across it when it
+   * changes side, so both boxes can be derived from the dot's rect and the
+   * chip's measured width — the DOM does not have to be laid out twice to
+   * know whether the other side would fit.
+   */
+  const chipBox = (
+    dot: DOMRect,
+    chip: DOMRect,
+    width: number,
+    side: MarkerSide,
+    rem: number
+  ): ChipBox => {
+    const gap = CHIP_GAP_REM * rem;
+    const left = side === 'end' ? dot.right + gap : dot.left - gap - width;
+    return { left, right: left + width, top: chip.top, bottom: chip.bottom };
+  };
+
+  /** Do two boxes overlap? */
+  const boxesOverlap = (a: ChipBox, b: ChipBox): boolean =>
+    a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+
+  /**
+   * The origin chip: a short, permanent label next to the user's position.
+   *
+   * It is placed *before* the shop chips and its box is reserved, so a shop
+   * chip that would land on it steps aside instead of fighting it for the
+   * same pixels. It is short: it either fits whole or it does not show at
+   * all.
+   *
+   * The chip is hidden with `visibility` rather than `display` so that it
+   * keeps its measured box and can reappear on the next pass.
+   */
+  const placeOriginLabel = (
+    obstacles: LabelObstacle[],
+    bounds: DOMRect,
+    rem: number
+  ): DOMRect | null => {
+    const element = originMarkerElement;
+    const label = element?.querySelector<HTMLElement>('.discover-marker-label');
+    if (!element || !label) return null;
+
+    const chip = label.getBoundingClientRect();
+    // A chip that has never been laid out has no room to claim yet.
+    if (chip.width === 0) return null;
+
+    const dot = element.getBoundingClientRect();
+    const box = chipBox(dot, chip, chip.width, 'end', rem);
+    // The origin chip is not released from anything: it is short and it sits
+    // on the user's own position.
+    const window = clipWindow(box, obstacles, bounds, 'origin', 'end');
+    if (window.to - window.from < chip.width - 0.5) {
+      label.classList.add('is-colliding');
+      return null;
+    }
+    label.classList.remove('is-colliding');
+    applyClip(label, 'end', chip.width, 0);
+    return new DOMRect(box.left, box.top, chip.width, chip.height);
+  };
+
+  /**
+   * Where a name has to stop.
+   *
+   * Three kinds of obstacle bound a name: the map's own edge, another shop's
+   * dot, and the names already placed. The dots count because they are drawn
+   * *above* the names — a dot is the interactive target (clicking it opens the
+   * shop card), so it has to stay visible and clickable. A name that ran
+   * across a dot would be punched through by it.
+   *
+   * A name is never blocked by its *own* dot: the chip sits just beside it,
+   * and anything that widened the chip — a scale, a longer name — would push
+   * the chip's edge back over that dot, which would then cut the name to
+   * nothing. A name has to be able to grow without losing itself.
+   *
+   * A chip on the right of its dot is cut at its right end, a chip on the
+   * left at its left end; the cut fades out instead of ending hard (see
+   * `applyClip`).
+   */
+  const clipWindow = (
+    box: ChipBox,
+    obstacles: LabelObstacle[],
+    bounds: DOMRect,
+    ownId: string,
+    side: MarkerSide
+  ): { from: number; to: number } => {
+    let from = bounds.left;
+    let to = bounds.right;
+    for (const obstacle of obstacles) {
+      // A name is never blocked by its own dot.
+      if (obstacle.id === ownId) continue;
+      const other = obstacle.rect;
+      if (other.top >= box.bottom || other.bottom <= box.top) continue;
+      if (side === 'end') {
+        // The chip runs to the right: it stops at the first obstacle in its way.
+        if (other.right <= box.left) continue;
+        if (other.left < to) to = other.left;
+      } else {
+        // The chip runs to the left: it stops at the first obstacle in its way.
+        if (other.left >= box.right) continue;
+        if (other.right > from) from = other.right;
+      }
+    }
+    return { from, to };
+  };
+
+  /**
+   * Clip a name that was cut short.
+   *
+   * The name keeps its full box — only the part that leaves the free space
+   * dissolves, and the cut end fades out instead of ending hard. The mask's
+   * two stops are custom properties: where the cut is (`--clip-fade-end`,
+   * measured from the cut end of the chip) and how wide the fade itself is
+   * (`--clip-fade-size`).
+   *
+   * The mask is *always* on. A name that fits is covered by it completely,
+   * so the mask never appears and disappears — and that is the whole point.
+   * The stops used to be removed while a name was unclipped, which reset
+   * them to their registered initial value of `0px`; the next cut therefore
+   * grew the name out of nothing instead of clipping it, and a name that
+   * already fitted was wiped out and drawn again from zero width.
+   */
+  const applyClip = (
+    label: HTMLElement,
+    side: MarkerSide,
+    visibleWidth: number,
+    fadeSize: number
+  ): void => {
+    label.style.setProperty('--clip-fade-end', `${visibleWidth}px`);
+    label.style.setProperty('--clip-fade-size', `${fadeSize}px`);
+    label.dataset.clip = side;
+  };
+
+  /**
+   * Decide which names are readable and how much of each one fits.
+   *
+   * Every marker keeps its dot; only the names compete for room. A name is
+   * cut where it meets an obstacle — the map's edge, another shop's dot, or a
+   * name that was placed before it — and the cut fades out instead of ending
+   * hard. There is no cap on how many names may show and no cap on how long a
+   * name may be: the free space is the only limit.
+   *
+   * The layout is a pure function of the geometry: the order the chips are
+   * placed in and the space each one claims do not depend on what is hovered
+   * or selected. That is what keeps a hover from making an unrelated label
+   * appear or disappear — the focused chip is the only one that changes, and
+   * it only changes how it is drawn.
+   *
+   * A name with too little room left to read is hidden altogether; the shop
+   * is still on the map through its dot. The focused one is always shown.
+   *
+   * Colliding names are hidden with `visibility`, never `display`, so their
    * boxes keep their measured size and the next pass can reclaim them without
    * a re-layout round trip.
    */
@@ -853,53 +1380,135 @@
     const instance = map;
     if (!instance) return;
 
-    const width = instance.getContainer().clientWidth;
-    const entries: { shop: DiscoverShop; label: HTMLElement }[] = [];
+    const container = instance.getContainer();
+    const bounds = container.getBoundingClientRect();
+    const rem = rootRemPx();
+    const minWidth = MIN_NAME_WIDTH_REM * rem;
+    // How wide the fade at a cut is. It matches the `2rem` the stylesheet's
+    // mask ramp used before the ramp became a custom property.
+    const fadePx = 2 * rem;
+    const entries: { shop: DiscoverShop; label: HTMLElement; dot: DOMRect }[] = [];
 
     for (const shop of sortedShops) {
-      const element = shopMarkerElements[`${shop.id}`];
+      const element = shopMarkerElements.get(`${shop.id}`);
       const label = element?.querySelector<HTMLElement>('.discover-marker-label');
       if (!element || !label) continue;
       // A hidden marker neither shows a label nor reserves room for one.
       if (shop.isClosed && !closedShopsExpanded) continue;
-      // Write before measuring: a flipped chip must be laid out on its new side.
-      const side =
-        instance.project(shop.location.coordinates as [number, number]).x > width * 0.72
-          ? 'start'
-          : 'end';
-      if (element.dataset.side !== side) element.dataset.side = side;
-      entries.push({ shop, label });
+      entries.push({ shop, label, dot: element.getBoundingClientRect() });
     }
 
-    // Read pass: one layout flush for every chip on the map.
+    // Read pass: one layout flush for every name on the map, then the dots
+    // they have to stay clear of.
     const measured = entries.map((entry) => entry.label.getBoundingClientRect());
+    const dots: LabelObstacle[] = [];
+    for (const [id, element] of shopMarkerElements) {
+      // A closed shop's dot is hidden, so it reserves nothing.
+      if (element.style.visibility === 'hidden') continue;
+      dots.push({ id, rect: element.getBoundingClientRect() });
+    }
+    if (originMarkerElement) {
+      dots.push({ id: 'origin', rect: originMarkerElement.getBoundingClientRect() });
+    }
 
-    const order = entries
-      .map((entry, index) => ({
-        index,
-        rect: measured[index]!,
-        priority: markerLabelPriority(`${entry.shop.id}`)
-      }))
-      .sort((a, b) => a.priority - b.priority);
-    const budget = markerLabelBudget(instance.getZoom());
-    const placed: DOMRect[] = [];
+    // The origin chip is placed first: the origin is the user's own position
+    // and keeps its place, so its box is reserved before the shop chips are
+    // placed against it.
+    const originBox = placeOriginLabel(dots, bounds, rem);
+
+    // The chips are placed in the table order, and it does not change with
+    // the hover.
+    //
+    // The focused chips used to be moved to the end of that order, so that
+    // they could float above the rest without claiming any space. But a chip
+    // that gives up its space is a hole in the layout: the chip that took
+    // its place grew into it, which pushed the next one along, and the one
+    // after that — so a hover on one end of the map could hide a label at
+    // the other end. The order is fixed now and every chip claims the same
+    // space whether it is focused or not, so the layout is a pure function
+    // of the geometry and a hover can only change the chip it touches.
     const keep = new Array<boolean>(entries.length).fill(false);
-    let shown = 0;
+    // The dots, plus the boxes the placed names claimed.
+    const obstacles: LabelObstacle[] = [...dots];
+    if (originBox) obstacles.push({ id: 'origin', rect: originBox });
 
-    for (const { index, rect, priority } of order) {
+    for (const [index, entry] of entries.entries()) {
+      const chip = measured[index]!;
       // A chip that has never been laid out has no room to claim yet.
-      if (rect.width === 0) continue;
-      if (priority > 1) {
-        if (shown >= budget) continue;
-        if (placed.some((other) => rectsOverlap(other, rect, 4))) continue;
+      if (chip.width === 0) continue;
+
+      const ownId = `${entry.shop.id}`;
+      const focused = ownId === hoveredShopId || ownId === selectedShopId;
+
+      // Which side of its dot the chip sits on. It starts on the right; when
+      // that would put it on top of the origin's chip — and the other side is
+      // free — it moves to the left. The move itself is animated by the
+      // stylesheet.
+      let side: MarkerSide = 'end';
+      const endBox = chipBox(entry.dot, chip, chip.width, 'end', rem);
+      if (originBox && boxesOverlap(endBox, originBox)) {
+        const startBox = chipBox(entry.dot, chip, chip.width, 'start', rem);
+        if (!boxesOverlap(startBox, originBox) && startBox.left >= bounds.left) {
+          side = 'start';
+        }
       }
-      placed.push(rect);
+      const box = side === 'end' ? endBox : chipBox(entry.dot, chip, chip.width, 'start', rem);
+
+      // Where the name has to stop: the map's edge, the first dot in its way,
+      // or a name that was placed before it. The focused chip is placed
+      // against the same obstacles as everybody else — it only draws itself
+      // differently (see below).
+      const limit = clipWindow(box, obstacles, bounds, ownId, side);
+      // The visible part is what the name claims from the map; the rest of
+      // its box is cut away and claims nothing.
+      const visibleWidth = side === 'end' ? limit.to - box.left : box.right - limit.from;
+      const cut = visibleWidth < chip.width - 0.5;
+      // A cut name needs enough left to still be worth reading — below that
+      // it is hidden and the shop keeps its dot alone.
+      const roomless = cut && visibleWidth < minWidth;
+
+      if (roomless && !focused) {
+        // The name is not readable where it stands: it is hidden and claims
+        // nothing. A focused chip is always shown, but it claims the same
+        // (nothing) either way, so the layout is the same.
+        continue;
+      }
+
+      // The claim: the space this chip holds on the map. It is the same
+      // whether the chip is focused or not — a focused chip that opens up
+      // does not take that extra space away from its neighbours.
+      if (!roomless) {
+        obstacles.push({
+          id: ownId,
+          rect: new DOMRect(box.left, box.top, visibleWidth, box.bottom - box.top)
+        });
+      }
+
       keep[index] = true;
-      shown++;
+      // The side is a data attribute, so the stylesheet can slide the chip
+      // across its dot.
+      const element = shopMarkerElements.get(ownId);
+      if (element && element.dataset.side !== side) element.dataset.side = side;
+      // How the chip is drawn: a focused chip opens up to its full width —
+      // it is the user's attention, and a name that is cut short is a name
+      // nobody can read — and it floats above the rest. The others keep the
+      // cut the layout gave them. The space the chip *claims* is the same
+      // either way, so opening it up never moves the layout.
+      const displayWidth = focused
+        ? side === 'end'
+          ? Math.min(box.right, bounds.right) - box.left
+          : box.right - Math.max(box.left, bounds.left)
+        : visibleWidth;
+      const displayCut = displayWidth < chip.width - 0.5;
+      // The fade is as wide as the last stretch of the name; a name that is
+      // not cut at all needs none.
+      applyClip(entry.label, side, Math.max(0, displayWidth), displayCut ? fadePx : 0);
     }
 
     for (const [index, entry] of entries.entries()) {
       entry.label.classList.toggle('is-colliding', !keep[index]);
+      // A name that is fading out keeps the clip it had: dropping the clip
+      // first would flash the whole name for a frame before the opacity fade.
     }
   };
 
@@ -914,6 +1523,23 @@
     });
   };
 
+  /**
+   * Turn the chip animations on or off.
+   *
+   * While the map is moving the chips have to react *now*: a chip that has
+   * to move to the other side of its dot, or a name that has to be cut
+   * shorter, cannot wait for a transition — the map would carry on moving
+   * while the chip lagged behind it. So the map's own motion turns both
+   * animations off for as long as it lasts, and the settled state turns them
+   * back on.
+   */
+  const setLabelAnimations = (enabled: boolean) => {
+    const container = map?.getContainer();
+    if (!container) return;
+    if (enabled) container.style.removeProperty('--map-motion-duration');
+    else container.style.setProperty('--map-motion-duration', '0s');
+  };
+
   $effect(() => {
     if (!mapContainer || !data || darkMode === undefined || mapError) return;
 
@@ -926,16 +1552,13 @@
         // The style is selected per origin point by the location service; the
         // adapter normalizes it, wires non-standard tile sources through its
         // protocol, and exposes the traffic overlay for this surface.
-        const styleResponse = await fetch(
-          fromPath(
-            `/api/geo/map-style?longitude=${data.location.longitude}&latitude=${data.location.latitude}&theme=${theme}&locale=${getLocale()}&scope=regional`
-          )
-        );
-        if (!styleResponse.ok) throw new Error(`Map style request failed: ${styleResponse.status}`);
-        const { profile, style: servedStyle } = (await styleResponse.json()) as {
-          profile: Record<string, unknown>;
-          style: unknown;
-        };
+        const { profile, style: servedStyle } = await orpc.geo.mapStyle({
+          longitude: data.location.longitude,
+          latitude: data.location.latitude,
+          theme,
+          locale: getLocale(),
+          scope: 'regional'
+        });
         // The surface datum of the resolved profile is what the origin and the
         // returned shops are already drawn in.
         datumOfOrigin =
@@ -943,7 +1566,12 @@
         if (cancelled || !mapContainer) return;
 
         const adapter = createMapLibreAdapter(profile as never, {
-          localFonts: { stacks: ['Sora', 'Noto'], baseUrl: fromPath('/') }
+          localFonts: { stacks: ['Sora', 'Noto'], baseUrl: fromPath('/') },
+          // Built tiles persist in the browser's Cache API: a repeat visit
+          // paints from disk with neither the combo fetch nor the decode —
+          // the repeat-visit speed the SDK gets for free from its cacheable
+          // GET tiles, which the POST-based combo can never have.
+          persistentTileCache: { maxEntries: 2048 }
         });
         adapter.registerProtocols();
         const style = await adapter.loadStyle(servedStyle);
@@ -956,23 +1584,42 @@
           center: [data.location.longitude, data.location.latitude],
           zoom: 10,
           transformRequest: adapter.transformRequest,
-          attributionControl: { compact: true }
+          attributionControl: { compact: true, customAttribution: '' }
         });
+        // Recorded before `map` is assigned: the theme effect reads it in the
+        // same flush and must see the style's theme to skip its redundant
+        // first run.
+        styleTheme = theme;
         map = instance;
+        // The adapter keeps the attribution in step with this map's view.
+        adapter.observeMap(instance);
         const activeMap: maplibregl.Map = instance;
         instance.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-        // Origin marker. MapLibre orders markers by DOM order; the highlight
-        // effect manages stacking through the element's z-index style.
+        // The focused metro itinerary, the drawn shop routes and the traffic
+        // overlay can only be added once a style has finished loading —
+        // MapLibre throws `Style is not done loading.` before that. `load`
+        // covers the initial style; `style.load` fires again after every
+        // theme swap, whose setStyle drops all three from the map.
+        instance.on('load', handleStyleReady);
+        instance.on('style.load', handleStyleReady);
+
+        // Origin marker. MapLibre orders markers by DOM order, but the
+        // highlight effect manages stacking through each element's z-index
+        // style. The origin sits *above* the shop markers: it is the user's
+        // own position and it must never be swallowed by a shop that happens
+        // to be in the same place. It does not take the pointer, though —
+        // `pointer-events: none` lets the shop underneath be hovered and
+        // clicked through it.
         const originMarker = new maplibregl.Marker({
           element: createOriginMarkerElement()
         })
           .setLngLat([data.location.longitude, data.location.latitude])
           .addTo(instance);
-        originMarker.getElement().style.zIndex = '500';
+        originMarkerElement = originMarker.getElement();
+        originMarkerElement.style.zIndex = '700';
 
         // Shop markers with metro line chips and names.
-        const elements: Record<string, HTMLElement> = {};
         for (const shop of data.shops) {
           const marker = new maplibregl.Marker({
             element: createShopMarkerElement(shop)
@@ -980,25 +1627,33 @@
             .setLngLat(shop.location.coordinates as [number, number])
             .addTo(instance);
           const element = marker.getElement();
+          const id = `${shop.id}`;
           element.style.zIndex = '400';
           element.addEventListener('mouseenter', () => {
-            hoveredShopId = `${shop.id}`;
+            hoveredShopId = id;
+            repaintMarker(element, id);
           });
           element.addEventListener('mouseleave', () => {
-            if (hoveredShopId === `${shop.id}`) hoveredShopId = null;
+            if (hoveredShopId === id) hoveredShopId = null;
+            repaintMarker(element, id);
           });
           element.addEventListener('click', (event) => {
             event.stopPropagation();
-            activePopup?.remove();
+            // `showShopPopup` dismisses the previous card itself; doing it here
+            // too would race the exit timer against the new popup.
             showShopPopup(activeMap, shop);
-            handleMarkerClick(`${shop.id}`);
+            handleMarkerClick(id);
+            repaintMarker(element, id);
           });
           if (shop.isClosed) {
             element.style.visibility = 'hidden';
           }
-          elements[`${shop.id}`] = element;
+          // Paint the initial state, so a marker that is already selected or
+          // focused (a selection made before the map finished loading) shows
+          // it right away.
+          paintMarkerState(element, id, selectedShopId, hoveredShopId, selectedShopId);
+          shopMarkerElements.set(id, element);
         }
-        shopMarkerElements = elements;
 
         activePopup = null;
         fitToShops(instance);
@@ -1010,11 +1665,29 @@
         // occluded tab, and the labels should be decluttered before the map is
         // first painted anyway. Only the drag-time pass is frame-paced, since
         // it exists to keep up with motion.
+        //
+        // While the map is moving the chip animations are switched off: a
+        // chip that has to move aside or be cut shorter has to do it *now*,
+        // not trail the map. The settled pass then re-enables them.
+        instance.on('movestart', () => setLabelAnimations(false));
         instance.on('move', scheduleMarkerLabels);
-        instance.on('moveend', refreshMarkerLabels);
+        instance.on('moveend', () => {
+          refreshMarkerLabels();
+          setLabelAnimations(true);
+        });
         instance.on('resize', refreshMarkerLabels);
         instance.once('idle', refreshMarkerLabels);
         refreshMarkerLabels();
+        // The cut animation is armed only once the map has measured every
+        // name: before that a chip that is cut for the first time has to
+        // *appear* cut rather than grow out of nothing.
+        requestAnimationFrame(() => {
+          for (const element of shopMarkerElements.values()) {
+            element
+              .querySelector<HTMLElement>('.discover-marker-label')
+              ?.style.removeProperty('--clip-anim-duration');
+          }
+        });
         if (typeof document !== 'undefined' && document.fonts) {
           void document.fonts.ready.then(() => refreshMarkerLabels());
         }
@@ -1030,9 +1703,9 @@
         cancelAnimationFrame(markerLabelFrame);
         markerLabelFrame = null;
       }
-      activePopup?.remove();
-      activePopup = null;
-      shopMarkerElements = {};
+      dismissPopupNow();
+      shopMarkerElements.clear();
+      originMarkerElement = null;
       instance?.remove();
       if (map === instance) {
         map = undefined;
@@ -1048,34 +1721,56 @@
     untrack(() => {
       for (const shop of data.shops) {
         if (!shop.isClosed) continue;
-        const element = shopMarkerElements[`${shop.id}`];
+        const element = shopMarkerElements.get(`${shop.id}`);
         if (element) element.style.visibility = expanded ? '' : 'hidden';
       }
       scheduleMarkerLabels();
     });
   });
 
-  // Theme changes re-select the style for the current surface.
+  // Theme changes re-select the style for the current surface. The initial
+  // style is already built for the current theme (the map init effect loads
+  // it), so the effect must skip its first run: re-applying the same style
+  // would tear down every tile and re-fetch the whole basemap for nothing —
+  // the double style load that made startup tile rendering twice as slow as
+  // the SDK's, and stretched `isStyleLoaded() === false` across the window
+  // every early route draw gave up in.
+  let styleTheme: 'dark' | 'light' | null = null;
+  /**
+   * Bumped every time a style finishes loading — once at map init and again
+   * after each theme swap. Effects that add sources/layers track it, because
+   * `setStyle` drops them: a redraw that only listened for data changes would
+   * never repaint after a theme change.
+   */
+  let mapStyleEpoch = $state(0);
+
+  const handleStyleReady = () => {
+    mapStyleEpoch += 1;
+  };
+
   $effect(() => {
     if (!map || darkMode === undefined) return;
     const theme = darkMode ? 'dark' : 'light';
+    if (styleTheme === theme) return;
     untrack(async () => {
       try {
-        const response = await fetch(
-          fromPath(
-            `/api/geo/map-style?longitude=${data.location.longitude}&latitude=${data.location.latitude}&theme=${theme}&locale=${getLocale()}&scope=regional`
-          )
-        );
-        if (!response.ok) return;
-        const { profile, style: servedStyle } = (await response.json()) as {
-          profile: Record<string, unknown>;
-          style: unknown;
-        };
+        const { profile, style: servedStyle } = await orpc.geo.mapStyle({
+          longitude: data.location.longitude,
+          latitude: data.location.latitude,
+          theme,
+          locale: getLocale(),
+          scope: 'regional'
+        });
         const adapter = createMapLibreAdapter(profile as never, {
           localFonts: { stacks: ['Sora', 'Noto'], baseUrl: fromPath('/') }
         });
-        const style = (await adapter.loadStyle(servedStyle)) as unknown as maplibregl.StyleSpecification;
+        const style = (await adapter.loadStyle(
+          servedStyle
+        )) as unknown as maplibregl.StyleSpecification;
         mapAdapter = adapter;
+        styleTheme = theme;
+        // The replacement adapter must re-attach to the live map.
+        if (map) adapter.observeMap(map);
         map?.setStyle(style, { diff: false });
       } catch {
         // Keep the current style; the next full reload picks the theme up.
@@ -1098,7 +1793,14 @@
     travelData = {};
   });
 
-  // ── Route layers: one GeoJSON source restyled per hover/selection ─────────
+  // ── Route layers: the resting overview lines ──────────────────────────────
+  // One knob decides what the map shows: the selected shop. Its route is the
+  // active itinerary (drawn by <Directions>); every other shop's route is a
+  // thin resting blue line here. No hover, selection or panel feature states —
+  // those were a second, disagreeing source of truth.
+
+  /** The map instance the route line's click/hover listeners are bound to. */
+  let routeLayerListenersOn: maplibregl.Map | null = null;
 
   const clearShopRoutes = () => {
     const instance = map;
@@ -1109,112 +1811,165 @@
 
   $effect(() => {
     const instance = map;
-    if (!instance || !instance.isStyleLoaded()) return;
+    // `travelData` is read before any early return on purpose: Svelte tracks
+    // only what an effect *run* actually read, so an effect that bails on an
+    // unready style before this line would never hear about the routes that
+    // arrive afterwards — and with the style taking tens of seconds to settle
+    // (or being replaced wholesale by a theme swap), that was every run.
     const routeEntries = Object.entries(travelData).filter(
       ([, travel]) => travel?.path && travel.path.length >= 2
     );
+    // Re-run after every style (re)load as well: `setStyle` drops the source,
+    // so a redraw that only listened for data changes never repainted after a
+    // theme swap.
+    const epoch = mapStyleEpoch;
+    // The selected shop's route does not draw here at all: the active
+    // itinerary drawing replaces it.
+    const selected = selectedShopId;
+    if (!instance) return;
     untrack(() => {
-      if (routeEntries.length === 0) {
-        clearShopRoutes();
+      const overviewEntries = routeEntries.filter(([shopId]) => shopId !== selected);
+      if (overviewEntries.length === 0) {
+        if (instance.getSource(ROUTES_SOURCE_ID)) clearShopRoutes();
         return;
       }
-      const features = routeEntries.map(([shopId, travel]) => ({
+      const features = overviewEntries.map(([shopId, travel]) => ({
         type: 'Feature' as const,
         geometry: { type: 'LineString' as const, coordinates: travel!.path },
         id: shopId,
         properties: { shopId }
       }));
-      const source = instance.getSource(ROUTES_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
-      if (source) {
-        source.setData({ type: 'FeatureCollection', features });
-      } else {
+      // Feed the existing source first, whatever the style's transaction
+      // state: `setData` is always safe, while `isStyleLoaded()` is false
+      // even after this effect's own `addSource` until the next render frame
+      // — gating every run on it dropped all but the first route.
+      let source = instance.getSource(ROUTES_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+      if (!source) {
+        // Before the style's first load completes `addSource` throws; the
+        // epoch bump on `style.load` re-runs this effect when it does.
+        if (epoch === 0) return;
         instance.addSource(ROUTES_SOURCE_ID, {
           type: 'geojson',
           data: { type: 'FeatureCollection', features }
         });
-        instance.addLayer({
-          id: ROUTE_LINE_LAYER_ID,
-          type: 'line',
-          source: ROUTES_SOURCE_ID,
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: {
-            'line-color': [
-              'case',
-              ['boolean', ['feature-state', 'selected'], false],
-              '#00ff00',
-              ['boolean', ['feature-state', 'hovered'], false],
-              '#ffa500',
-              '#00e5ff'
-            ],
-            'line-width': [
-              'case',
-              ['boolean', ['feature-state', 'selected'], false],
-              3.8,
-              ['boolean', ['feature-state', 'hovered'], false],
-              4.2,
-              3
-            ],
-            'line-opacity': [
-              'case',
-              ['boolean', ['feature-state', 'faded'], false],
-              0,
-              ['boolean', ['feature-state', 'highlighted'], false],
-              1,
-              0.4
-            ]
-          }
-        });
-        instance.on('click', ROUTE_LINE_LAYER_ID, (event) => {
-          const shopId = event.features?.[0]?.properties?.shopId;
-          if (shopId) {
-            selectedShopId = `${shopId}`;
-            showDirections();
-          }
-        });
-        instance.on('mouseenter', ROUTE_LINE_LAYER_ID, () => {
-          instance.getCanvas().style.cursor = 'pointer';
-        });
-        instance.on('mouseleave', ROUTE_LINE_LAYER_ID, () => {
-          instance.getCanvas().style.cursor = '';
-        });
-      }
-      // Push hover/selection into feature state.
-      for (const [shopId] of routeEntries) {
-        instance.setFeatureState(
-          { source: ROUTES_SOURCE_ID, id: shopId },
+        // Overview lines sit UNDER the active itinerary (`directions-route-*`,
+        // owned by <Directions>): when they are re-added while it is already
+        // on the map, appending would stack the thin lines on top of it.
+        const beforeId = instance.getLayer('directions-route-casing')
+          ? 'directions-route-casing'
+          : undefined;
+        instance.addLayer(
           {
-            selected: selectedShopId === shopId,
-            hovered: hoveredShopId === shopId,
-            faded: directions.isOpen && directions.shopId === shopId,
-            highlighted:
-              (selectedShopId === shopId || hoveredShopId === shopId) &&
-              !(directions.isOpen && directions.shopId === shopId)
-          }
+            id: ROUTE_LINE_LAYER_ID,
+            type: 'line',
+            source: ROUTES_SOURCE_ID,
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: {
+              // One quiet colour for every resting route; the active itinerary
+              // is the only line that speaks.
+              'line-color': '#38bdf8',
+              'line-width': 3,
+              'line-opacity': 0.4
+            }
+          },
+          beforeId
         );
+        // Map-level listeners survive `setStyle`, but the layer does not: bind
+        // them once per map instance, or every redraw after a theme swap would
+        // stack another copy of each handler.
+        if (routeLayerListenersOn !== instance) {
+          routeLayerListenersOn = instance;
+          instance.on('click', ROUTE_LINE_LAYER_ID, (event) => {
+            const shopId = event.features?.[0]?.properties?.shopId;
+            if (shopId) {
+              selectedShopId = `${shopId}`;
+              showDirections();
+            }
+          });
+          instance.on('mouseenter', ROUTE_LINE_LAYER_ID, () => {
+            instance.getCanvas().style.cursor = 'pointer';
+          });
+          instance.on('mouseleave', ROUTE_LINE_LAYER_ID, () => {
+            instance.getCanvas().style.cursor = '';
+          });
+        }
       }
+      source = instance.getSource(ROUTES_SOURCE_ID) as maplibregl.GeoJSONSource;
+      source.setData({ type: 'FeatureCollection', features });
     });
   });
 
-  // Selection drives the camera and opens the Directions panel.
+  // ── The one knob: the selected shop ───────────────────────────────────────
+  // Everything the map draws and the panel shows follows `selectedShopId`.
+  // `directions` mirrors it for the panel: the shop, the route index (reset
+  // on a shop change so one shop's tab choice never applies to another), and
+  // the open state (a panel without a selection is meaningless). Closing the
+  // panel, by contrast, must NOT clear the selection — the active route
+  // stays on the map.
+
   $effect(() => {
-    if (!selectedShopId || !map) return;
+    const selected = selectedShopId;
+    if (directions.shopId !== selected) {
+      directions.shopId = selected;
+      directions.selectedRouteIndex = selected
+        ? (travelData[selected]?.selectedRouteIndex ?? 0)
+        : 0;
+    }
+    if (!selected && handledSelectionShopId) {
+      // Deselected: the next selection of the same shop must fit and open
+      // again, so forget that it was handled.
+      handledSelectionShopId = null;
+      handledSelectionSource = null;
+    }
+    if (!selected && directions.isOpen) directions.isOpen = false;
+  });
+
+  // Selection drives the camera and opens the Directions panel.
+  /**
+   * What the selection has already been handled with: the shop id and the
+   * data source ('route' = a live routed path, 'metro' = the reconstructed
+   * itinerary). Guards the camera fit and the panel open against the
+   * re-runs every travel-data mutation causes, while still upgrading a metro
+   * handling to a route fit when the live path arrives.
+   */
+  let handledSelectionShopId: string | null = null;
+  let handledSelectionSource: 'route' | 'metro' | null = null;
+  $effect(() => {
+    const selected = selectedShopId;
+    if (!selected || !map) return;
     const instance = map;
+    // Both reads sit outside `untrack` on purpose: Svelte re-runs an effect
+    // only for dependencies its last run actually read, so a route that
+    // arrives *after* the selection must be seen here to fit the camera and
+    // open the panel at all.
+    const route = travelData[selected]?.path;
+    const hasMetroItinerary = Boolean(shopRouteData[selected]);
     untrack(() => {
-      const shop = data.shops.find((s) => `${s.id}` === selectedShopId);
+      const shop = data.shops.find((s) => `${s.id}` === selected);
       if (!shop) return;
-      const route = travelData[selectedShopId!]?.path;
+      const handled = handledSelectionShopId === selected ? handledSelectionSource : null;
+      // A first handling opens the panel; later ones only upgrade the drawing
+      // and the camera — the user may have closed the panel meanwhile, and a
+      // passive arrival must not pop it back open.
+      const firstHandling = handled === null;
       if (route && route.length >= 2) {
+        if (handled === 'route') return;
+        handledSelectionShopId = selected;
+        handledSelectionSource = 'route';
         const bounds = new maplibregl.LngLatBounds();
         for (const [lng, lat] of route) bounds.extend([lng, lat]);
         instance.fitBounds(bounds, { padding: 72, duration: 600, maxZoom: 16 });
-        directions.shopId = selectedShopId;
-        openDirections();
-      } else if (shopRouteData[selectedShopId!]) {
+        if (firstHandling || directions.isOpen) openDirections();
+      } else if (hasMetroItinerary) {
         // No live route for this shop, but the server supplied a metro
         // itinerary, so the panel can open without waiting.
-        directions.shopId = selectedShopId;
-        openDirections();
+        if (handled === 'metro') return;
+        handledSelectionShopId = selected;
+        handledSelectionSource = 'metro';
+        if (firstHandling || directions.isOpen) openDirections();
       } else {
+        // Neither has arrived yet: settle the camera on the shop. When the
+        // route lands it re-runs this effect into the fit branch above.
         instance.easeTo({
           center: shop.location.coordinates as [number, number],
           zoom: Math.max(instance.getZoom(), 15),
@@ -1224,35 +1979,22 @@
     });
   });
 
-  /**
-   * Opening the panel for the selection always falls back to the metro
-   * itinerary when there is one; the live-route effect above handles the case
-   * where a route exists (it runs with the route already in hand).
-   */
-  $effect(() => {
-    if (!selectedShopId) return;
-    const selected = selectedShopId;
-    if (!shopRouteData[selected]) return;
-    // A live route takes precedence and opens the panel via its own effect.
-    if (travelData[selected]?.routeData) return;
-    untrack(() => {
-      directions = { isOpen: true, shopId: selected, selectedRouteIndex: 0 };
-      openDirections();
-    });
-  });
-
-  // Marker highlight follows hover/selection.
+  // Marker highlight follows hover/selection; the selected shop's marker
+  // wears the route-active styling, since its itinerary is what the map
+  // draws.
+  //
+  // The marker listeners repaint their own marker immediately (see
+  // `repaintMarker`); this effect keeps every *other* marker in sync when the
+  // selection or the hover changes.
   $effect(() => {
     const selected = selectedShopId;
     const hovered = hoveredShopId;
+    const routeActiveId = selected;
     untrack(() => {
       for (const shop of data.shops) {
-        const element = shopMarkerElements[`${shop.id}`];
+        const element = shopMarkerElements.get(`${shop.id}`);
         if (!element) continue;
-        element.dataset.state =
-          selected === `${shop.id}` ? 'selected' : hovered === `${shop.id}` ? 'hovered' : 'idle';
-        element.style.zIndex =
-          selected === `${shop.id}` ? '600' : hovered === `${shop.id}` ? '550' : '400';
+        paintMarkerState(element, `${shop.id}`, selected, hovered, routeActiveId);
       }
       // The hovered and selected shops outrank the rest for a label.
       scheduleMarkerLabels();
@@ -1263,7 +2005,9 @@
   $effect(() => {
     const instance = map;
     const adapter = mapAdapter;
-    if (!instance || !adapter) return;
+    // Re-added after every style (re)load: `setStyle` drops the layer.
+    const epoch = mapStyleEpoch;
+    if (!instance || !adapter || !epoch) return;
     if (['transit', 'riding', 'driving'].includes(transportMethod ?? '')) {
       untrack(() => adapter.addTrafficOverlay(instance, { opacity: 0.5 }));
     } else {
@@ -1276,95 +2020,6 @@
         }
       });
     }
-  });
-
-  // ── Ambient metro overlay ────────────────────────────────────────────────
-  // Always on, independent of the transport method: hovering (or selecting) a
-  // shop paints its openmetro itinerary from the response alone — solid ride
-  // legs in official line colors, dashed grey walks. The overlay is hidden
-  // while a Directions panel is open because the panel draws its own.
-
-  const clearMetroOverlay = () => {
-    const instance = map;
-    if (!instance) return;
-    removeLayerAndSource(instance, METRO_LAYER_ID);
-    removeLayerAndSource(instance, `${METRO_LAYER_ID}-solid`);
-    removeLayerAndSource(instance, METRO_SOURCE_ID);
-  };
-
-  const drawMetroOverlay = (shopId: string, emphasized: boolean) => {
-    const instance = map;
-    if (!instance) return;
-    const shop = data.shops.find((entry) => `${entry.id}` === shopId);
-    if (!shop) return;
-
-    // Only metro shops have an itinerary to paint. A shop with no metro
-    // advantage shows no overlay at all, exactly as before metro existed.
-    const segments = shop.travel ? buildMetroOverlay(shop, data.metro) : [];
-    if (segments.length === 0) return;
-
-    const features = segments.map((segment) => ({
-      type: 'Feature' as const,
-      geometry: { type: 'LineString' as const, coordinates: segment.path },
-      properties: {
-        color: segment.color ?? METRO_WALK_COLOR,
-        dashed: segment.dashed ? 1 : 0,
-        weight: emphasized ? segment.weight + 1 : segment.weight
-      }
-    }));
-    instance.addSource(METRO_SOURCE_ID, {
-      type: 'geojson',
-      data: { type: 'FeatureCollection', features }
-    });
-    instance.addLayer({
-      id: METRO_LAYER_ID,
-      type: 'line',
-      source: METRO_SOURCE_ID,
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: {
-        'line-color': ['get', 'color'],
-        'line-width': ['get', 'weight'],
-        'line-opacity': emphasized ? 1 : 0.85,
-        'line-dasharray': [2, 2]
-      },
-      filter: ['get', 'dashed']
-    });
-    instance.addLayer({
-      id: `${METRO_LAYER_ID}-solid`,
-      type: 'line',
-      source: METRO_SOURCE_ID,
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: {
-        'line-color': ['get', 'color'],
-        'line-width': ['get', 'weight'],
-        'line-opacity': emphasized ? 1 : 0.85
-      },
-      filter: ['!', ['get', 'dashed']]
-    });
-  };
-
-  /**
-   * Shop id whose overlay should be painted: the hovered shop wins, otherwise
-   * the selected one (so the route stays visible after clicking).
-   */
-  let metroOverlayShopId = $derived.by(() => {
-    if (!metroEnabled) return null;
-    if (hoveredShopId) return hoveredShopId;
-    if (selectedShopId) return selectedShopId;
-    return null;
-  });
-
-  $effect(() => {
-    const shopId = metroOverlayShopId;
-    const directionsOpen = directions.isOpen;
-    untrack(() => {
-      clearMetroOverlay();
-      if (!shopId || directionsOpen) return;
-      // A live route for this shop draws itself; the metro overlay would
-      // double-draw a different path on top of it.
-      if (travelData[shopId]?.path) return;
-      drawMetroOverlay(shopId, hoveredShopId === shopId);
-    });
   });
 
   /**
@@ -1529,7 +2184,7 @@
   fare={activeDirectionsFare}
   fareCurrency={activeDirectionsFareCurrency}
   map={map ?? null}
-  mapLink={mapLink}
+  {mapLink}
   onClose={() => {
     directions.isOpen = false;
   }}
@@ -1559,16 +2214,15 @@
     const shopData = directions.shopId ? travelData[directions.shopId] : undefined;
     const result = shopData?.routeData;
     if (shopData && result && isValidRouteData(result)) {
-      const selectedRoute = [...result.routes].sort(
-        (a, b) => a.durationSeconds - b.durationSeconds
-      )[index];
+      const sorted = [...result.routes].sort((a, b) => a.durationSeconds - b.durationSeconds);
+      const selectedRoute = sorted[index];
       if (selectedRoute) {
         travelData[`${directions.shopId}`] = {
           time: selectedRoute.durationSeconds,
           distance: selectedRoute.distanceMeters / 1000,
           path: selectedRoute.geometry,
           selectedRouteIndex: index,
-          routeData: result
+          routeData: { routes: sorted }
         };
       }
     }
@@ -1784,10 +2438,20 @@
        template expression makes Svelte rewrite `className` wholesale on the
        next update, which drops that class and with it the `position: relative`
        that pins the canvas and controls to this box. `class:` directives
-       toggle individual classes instead, so MapLibre's own class survives. -->
+       toggle individual classes instead, so MapLibre's own class survives.
+
+       `isolate` is the load-bearing one. It makes this box its own stacking
+       context, so everything MapLibre puts inside it — the markers (z-index
+       up to 650), the popup card (1200), the nav controls — is painted
+       *inside* the map and can never spill out over the page's own overlays.
+       Without it those z-index values compete in the root stacking context,
+       and the map's chips float on top of the settings dropdown (z-50) and
+       the Directions panel (z-1000) — which is exactly the "the map covers
+       the page's modal" bug. With it, the map is just page content: it is
+       painted below every positioned overlay the page puts on top of it. -->
   <div
     id="map-container"
-    class="mb-4 h-[50vh] w-full rounded-xl md:h-[60vh]"
+    class="isolate mb-4 h-[50vh] w-full rounded-xl md:h-[60vh]"
     class:bg-base-200={!map}
     class:animate-pulse={!map}
     class:opacity-50={!map}
@@ -2271,48 +2935,267 @@
      and it is `pointer-events: none` for the same reason: with chips this
      wide, a clickable one would swallow clicks aimed at the dots it covers.
      Theme colours come in as `var(--color-*)` because this block references
-     Tailwind alone, which does not know the daisyUI palette. */
+     Tailwind alone, which does not know the daisyUI palette.
+
+     ⚠ `.discover-marker` is the element MapLibre itself transforms:
+     `marker.ts` writes `element.style.transform = "translate(x, y)"` on every
+     `move`. A `transition: transform` here therefore eases the marker's
+     *position* too, which reads as markers lagging behind the basemap while
+     the user pans. So: **no transition on `.discover-marker`**, and no
+     `transform` on it at all — every animated property lives on the inner dot
+     and label instead. `will-change: transform` is deliberately NOT set,
+     because the same compositor layer that makes position updates cheap also
+     pins the rasterised dot and blurs it.
+
+     ── One palette, four states ────────────────────────────────────────────
+     Every state is a single hue (`--marker-hue`) that the dot *and* the chip
+     around it are drawn from, plus two weights (`--marker-tint` for the
+     chip's background, `--marker-edge` for its border). The states therefore
+     differ in *strength*, not in kind: a resting marker is a soft blue, the
+     hovered one a bright amber, the selected one a strong red, and the shop
+     the drawn ride ends at a green. Nothing about the map's palette is
+     invented here — the hues are daisyUI's own semantic colours, so they
+     follow the light and the dark theme.
+
+     The dot carries a soft halo in its own hue rather than a hard ring. A
+     ring in the page's background colour drew a black ring around every
+     marker in the dark theme, which was the loudest thing on the map. */
   :global(.discover-marker) {
-    @apply flex h-3.5 w-3.5 items-center justify-center;
+    /* The marker's own geometry, shared with the chip that sits beside it. */
+    --marker-size: 0.875rem;
+    --chip-gap: 0.4rem;
+    /* The state defaults to "a place on the map": a blue that is pulled a
+       little towards the page's own background, so a resting marker recedes
+       instead of competing with the hovered one. */
+    --marker-hue: color-mix(in oklab, var(--color-info) 85%, var(--color-base-100) 15%);
+    --marker-tint: 6%;
+    --marker-edge: 28%;
+    --marker-halo: 22%;
   }
 
+  /* The hovered marker is the one that has to be seen first. Amber is a pale
+     colour, and on the light theme a pale yellow on a pale map disappears —
+     so it is mixed with the theme's text colour, which pulls it down on the
+     light theme and up on the dark one. */
+  :global(.discover-marker[data-state='hovered']) {
+    --marker-hue: color-mix(in oklab, var(--color-warning) 80%, var(--color-base-content) 20%);
+    --marker-tint: 12%;
+    --marker-edge: 52%;
+    --marker-halo: 38%;
+  }
+
+  /* Route-active: the shop the drawn itinerary terminates at. */
+  :global(.discover-marker[data-route='on']) {
+    --marker-hue: var(--color-success);
+    --marker-tint: 12%;
+    --marker-edge: 50%;
+    --marker-halo: 36%;
+  }
+
+  /* Declared after route-active so the selection always wins: the selected
+     shop is also the route's shop while the pointer is on it. */
+  :global(.discover-marker[data-state='selected']) {
+    --marker-hue: var(--color-error);
+    --marker-tint: 14%;
+    --marker-edge: 58%;
+    --marker-halo: 42%;
+  }
+
+  :global(.discover-marker) {
+    @apply flex cursor-pointer items-center justify-center;
+    /* The marker's own size. The chip is placed with a transform measured
+       against it (see below), so the two live in one variable and cannot
+       drift apart. */
+    height: var(--marker-size);
+    width: var(--marker-size);
+  }
+
+  /* The dot carries all of the motion. Transitions are declared here so they
+     apply on the first paint too — otherwise the initial `idle` state would
+     be set before any transition exists and the first hover snaps. */
   :global(.discover-marker-dot) {
     @apply block h-2.5 w-2.5 rounded-full;
-    background-color: var(--color-info);
-    box-shadow: 0 0 0 2px var(--color-base-100);
-    transition: scale 150ms ease;
+    background-color: var(--marker-hue);
+    box-shadow:
+      0 0 0 1.5px color-mix(in oklab, var(--marker-hue) 45%, transparent),
+      0 0 0 4.5px color-mix(in oklab, var(--marker-hue) var(--marker-halo), transparent);
+    transition:
+      scale 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      background-color 160ms ease,
+      box-shadow 200ms ease;
+  }
+
+  /* Origin marker: larger, and in the accent palette so it never loses
+     against a shop dot. It also lets the pointer through to the shop
+     underneath — the origin is often the very place a shop is, and the shop
+     still has to be hoverable and clickable there. */
+  :global(.discover-marker-origin) {
+    --marker-hue: color-mix(in oklab, var(--color-accent) 88%, var(--color-base-content) 12%);
+    --marker-tint: 0%;
+    --marker-edge: 0%;
+    --marker-halo: 34%;
+    pointer-events: none;
   }
 
   :global(.discover-marker-origin .discover-marker-dot) {
     @apply h-3 w-3;
-    background-color: var(--color-accent);
-    box-shadow: 0 0 0 3px var(--color-base-100);
+    background-color: var(--marker-hue);
+    box-shadow:
+      0 0 0 1.5px color-mix(in oklab, var(--marker-hue) 55%, transparent),
+      0 0 0 5.5px color-mix(in oklab, var(--marker-hue) var(--marker-halo), transparent);
   }
 
+  /* `scale` is used as its own property rather than inside `transform`: it
+     composes with MapLibre's inline transform instead of overwriting it. */
   :global(.discover-marker[data-state='hovered'] .discover-marker-dot) {
-    @apply scale-150;
-    background-color: var(--color-warning);
+    scale: 1.45;
   }
 
   :global(.discover-marker[data-state='selected'] .discover-marker-dot) {
-    @apply scale-150;
-    background-color: var(--color-error);
+    scale: 1.6;
+    animation: discover-marker-pulse 2s ease-in-out infinite;
   }
 
+  /* Only the ring breathes — animating `box-shadow` repaints, but this runs
+     on one tiny element, so it stays off the critical path. */
+  @keyframes discover-marker-pulse {
+    0%,
+    100% {
+      box-shadow:
+        0 0 0 1.5px color-mix(in oklab, var(--marker-hue) 45%, transparent),
+        0 0 0 5px color-mix(in oklab, var(--marker-hue) 34%, transparent);
+    }
+    50% {
+      box-shadow:
+        0 0 0 1.5px color-mix(in oklab, var(--marker-hue) 45%, transparent),
+        0 0 0 9px color-mix(in oklab, var(--marker-hue) 8%, transparent);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.discover-marker[data-state='selected'] .discover-marker-dot) {
+      animation: none;
+    }
+    :global(.discover-marker-dot) {
+      transition: background-color 160ms ease;
+    }
+  }
+
+  /* The chip is as long as the shop name — no width cap, no ellipsis. It sits
+     next to its dot and grows to the right; when it runs out of room it is
+     cut and the cut fades out (see the mask rules below).
+
+     The chip is placed with a *transform*, not with `left`/`right`: the
+     transform is the only thing that can be transitioned, so it is what
+     makes the move from one side of the dot to the other animate. The
+     translate is measured against the marker's own box, hence
+     `--marker-size`; the chip's gap from the dot is `--chip-gap`.
+
+     `font-family` is re-seeded here explicitly: maplibregl-gl.css hardcodes
+     `font: 12px/20px Helvetica Neue,…` on `.maplibregl-map`, and every marker
+     lives inside it — so without this the names fall back to the user-agent
+     sans instead of the site's stack (the popup card re-seeds it the same way).
+
+     No `backdrop-filter` and no `box-shadow`: the chip is masked (see
+     below), and a mask clips everything the element paints outside its own
+     box — a shadow would be cut off at the mask's edge, so the chips that
+     were cut looked different from the ones that were not. The border and
+     the background carry the separation instead. */
   :global(.discover-marker-label) {
-    @apply pointer-events-none absolute top-1/2 left-[calc(100%+0.4rem)] flex max-w-44 -translate-y-1/2 items-center gap-x-1.5 rounded-full border px-2 text-xs leading-5 font-medium whitespace-nowrap shadow-md backdrop-blur-md;
-    background-color: color-mix(in oklab, var(--color-base-100) 90%, transparent);
-    border-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+    @apply pointer-events-none absolute top-1/2 left-0 flex -translate-y-1/2 items-center gap-x-1.5 rounded-full border px-2 text-xs leading-5 font-medium whitespace-nowrap;
+    transform: translateX(calc(var(--marker-size) + var(--chip-gap)));
+    background-color: color-mix(
+      in oklab,
+      var(--marker-hue) var(--marker-tint),
+      var(--color-base-100)
+    );
+    border-color: color-mix(in oklab, var(--marker-hue) var(--marker-edge), transparent);
+    /* The name always reads in the page's own text colour. Tinting the text
+       with the state colour looked tidy on the dark theme and was unreadable
+       on the light one — amber on a near-white chip. */
     color: var(--color-base-content);
-    transition:
-      opacity 150ms ease,
-      visibility 150ms ease;
+    font-family: 'Sora Variable', 'Noto Sans SC Variable', sans-serif;
+    transition-property:
+      opacity, visibility, background-color, border-color, color, transform, --clip-fade-end,
+      --clip-fade-size;
+    transition-duration:
+      150ms, 150ms, 160ms, 160ms, 160ms, var(--map-motion-duration, 200ms),
+      var(--clip-anim-duration, var(--map-motion-duration, 200ms)),
+      var(--clip-anim-duration, var(--map-motion-duration, 200ms));
+    transition-timing-function:
+      ease, ease, ease, ease, ease, cubic-bezier(0.4, 0, 0.2, 1), ease, ease;
   }
 
-  /* Near the right edge of the map the chip flips to the dot's left. */
+  /* The chip on the left of its dot. It slides across the dot, which is what
+     the transition on `transform` is for. */
   :global(.discover-marker[data-side='start'] .discover-marker-label) {
-    @apply right-[calc(100%+0.4rem)] left-auto;
+    transform: translateX(calc(-100% - var(--chip-gap)));
   }
+
+  /* ── Clipped-edge fades ────────────────────────────────────────────────────
+     A name that runs out of room is cut, and a hard cut reads as a bug — so
+     the cut end fades out instead. The mask's two stops are custom
+     properties so the cut can *move*: a hovered name is released from the
+     dots and the other names and opens up to its full width, and the name
+     that was cut collapses back to its cut width when the pointer leaves.
+
+     `--clip-fade-end` is the width of the part that is still shown, measured
+     from the chip's cut end; `--clip-fade-size` is how wide the fade itself
+     is (zero when there is nothing to fade). */
+  @property --clip-fade-end {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+  }
+
+  @property --clip-fade-size {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+  }
+
+  /* The mask is present for as long as the chip is: a name that fits is
+     covered by it completely, so the mask never appears or disappears. That
+     is the whole point — the stops used to be removed while a name was
+     unclipped, which reset them to `0px`, and the next cut then grew the
+     name out of nothing instead of clipping it. */
+  :global(.discover-marker-label[data-clip='end']) {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      #000 0,
+      #000 calc(var(--clip-fade-end) - var(--clip-fade-size)),
+      transparent var(--clip-fade-end)
+    );
+    mask-image: linear-gradient(
+      to right,
+      #000 0,
+      #000 calc(var(--clip-fade-end) - var(--clip-fade-size)),
+      transparent var(--clip-fade-end)
+    );
+  }
+
+  /* The same cut, on a chip that sits to the left of its dot. */
+  :global(.discover-marker-label[data-clip='start']) {
+    -webkit-mask-image: linear-gradient(
+      to left,
+      #000 0,
+      #000 calc(var(--clip-fade-end) - var(--clip-fade-size)),
+      transparent var(--clip-fade-end)
+    );
+    mask-image: linear-gradient(
+      to left,
+      #000 0,
+      #000 calc(var(--clip-fade-end) - var(--clip-fade-size)),
+      transparent var(--clip-fade-end)
+    );
+  }
+
+  /* The hover and selection feedback lives on the dot — it grows and changes
+     colour — and on the chip's border and background, which carry the same
+     hue in a slightly stronger weight. The name deliberately does not scale:
+     a name is placed against the space its own box claims, so a scaled chip
+     claims room it does not have, and on a long name it pushes the chip's
+     edge back over its own dot — which would cut the name to nothing. */
 
   /* Overlapped chips fade out but keep their box: the next declutter pass
      measures them, and a `display: none` chip would measure as zero. */
@@ -2321,14 +3204,16 @@
     visibility: hidden;
   }
 
+  /* The origin's chip is the one solid, saturated label on the map: it says
+     "you are here" and nothing else has to compete with it. */
   :global(.discover-marker-label-static) {
     @apply border-transparent font-semibold;
-    background-color: color-mix(in oklab, var(--color-accent) 90%, transparent);
+    background-color: var(--color-accent);
     color: var(--color-accent-content);
   }
 
   :global(.discover-marker-name) {
-    @apply min-w-0 overflow-hidden text-ellipsis;
+    @apply min-w-0;
   }
 
   :global(.discover-marker-lines) {
@@ -2339,13 +3224,192 @@
     @apply min-w-5 shrink-0 rounded-sm px-1 text-center leading-5 font-bold whitespace-nowrap;
   }
 
-  @media (max-width: 767px) {
-    :global(.discover-marker-label) {
-      @apply max-w-32;
+  /* ── Discover shop popup ─────────────────────────────────────────────────
+     The card itself (.discover-popup) carries its own theme-aware
+     background and border; maplibreg's own wrapper still defaults to white
+     and would otherwise flash through any transparency. The close button
+     + tip must reach out of the popup wrapper too.
+
+     `font-family` is re-seeded here explicitly: maplibreg-gl.css hardcodes
+     `font: 12px/20px Helvetica Neue,…` on `.maplibregl-map`, and every popup
+     lives inside it — so without this the card silently falls back to the
+     user-agent sans (looks nothing like the rest of the app, which uses
+     Sora / Noto Sans SC from `app.css`).
+
+     `z-index: 1200` puts the popup above the `.discover-marker` layer (which
+     maxes out at 650), so the card never sits under a sibling shop chip.
+     These values are scoped to the map: the map container is an isolated
+     stacking context (`isolate`), so they order the map's own layers and
+     never lift the card over the page's overlays.
+
+     ── Blur ──────────────────────────────────────────────────────────────
+     Two stacked effects were making the card text look soft, and both are
+     fixed here rather than worked around:
+
+       1. `backdrop-filter` on the card. The card is `bg-base-100` — fully
+          opaque — so the blur had nothing to sample, but it still forced a
+          backdrop root that re-rasterised the text at every animated frame.
+          Removed (`backdrop-blur-md` dropped from the class list in JS).
+       2. `animation-fill-mode: both` parked the finished keyframe, i.e. a
+          residual `transform: scale(1)`. MapLibre's `.maplibregl-popup`
+          also declares `will-change: transform`, which promotes the popup to
+          its own compositor layer; a live transform on that layer makes
+          Chrome rasterise text once at the *animated* scale and never refine
+          it. With fill-mode `none` the transform drops back to `none` after
+          the animation and the text re-renders through the normal path.
+
+     The entrance therefore animates `opacity` + `translateY` only (no
+     `scale`), and never leaves a transform behind. */
+
+  :global(.maplibregl-popup) {
+    z-index: 1200;
+  }
+
+  /* MapLibre promotes markers and popups to their own compositor layers
+     (`will-change: transform`) and moves them with a transform on every
+     pan/zoom frame. Chrome keeps such a layer's raster while the transform
+     changes, so DOM text turns soft until the layer is re-rasterised. Without
+     the hint, text is repainted crisp at the final position. */
+  :global(.maplibregl-marker),
+  :global(.maplibregl-popup) {
+    will-change: auto;
+  }
+
+  :global(.maplibregl-popup .maplibregl-popup-content) {
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    /* Re-seed the site font: maplibreg's own `.maplibregl-map` shorthand
+       overrides the body font for every descendant it contains. */
+    font-family: 'Sora Variable', 'Noto Sans SC Variable', sans-serif;
+    /* Entrance. `fill-mode` is deliberately NOT `both` — see above. */
+    animation: discover-popup-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Exit. `showShopPopup` adds `is-closing` on the wrapper, waits for this
+     animation, then calls `popup.remove()`. Duration is read in JS from the
+     constant below so the two never drift apart. The card's tail is a child
+     of the card, so it leaves with it. */
+  :global(.maplibregl-popup.is-closing .maplibregl-popup-content) {
+    animation: discover-popup-out 160ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+
+  @keyframes discover-popup-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 
-  :global(.maplibregl-popup-content) {
-    @apply rounded-xl;
+  @keyframes discover-popup-out {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+
+  /* ── The popup's tail ───────────────────────────────────────────────────
+     MapLibre ships a `.maplibregl-popup-tip`: a border-triangle that lives
+     *beside* the card, as a separate element painted before it. It cannot
+     join ours. Our card is rounded and shadowed, so the triangle's straight
+     base never meets the card's rounded corner — a wedge of basemap shows
+     through between the two — and the card's drop shadow falls across the
+     triangle's base anyway. That seam is the gap in the screenshot.
+
+     So MapLibre's tip is hidden and the tail is drawn as part of the card
+     itself: a square rotated 45°, centred on the card's edge. Half of it
+     overlaps the card — same element, same colour — so the only thing left
+     to see is the half that sticks out, and the card and its tail read as
+     one continuous shape. Being a child of the card also puts the tail
+     above the card's shadow, so no shadow line can cut across it either.
+
+     MapLibre picks the anchor dynamically — the card flips to whichever
+     side has room — and puts the matching `maplibregl-popup-anchor-*` class
+     on its wrapper, so the tail follows the card to whichever edge the
+     point is on. The corner anchors put the tail right on the corner, where
+     it points at the point diagonally; it is bigger there, because the
+     card's corner is rounded and the tail has to cover that radius (see
+     the note on the corner rules below). */
+  :global(.maplibregl-popup-tip) {
+    display: none;
+  }
+
+  :global(.discover-popup::after) {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background-color: var(--color-base-100);
+    transform: rotate(45deg);
+  }
+
+  /* The card hangs below the point → the tail points up at it. */
+  :global(.maplibregl-popup-anchor-top .discover-popup::after) {
+    top: -7px;
+    left: 50%;
+    margin-left: -7px;
+  }
+
+  /* The card sits above the point → the tail points down at it. */
+  :global(.maplibregl-popup-anchor-bottom .discover-popup::after) {
+    bottom: -7px;
+    left: 50%;
+    margin-left: -7px;
+  }
+
+  /* The card sits to the right of the point → the tail points left. */
+  :global(.maplibregl-popup-anchor-left .discover-popup::after) {
+    left: -7px;
+    top: 50%;
+    margin-top: -7px;
+  }
+
+  /* The card sits to the left of the point → the tail points right. */
+  :global(.maplibregl-popup-anchor-right .discover-popup::after) {
+    right: -7px;
+    top: 50%;
+    margin-top: -7px;
+  }
+
+  /* Corner anchors: the card's own corner is the pointer. That corner is
+     squared off and no tail is drawn, so the card stays one clean shape
+     with its border instead of a diamond poking out of a rounded corner. */
+  :global(.maplibregl-popup-anchor-top-left .discover-popup),
+  :global(.maplibregl-popup-anchor-top-right .discover-popup),
+  :global(.maplibregl-popup-anchor-bottom-left .discover-popup),
+  :global(.maplibregl-popup-anchor-bottom-right .discover-popup) {
+    &::after {
+      display: none;
+    }
+  }
+
+  :global(.maplibregl-popup-anchor-top-left .discover-popup) {
+    border-top-left-radius: 0;
+  }
+
+  :global(.maplibregl-popup-anchor-top-right .discover-popup) {
+    border-top-right-radius: 0;
+  }
+
+  :global(.maplibregl-popup-anchor-bottom-left .discover-popup) {
+    border-bottom-left-radius: 0;
+  }
+
+  :global(.maplibregl-popup-anchor-bottom-right .discover-popup) {
+    border-bottom-right-radius: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(.maplibregl-popup .maplibregl-popup-content),
+    :global(.maplibregl-popup.is-closing .maplibregl-popup-content) {
+      animation: none;
+    }
   }
 </style>

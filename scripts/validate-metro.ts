@@ -1199,10 +1199,10 @@ suite('route', async () => {
       // The route total must reconcile with its own steps: the entry/exit
       // overheads are folded into the first/last ride segments (never into
       // walk segments, so a zero-metre walk never reads "0m · 4min").
-      const stepSum = plan.segments.reduce((sum, segment) => sum + (segment.durationSeconds ?? 0), 0);
+      const stepSum = plan.legs.reduce((sum, segment) => sum + (segment.durationSeconds ?? 0), 0);
       assert.equal(stepSum, plan.durationSeconds);
       assert.deepEqual(
-        plan.segments.map((segment) => segment.durationSeconds),
+        plan.legs.map((segment) => segment.durationSeconds),
         [
           block.origin.walkSeconds,
           300 + METRO_ENTRY_OVERHEAD_SECONDS,
@@ -1211,7 +1211,7 @@ suite('route', async () => {
           shop.transit!.metro!.walkSeconds
         ]
       );
-      assert.deepEqual(plan.segments[0].geometry, [
+      assert.deepEqual(plan.legs[0].geometry, [
         [searchOrigin.lon, searchOrigin.lat],
         [116, 40]
       ]);

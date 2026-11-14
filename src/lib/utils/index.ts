@@ -1163,7 +1163,6 @@ export const formatOpeningHourLiteral = (time: unknown) => {
   return `${hh}:${mm}`;
 };
 
-
 /**
  * Formats address parts with locale-aware separators.
  * zh/ja locales: natural order, dot-separated  → "中国 · 上海"
@@ -1698,5 +1697,3 @@ export const protect = (user: User | PublicUser | undefined): PublicUser | undef
   }
   return protectedUser;
 };
-
-export { regionDatum } from './geo-datum';

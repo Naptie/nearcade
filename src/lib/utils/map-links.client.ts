@@ -1,9 +1,11 @@
 /**
- * Neutral "open in maps app" links, resolved through `/api/geo/links`
+ * Neutral "open in maps app" links, resolved through the geo links procedure
  * (backed by unified-geo's `/maps/links`). No provider names, URLs or keys
  * live here — the response carries per-platform URLs the caller picks from
  * by user agent, with the in-app globe as the fallback when none fits.
  */
+
+import { orpc } from '$lib/api/client';
 
 export interface MapLinks {
   /** Cross-platform fallback (geo: URI). */
@@ -46,19 +48,17 @@ export async function fetchMapLink(params: {
   signal?: AbortSignal;
 }): Promise<string | null> {
   try {
-    const query = new URLSearchParams({
-      longitude: String(params.longitude),
-      latitude: String(params.latitude)
-    });
-    if (params.name) query.set('name', params.name);
-    if (params.mode) query.set('mode', params.mode);
-    if (params.travelMode) query.set('travelMode', params.travelMode);
-    const response = await fetch(`/api/geo/links?${query.toString()}`, {
-      signal: params.signal
-    });
-    if (!response.ok) return null;
-    const links = (await response.json()) as MapLinksResponse;
-    if (!links?.universal) return null;
+    const links = await orpc.geo.links(
+      {
+        longitude: params.longitude,
+        latitude: params.latitude,
+        name: params.name,
+        mode: params.mode,
+        travelMode: params.travelMode
+      },
+      { signal: params.signal }
+    );
+    if (!links.universal) return null;
     return platformLink(links);
   } catch {
     return null;

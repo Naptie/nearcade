@@ -341,7 +341,7 @@
     void (async () => {
       try {
         const theme = isDarkMode() ? 'dark' : 'light';
-// The initial view resolves first: the map style is selected per point
+        // The initial view resolves first: the map style is selected per point
         // (zone-driven by the location service), so the resolved center picks
         // the surface. A deadline keeps a slow origin lookup from holding the
         // modal blank: past it, open on the static default. The map is then
@@ -364,16 +364,13 @@
               )
             ]);
         const [centerLng, centerLat] = initialView.center;
-        const styleResponse = await fetch(
-          fromPath(
-            `/api/geo/map-style?longitude=${centerLng}&latitude=${centerLat}&theme=${theme}&locale=${getLocale()}&scope=global`
-          )
-        );
-        if (!styleResponse.ok) throw new Error(`Map style request failed: ${styleResponse.status}`);
-        const { profile, style: servedStyle } = (await styleResponse.json()) as {
-          profile: Record<string, unknown>;
-          style: unknown;
-        };
+        const { profile, style: servedStyle } = await orpc.geo.mapStyle({
+          longitude: centerLng,
+          latitude: centerLat,
+          theme,
+          locale: getLocale(),
+          scope: 'global'
+        });
         if (cancelled || !mapContainer) return;
 
         // The adapter normalizes the served style, rewires any non-standard
@@ -383,16 +380,21 @@
           localFonts: { stacks: ['Sora', 'Noto'], baseUrl: fromPath('/') }
         });
         adapter.registerProtocols();
-        const style = (await adapter.loadStyle(servedStyle)) as unknown as maplibregl.StyleSpecification;
+        const style = (await adapter.loadStyle(
+          servedStyle
+        )) as unknown as maplibregl.StyleSpecification;
 
         map = new maplibregl.Map({
           container: mapContainer,
           style,
           center: initialView.center,
           zoom: initialView.zoom,
-          transformRequest: adapter.transformRequest
+          transformRequest: adapter.transformRequest,
+          attributionControl: { compact: true, customAttribution: '' }
         });
         mapInstance = map;
+        // The adapter keeps the attribution in step with this map's view.
+        adapter.observeMap(map);
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
         map.on('click', (event) => {
           if (userInteracted === false) userInteracted = true;

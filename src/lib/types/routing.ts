@@ -5,22 +5,34 @@
  *
  * A `RouteResult` is one candidate route; `TransportSearchResult` is the full
  * response for a shop+mode (`{ routes: [...] }`), mirroring the unified-geo
- * `DirectionsResult[]` shape.
+ * `DirectionsResult[]` shape; a route is a list of `RouteLeg`s.
  */
 
-/** One drawable route: a total plus per-segment geometry. */
-export interface RouteSegment {
+export type LegKind = 'walk' | 'ride' | 'drive' | 'bus' | 'subway' | 'rail' | 'ferry';
+
+export interface RouteStep {
   instruction?: string;
   distanceMeters?: number;
   durationSeconds?: number;
+}
+
+/**
+ * One drawable, listable stretch of a route — a walk, a ride on one line, a
+ * run along one road — with its own turn-by-turn `steps`.
+ */
+export interface RouteLeg {
+  kind: LegKind;
+  /** Road name for walk/ride/drive legs; line name for transit legs. */
+  name?: string;
+  /** Line brand color; absent falls back to the leg kind's own color. */
+  color?: string | null;
+  distanceMeters: number;
+  durationSeconds: number;
   /** `[longitude, latitude]` pairs, in the route's datum. */
   geometry: [number, number][];
-  /** Segment paint color for map rendering; null falls back to the mode color. */
-  color?: string | null;
-  /** Draw the segment dashed (walking legs). */
-  dashed?: boolean;
-  /** Transit-only: station names for the panel (board / alight / via). */
-  stations?: { on?: string; off?: string; via?: string[] };
+  steps: RouteStep[];
+  /** Transit-only: board / alight stations and the stops between them. */
+  stations?: { on?: string; off?: string; via?: string[]; stopCount?: number };
 }
 
 export interface RouteResult {
@@ -29,7 +41,7 @@ export interface RouteResult {
   durationSeconds: number;
   /** Full-route geometry, `[longitude, latitude]` pairs. */
   geometry: [number, number][];
-  segments: RouteSegment[];
+  legs: RouteLeg[];
   /** Datum of the geometry ('WGS84' | 'GCJ02'). */
   coordinateSystem: 'WGS84' | 'GCJ02';
   /** Transit-only: operator line names/colors per segment, travel order. */
