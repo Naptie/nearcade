@@ -45,14 +45,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          # The checkout's repo-scoped GITHUB_TOKEN credential would shadow the
-          # PAT below on every github.com fetch — including the private
-          # unified-geo the git dependencies need — so nothing is persisted.
           persist-credentials: false
 
-      # `unified-geo-client` is a git dependency on the private
-      # Naptie/unified-geo repo, which the job's own GITHUB_TOKEN cannot read.
-      # The PAT is scoped to that repository alone, Contents: Read.
+      # Set up authentication for unified-geo.
       - name: Authenticate git for the private client dependency
         run: git config --global url."https://x-access-token:${{ secrets.GH_PAT_UNIFIED_GEO }}@github.com/".insteadOf "https://github.com/"
 
