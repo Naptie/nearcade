@@ -1,6 +1,7 @@
 import { untrack } from 'svelte';
 import { browser } from '$app/environment';
 import { m } from '$lib/paraglide/messages';
+import { copyToClipboard } from '$lib/utils/clipboard.svelte';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -118,12 +119,8 @@ export const toastErrorWithCopy = (message: string, error: unknown, context?: st
     duration: 10_000,
     action: {
       label: m.copy(),
-      onClick: async () => {
-        try {
-          await navigator.clipboard.writeText(details);
-        } catch (copyError) {
-          console.error('Failed to copy error details:', copyError);
-        }
+      onClick: () => {
+        void copyToClipboard(details);
       }
     }
   });

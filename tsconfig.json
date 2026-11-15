@@ -11,7 +11,7 @@
     "sourceMap": true,
     "strict": true,
     "moduleResolution": "bundler",
-    "types": ["node", "vite-plugin-pwa/svelte", "@types/google.maps", "@types/geojson"]
+    "types": ["node", "vite-plugin-pwa/svelte", "@types/geojson"]
   },
   "include": [
     ".svelte-kit/ambient.d.ts",

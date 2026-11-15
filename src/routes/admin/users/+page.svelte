@@ -14,6 +14,7 @@
     getUserTypeLabel,
     userRouteId
   } from '$lib/utils';
+  import { useCopyFeedback } from '$lib/utils/clipboard.svelte';
   import { orpc } from '$lib/api/client';
   import { adminUserDocumentSchema } from '$lib/api/contracts/admin';
   import type { z } from 'zod';
@@ -71,21 +72,7 @@
   let users = $state<AdminUser[]>([]);
   let hasMore = $state(false);
   let isLoadingUsers = $state(false);
-  let copiedId = $state<string | null>(null);
-
-  const copyId = async (id: string) => {
-    try {
-      await navigator.clipboard.writeText(id);
-      copiedId = id;
-      setTimeout(() => {
-        if (copiedId === id) {
-          copiedId = null;
-        }
-      }, 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
+  const copyFeedback = useCopyFeedback();
 
   // Fetch users from the API, driven by the current URL state.
   const fetchUsers = async () => {
@@ -313,13 +300,13 @@
                 <button
                   type="button"
                   class="btn btn-sm btn-circle btn-soft hover:bg-primary hover:text-primary-content dark:hover:bg-white dark:hover:text-black"
-                  class:btn-success={copiedId === user.id}
-                  class:btn-active={copiedId === user.id}
-                  onclick={() => copyId(user.id)}
+                  class:btn-success={copyFeedback.copiedKey === user.id}
+                  class:btn-active={copyFeedback.copiedKey === user.id}
+                  onclick={() => copyFeedback.copy(user.id, user.id)}
                   title={m.copy()}
                   aria-label={m.copy()}
                 >
-                  {#if copiedId === user.id}
+                  {#if copyFeedback.copiedKey === user.id}
                     <i class="fa-solid fa-check fa-sm"></i>
                   {:else}
                     <i class="fa-solid fa-copy fa-sm"></i>
@@ -749,9 +736,7 @@
                             />
                           </div>
                           {#if membership.verifiedAt}
-                            <div
-                              class="text-base-content/60 order-1 text-xs sm:order-none sm:w-full"
-                            >
+                            <div class="text-base-content/60 order-1 text-xs sm:order-0 sm:w-full">
                               {m.admin_verified_at({
                                 date: formatDateTime(membership.verifiedAt)
                               })}
@@ -759,7 +744,7 @@
                           {/if}
                           <button
                             type="submit"
-                            class="btn btn-primary btn-sm order-2 sm:order-none"
+                            class="btn btn-primary btn-sm order-2 sm:order-0"
                             disabled={submittingVerificationEmailId === membership.id}
                           >
                             {#if submittingVerificationEmailId === membership.id}

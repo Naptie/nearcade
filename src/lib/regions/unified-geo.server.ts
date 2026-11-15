@@ -9,7 +9,6 @@ import type { UnifiedGeoCoordinate } from '$lib/utils/unified-geo.server';
 
 export interface UnifiedGeoReverseResponse {
   success: true;
-  provider: string;
   serviceArea: 'china' | 'international';
   zone?: 'CN_MAINLAND' | 'CN_HKMO' | 'CN_TW' | 'INTERNATIONAL' | 'UNKNOWN';
   territory: {

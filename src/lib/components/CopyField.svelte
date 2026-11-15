@@ -1,5 +1,6 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
+  import { useCopyFeedback } from '$lib/utils/clipboard.svelte';
 
   interface Props {
     /** The value to display in the input. */
@@ -37,23 +38,11 @@
     display = 'input'
   }: Props = $props();
 
-  let isCopied = $state(false);
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  const copyFeedback = useCopyFeedback();
 
   const inputSizeClass = $derived(size === 'xs' ? 'input-xs' : size === 'sm' ? 'input-sm' : '');
   const btnSizeClass = $derived(size === 'xs' ? 'btn-xs' : size === 'sm' ? 'btn-sm' : '');
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(copyText ?? value);
-      isCopied = true;
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        isCopied = false;
-      }, 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  }
+  const copy = () => copyFeedback.copy(copyText ?? value);
 
   const btnBase = 'btn transition-all duration-200';
   const btnVariant = $derived(
@@ -82,13 +71,13 @@
   <button
     type="button"
     class={btnVariant}
-    class:btn-success={isCopied}
-    class:btn-active={isCopied}
+    class:btn-success={copyFeedback.copied}
+    class:btn-active={copyFeedback.copied}
     onclick={copy}
     title={ariaLabel ?? m.copy()}
     aria-label={ariaLabel ?? m.copy()}
   >
-    {#if isCopied}
+    {#if copyFeedback.copied}
       <i class="fa-solid fa-check"></i>
     {:else}
       <i class="fa-solid fa-copy"></i>

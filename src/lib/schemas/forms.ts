@@ -1,14 +1,14 @@
 import { z } from 'zod';
 import { SOCIAL_PLATFORMS } from '$lib/constants';
-import { gameCreateSchema, shopAddressSchema } from './shops';
-import { locationSchema, openingHoursSchema } from './common';
+import { gameCreateSchema, shopAddressSchema, shopLocationSchema } from './shops';
+import { openingHoursSchema } from './common';
 
 export const shopFormSchema = z.object({
   name: z.string().trim().min(1, 'Shop name is required'),
   comment: z.string().default(''),
   address: shopAddressSchema,
   openingHours: openingHoursSchema,
-  location: locationSchema,
+  location: shopLocationSchema,
   games: z.array(gameCreateSchema),
   isClosed: z.boolean().optional().default(false),
   closedReason: z.string().trim().max(200).optional().default('')

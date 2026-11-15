@@ -266,7 +266,8 @@ const runOpenMetroSync = async (options: RunOpenMetroSyncOptions): Promise<OpenM
       networkId: network.id,
       lineId: pattern.line_id,
       stopIds: pattern.stop_ids,
-      terminalStationId: stationByStop.get(pattern.terminal_stop_id) ?? null
+      terminalStationId: stationByStop.get(pattern.terminal_stop_id) ?? null,
+      isPrimary: pattern.is_primary
     }));
 
     const edgeDocs: MetroEdgeDoc[] = graph.edges.flatMap((edge) => {

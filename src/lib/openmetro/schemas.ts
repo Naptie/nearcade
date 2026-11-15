@@ -101,6 +101,13 @@ export interface MetroPatternDoc {
   stopIds: string[];
   /** Station id of the terminal stop; null when it could not be resolved. */
   terminalStationId: string | null;
+  /**
+   * Whether OpenMetro marks this pattern as the line's primary run. The
+   * discover map needs this to pick the trunk geometry when a line splits
+   * into branches; absent on legacy persisted docs, in which case the longest
+   * pattern is treated as primary.
+   */
+  isPrimary?: boolean;
 }
 
 export interface MetroEdgeDoc {

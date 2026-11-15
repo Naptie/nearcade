@@ -6,9 +6,10 @@
     formatShopAddress,
     getGameName,
     getShopOpeningHours,
-    adaptiveNewTab,
-    isShopChinaBased
+    adaptiveNewTab
   } from '$lib/utils';
+  import { fetchMapLink } from '$lib/utils/map-links.client';
+  import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
   import { GAME_TITLES } from '$lib/constants';
   import type { GlobeShopWithExtras, ShopWithExtras } from '$lib/types';
@@ -70,15 +71,18 @@
       shop.location.coordinates[0]
     )}&latitude=${encodeURIComponent(shop.location.coordinates[1])}&name=${encodeURIComponent(shop.name)}&radius=10`
   );
-  const isChinaBased = $derived(isShopChinaBased(shop));
-  const mapUrl = $derived(
-    !isChinaBased
-      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-          `${shop.name} ${formatShopAddress(shop)}`
-        )}`
-      : `https://uri.amap.com/marker?position=${shop.location.coordinates[0]},${shop.location.coordinates[1]}&name=${encodeURIComponent(shop.name)}&src=nearcade&callnative=1`
-  );
-  const mapLinkLabel = $derived(!isChinaBased ? m.view_in_google_maps() : m.view_in_amap());
+  /**
+   * "Open in maps app" resolves per platform through /api/geo/links; the
+   * anchor itself stays inert and the handler opens the resolved link.
+   */
+  const openMapLink = async () => {
+    const link = await fetchMapLink({
+      longitude: shop.location.coordinates[0],
+      latitude: shop.location.coordinates[1],
+      name: shop.name
+    });
+    if (browser && link) window.open(link, '_blank', 'noopener,noreferrer');
+  };
 </script>
 
 {#snippet cardContent()}
@@ -182,11 +186,10 @@
         stayExpandedOnWideScreens
       />
       <FancyButton
-        href={mapUrl}
-        target="_blank"
         class="fa-solid fa-map"
         btnCls="btn btn-soft btn-sm"
-        text={mapLinkLabel}
+        text={m.open_in_maps_app()}
+        callback={() => void openMapLink()}
         stayExpandedOnWideScreens
       />
     </div>

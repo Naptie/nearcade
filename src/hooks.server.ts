@@ -15,7 +15,6 @@ import { locales } from '$lib/paraglide/runtime';
 import { createSeoHandler } from '$lib/endpoints/seo.server';
 import { handleLocaleQuery } from '$lib/endpoints/locale-query.server';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
-import { handleAMapRequest } from '$lib/endpoints/amap.server';
 import { m } from '$lib/paraglide/messages';
 import { base } from '$app/paths';
 import { getAvailableOSS } from '$lib/oss';
@@ -202,18 +201,6 @@ const handleHeaders: Handle = async ({ event, resolve }) => {
     }
   }
   return response;
-};
-
-const handleAMap: Handle = async ({ event, resolve }) => {
-  const { pathname } = event.url;
-
-  // Check if this is an AMap service request
-  if (pathname.includes('/_AMapService/')) {
-    return await handleAMapRequest(event);
-  }
-
-  // Otherwise, proceed with normal request handling
-  return resolve(event);
 };
 
 const handleDiscoverShortcut: Handle = async ({ event, resolve }) => {
@@ -436,7 +423,6 @@ export const handle: Handle = sequence(
   handleLocaleQuery,
   handleParaglide,
   handleWellKnown,
-  handleAMap,
   handleDiscoverShortcut,
   handleUserShortcut,
   handleLegacyShopPaths,

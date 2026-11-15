@@ -80,7 +80,7 @@ export const DEFAULT_CLOUD_SHADOW_OPACITY = 0.8;
 const MAX_NIGHT_LIGHTS_OPACITY = 1;
 /**
  * Radius scale factor for the night-lights shell. Must stay at 1.0: MapLibre
- * renders the Bing MVT (fills, roads, labels) exactly on the unit sphere, so
+ * renders the basemap MVT (fills, roads, labels) exactly on the unit sphere, so
  * any inflation makes the shell's horizon overshoot the vector surface at
  * pitched views (tens of px of parallax near the limb, growing with zoom).
  * Layer order alone decides stacking because these materials disable depth
@@ -129,7 +129,7 @@ const DEFAULT_SUNLIGHT_INTENSITY = 1;
 const MAX_DAY_MAP_OPACITY = 1;
 /**
  * Radius scale factor for the day map shell. Must stay at 1.0 so the texture's
- * painted coastline stays glued to the Bing MVT surface (fills, roads, labels
+ * painted coastline stays glued to the basemap MVT surface (fills, roads, labels
  * render exactly on the unit sphere). Inflating the shell detaches the two at
  * pitched views — the parallax reaches tens of px near the horizon at high
  * zoom, making roads/labels look like they float or sink against the texture.
@@ -293,7 +293,7 @@ const nightLightsFragmentShader = /* glsl */ `
 
     // Full intensity on the night side, fading smoothly through the terminator.
     // No limb fade: the shell sits exactly on the globe surface (radius 1.0),
-    // so its horizon coincides with the Bing MVT horizon — fading here would
+    // so its horizon coincides with the basemap MVT horizon — fading here would
     // eat the lights near the horizon and detach them from the basemap.
     float nightSide = 1.0 - smoothstep(-uTerminatorSoftness, uTerminatorSoftness, nDotL);
     float nightMask = nightSide;
@@ -358,9 +358,9 @@ const dayMapFragmentShader = /* glsl */ `
     vec2 sampleUv = vec2(vUv.x, 1.0 - vUv.y);
 
     // No limb fade: the day map sits exactly on the globe surface (radius 1.0),
-    // so its horizon coincides with the Bing MVT horizon. A fresnel-style fade
+    // so its horizon coincides with the basemap MVT horizon. A fresnel-style fade
     // here would make the texture vanish well before the true horizon at pitched
-    // views (the band grows with pitch), leaving Bing's roads/labels/coasts
+    // views (the band grows with pitch), leaving the basemap's roads/labels/coasts
     // drawing beyond the visible "surface" — looking like they float above it.
     vec3 color = texture2D(uDayMap, sampleUv).rgb;
     gl_FragColor = vec4(color, uOpacity);

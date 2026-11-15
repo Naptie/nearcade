@@ -5,6 +5,7 @@
   import type { PageData } from './$types';
   import type { InviteLink } from '$lib/types';
   import { adaptiveNewTab, formatDateTime, getDisplayName } from '$lib/utils';
+  import { useCopyFeedback } from '$lib/utils/clipboard.svelte';
   import AdminPage from '$lib/components/admin/AdminPage.svelte';
   import AdminStats from '$lib/components/admin/AdminStats.svelte';
   import AdminToolbar from '$lib/components/admin/AdminToolbar.svelte';
@@ -16,7 +17,7 @@
 
   let { data }: { data: PageData } = $props();
 
-  let copiedId = $state<string | null>(null);
+  const copyFeedback = useCopyFeedback();
 
   const stats = $derived([
     { label: m.total(), value: data.inviteStats?.total || 0 },
@@ -33,16 +34,8 @@
     { value: 'expired', label: m.expired() }
   ];
 
-  const copyInviteLink = (code: string) => {
-    const link = `${window.location.origin}${base}/invite/${code}`;
-    navigator.clipboard.writeText(link);
-    copiedId = code;
-    setTimeout(() => {
-      if (copiedId === code) {
-        copiedId = null; // Clear after a short delay
-      }
-    }, 2000);
-  };
+  const copyInviteLink = (code: string) =>
+    copyFeedback.copy(`${window.location.origin}${base}/invite/${code}`, code);
 
   const isExpired = (invite: InviteLink) => {
     return invite.expiresAt
@@ -173,9 +166,9 @@
                   class="btn btn-soft btn-sm text-nowrap"
                   onclick={() => copyInviteLink(invite.code)}
                   title={m.admin_invite_copy_link()}
-                  disabled={copiedId === invite.code}
+                  disabled={copyFeedback.copiedKey === invite.code}
                 >
-                  {#if copiedId === invite.code}
+                  {#if copyFeedback.copiedKey === invite.code}
                     <i class="fa-solid fa-check"></i>
                     <span class="not-lg:hidden">{m.copied()}</span>
                   {:else}

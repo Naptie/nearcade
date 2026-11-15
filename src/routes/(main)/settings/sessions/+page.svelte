@@ -8,6 +8,7 @@
   import { getFnsLocale } from '$lib/utils';
   import { pageTitle } from '$lib/utils';
   import ConfirmationModal from '$lib/components/ConfirmationModal.svelte';
+  import CopyField from '$lib/components/CopyField.svelte';
   import { getScopeLabel, getScopeIcon } from '$lib/auth/oauth/scope-labels';
   import { toast } from '$lib/notifications/toast.svelte';
   import { resolveStatusMessage } from '$lib/notifications/messages';
@@ -462,21 +463,7 @@
       {#if qrCode}
         <div class="rounded-box bg-base-200 mt-4 space-y-3 p-4 text-left">
           <p class="text-sm font-medium">{m.sessions_code_label()}</p>
-          <div class="flex items-center gap-2">
-            <input class="input input-bordered flex-1 font-mono text-sm" readonly value={qrCode} />
-            <button
-              type="button"
-              class="btn btn-soft"
-              onclick={async () => {
-                if (qrCode) {
-                  await navigator.clipboard.writeText(qrCode);
-                }
-              }}
-            >
-              <i class="fa-solid fa-copy"></i>
-              {m.copy()}
-            </button>
-          </div>
+          <CopyField value={qrCode} />
           <p class="text-base-content/65 text-sm">{m.sessions_code_description()}</p>
         </div>
       {/if}

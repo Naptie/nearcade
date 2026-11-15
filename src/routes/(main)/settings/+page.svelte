@@ -7,6 +7,7 @@
   import { socialPlatformMessageKey } from '$lib/constants';
   import { m } from '$lib/paraglide/messages';
   import { getDisplayName, getProfileUrl, getProviders, pageTitle } from '$lib/utils';
+  import { useCopyFeedback } from '$lib/utils/clipboard.svelte';
   import { orpc } from '$lib/api/client';
   import { isApiError } from '$lib/utils/api-error';
   import { authClient } from '$lib/auth/client';
@@ -417,8 +418,7 @@
   let qqVerified: number | null = $state(null);
   let qqExpired = $state(false);
   let qqError = $state(false);
-  let copied = $state(false);
-  let copiedTimeout: ReturnType<typeof setTimeout> | undefined = $state();
+  const copyFeedback = useCopyFeedback();
 
   const openQQVerifyModal = async () => {
     qqVerified = null;
@@ -434,19 +434,7 @@
     showQQVerifyModal = true;
   };
 
-  const copyQQCommand = async () => {
-    try {
-      await navigator.clipboard.writeText(`/qbind ${qqToken}`);
-      copied = true;
-      clearTimeout(copiedTimeout);
-      copiedTimeout = setTimeout(() => {
-        copied = false;
-        copiedTimeout = undefined;
-      }, 1000);
-    } catch (err) {
-      console.error('Failed to copy text:', err);
-    }
-  };
+  const copyQQCommand = () => copyFeedback.copy(`/qbind ${qqToken}`);
 
   $effect(() => {
     if (!showQQVerifyModal) return;
@@ -1048,11 +1036,11 @@
             <code class="text-left break-all">/qbind {qqToken}</code>
             <button
               class="btn btn-success btn-sm btn-square btn-soft"
-              class:btn-active={copied}
+              class:btn-active={copyFeedback.copied}
               title={m.copy()}
               onclick={copyQQCommand}
             >
-              {#if copied}
+              {#if copyFeedback.copied}
                 <i class="fa-solid fa-check"></i>
               {:else}
                 <i class="fa-solid fa-copy"></i>

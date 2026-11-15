@@ -11,7 +11,7 @@
  * (`packages/web`): official per-line colors for ride legs, a neutral dashed
  * style for walking legs, and the line's terminal station as the direction
  * label. Map-agnostic output is intentional — the discover page translates
- * these segments into AMap polylines, so nothing here depends on the maps SDK.
+ * these segments into map polylines, so nothing here depends on any maps SDK.
  */
 import { env } from '$env/dynamic/public';
 import { createClient, type ApiRoutePlan } from 'openmetro-client';
@@ -23,15 +23,19 @@ import {
   METRO_WALK_SPEED_KMH
 } from '$lib/constants';
 import type { DiscoverMetroBlock, MetroShopItinerary, ShopApi, ShopMetro } from '$lib/types';
-import type { Path, Segment, TransitPlan } from '$lib/types/amap';
+import type { RouteLeg, RouteResult, TransportSearchResult } from '$lib/types/routing';
+import { LEG_STYLES } from '$lib/utils/route-style';
 
 /** Neutral color for legs that carry no official line color. */
 const METRO_FALLBACK_COLOR = '#64748b';
 /**
- * Walking legs (access, transfer, egress) are drawn dashed grey — openmetro's
- * own frontend uses the same neutral treatment so walks never read as a line.
+ * Walking legs (access, transfer, egress) wear the same colour as every other
+ * walking segment on the map. They used to be a neutral grey of their own, but
+ * that grey is what a footpath looked like on the map — a faint smudge under
+ * the route's own dashes. The shared palette keeps one colour per mode, so the
+ * metro overlay and the itinerary agree on what a walk looks like.
  */
-export const METRO_WALK_COLOR = '#6b7280';
+export const METRO_WALK_COLOR = LEG_STYLES.walk.color;
 export const METRO_WALK_DASH: [number, number] = [6, 3];
 
 /** Fallback ride speed used only when a leg omits `distanceKm` (~35 km/h). */
@@ -294,9 +298,6 @@ export const buildMetroFullPath = (
   return resolveGeometry(shop, block, itinerary)?.fullPath ?? [];
 };
 
-/** AMap wants plain `{ lng, lat }` objects for `path` fields. */
-const toAMapPath = (coords: [number, number][]): Path => coords.map(([lng, lat]) => ({ lng, lat }));
-
 export const getMetroShopLines = (
   shop: MetroShopRef,
   block: DiscoverMetroBlock | undefined
@@ -379,20 +380,21 @@ export const localizedStationName = (block: DiscoverMetroBlock, stationId: strin
 };
 
 /**
- * Synthetic AMap `TransitPlan` built entirely from the response, so the
- * existing (unmodified) `<Directions routeData>` renders metro itineraries.
+ * Provider-free `RouteResult` built entirely from the response, so
+ * `<Directions routeData>` renders metro itineraries without any map-SDK
+ * types. Segment order follows `orderedSteps`, i.e. the itinerary's own leg
+ * sequence (ride / transfer / ride …) bracketed by the access and egress
+ * walks. Geometry stays in the storage datum (GCJ02 for China networks).
  *
- * Segment order follows `orderedSteps`, i.e. the itinerary's own leg sequence
- * (ride / transfer / ride …) bracketed by the access and egress walks.
- *
- * `cost` stays at `fare ?? 0` — while it is 0 the panel shows the time stat,
- * and the live fare lookup (§3.5) re-renders it as the cost stat once known.
+ * `cost` stays at `fare ?? undefined` — while it is absent the panel shows the
+ * time stat, and the live fare lookup (§3.5) re-renders it as the cost stat
+ * once known.
  */
-export const buildMetroTransitPlan = (
+export const buildMetroRoute = (
   shop: MetroShopRef,
   block: DiscoverMetroBlock | undefined,
   fare: number | null = null
-): TransitPlan | null => {
+): RouteResult | null => {
   const itinerary = getMetroItinerary(block, shop.id);
   if (!block || !itinerary) return null;
 
@@ -400,28 +402,24 @@ export const buildMetroTransitPlan = (
   if (!geometry) return null;
 
   const stationName = (stationId: string) => localizedStationName(block, stationId);
-  const stationLocation = (stationId: string, fallback: [number, number]): [number, number] => {
-    const station = block.stations[stationId];
-    return station ? toLngLat(station.lon, station.lat) : fallback;
-  };
 
-  const walkSegment = (walk: ResolvedWalk, instruction: string): Segment => ({
-    time: walk.seconds,
-    instruction,
-    transit_mode: 'WALK',
-    distance: Math.round(walk.km * 1000),
-    transit: { path: toAMapPath(walk.path), steps: [] }
+  const walkLeg = (walk: ResolvedWalk, name: string): RouteLeg => ({
+    kind: 'walk',
+    name,
+    durationSeconds: walk.seconds,
+    distanceMeters: Math.round(walk.km * 1000),
+    geometry: walk.path,
+    steps: []
   });
 
-  const segments: Segment[] = [
-    walkSegment(geometry.access, m.walk_to_station({ station: geometry.access.stationName }))
+  const legs: RouteLeg[] = [
+    walkLeg(geometry.access, m.walk_to_station({ station: geometry.access.stationName }))
   ];
+  const lines: RouteResult['lines'] = [];
 
   for (const [index, step] of geometry.orderedSteps.entries()) {
     if (step.kind === 'transfer') {
-      segments.push(
-        walkSegment(step.transfer, m.transfer_at({ station: step.transfer.stationName }))
-      );
+      legs.push(walkLeg(step.transfer, m.transfer_at({ station: step.transfer.stationName })));
       continue;
     }
 
@@ -430,21 +428,16 @@ export const buildMetroTransitPlan = (
     const offStationId = ride.stationIds[ride.stationIds.length - 1];
     const onName = stationName(onStationId);
     const offName = stationName(offStationId);
-    const onLocation = stationLocation(onStationId, ride.path[0]);
-    const offLocation = stationLocation(offStationId, ride.path[ride.path.length - 1]);
 
-    const viaStops = ride.stationIds.slice(1, -1).map((stationId, index) => ({
-      id: stationId,
-      name: stationName(stationId),
-      location: stationLocation(stationId, ride.path[index + 1])
-    }));
+    const viaStops = ride.stationIds.slice(1, -1);
 
-    // "1号线(王府井--四惠)" flows through the existing formatTransitLineName:
-    // the section header strips the bracket, the detail row renders
-    // "1号线 (王府井 → 四惠)".
+    // "1号线(王府井--四惠)" reads as "1号线 (王府井 → 四惠)" after the panel's
+    // direction formatter.
     const lineLabel = ride.direction
       ? `${ride.lineName}(${onName}--${ride.direction})`
       : ride.lineName;
+    const color = ride.color ?? METRO_FALLBACK_COLOR;
+    lines.push({ name: lineLabel, color });
 
     // The itinerary total includes the entry overhead (security + platform
     // wait) and the exit overhead (gates + wayfinding), but no leg carries
@@ -457,60 +450,46 @@ export const buildMetroTransitPlan = (
     const exitOverhead =
       index === geometry.orderedSteps.length - 1 ? METRO_EXIT_OVERHEAD_SECONDS : 0;
 
-    segments.push({
-      time: ride.seconds + entryOverhead + exitOverhead,
-      instruction: lineLabel,
-      transit_mode: 'SUBWAY',
-      distance: Math.round(ride.km * 1000),
-      transit: {
-        path: toAMapPath(ride.path),
-        on_station: { id: onStationId, name: onName, location: onLocation },
-        off_station: { id: offStationId, name: offName, location: offLocation },
-        via_num: Math.max(0, ride.stationIds.length - 2),
-        via_stops: viaStops,
-        lines: [
-          {
-            id: ride.lineId ?? ride.lineName,
-            name: lineLabel,
-            type: 'SUBWAY',
-            color: ride.color ?? METRO_FALLBACK_COLOR,
-            stime: '',
-            etime: ''
-          }
-        ]
+    legs.push({
+      kind: 'subway',
+      name: lineLabel,
+      durationSeconds: ride.seconds + entryOverhead + exitOverhead,
+      distanceMeters: Math.round(ride.km * 1000),
+      geometry: ride.path,
+      color,
+      steps: [],
+      stations: {
+        on: onName,
+        off: offName,
+        via: viaStops.map((stationId) => stationName(stationId))
       }
     });
   }
 
-  segments.push(walkSegment(geometry.egress, m.walk_to_shop()));
-
-  const walkingKm =
-    geometry.access.km +
-    geometry.egress.km +
-    geometry.transfers.reduce((sum, transfer) => sum + transfer.km, 0);
+  legs.push(walkLeg(geometry.egress, m.walk_to_shop()));
 
   return {
-    cost: fare ?? 0,
-    time: itinerary.totalSeconds,
-    nightLine: false,
-    segments,
-    transit_distance: Math.round(geometry.rides.reduce((sum, ride) => sum + ride.km, 0) * 1000),
-    railway_distance: 0,
-    walking_distance: Math.round(walkingKm * 1000),
-    taxi_distance: 0,
-    distance: Math.round(geometry.totalKm * 1000),
-    path: toAMapPath(geometry.fullPath)
+    mode: 'transit',
+    distanceMeters: Math.round(geometry.totalKm * 1000),
+    durationSeconds: itinerary.totalSeconds,
+    geometry: geometry.fullPath,
+    legs,
+    // China metro networks operate in GCJ02; openmetro station coordinates
+    // are published in the storage datum.
+    coordinateSystem: 'GCJ02',
+    lines,
+    ...(fare !== null ? { cost: fare } : {})
   };
 };
 
-/** Synthetic AMap response wrapper, so `<Directions>` receives its usual shape. */
+/** Full routing response wrapper, so `<Directions>` receives its usual shape. */
 export const buildMetroRouteData = (
   shop: MetroShopRef,
   block: DiscoverMetroBlock | undefined,
   fare: number | null = null
-): { plans: TransitPlan[] } | null => {
-  const plan = buildMetroTransitPlan(shop, block, fare);
-  return plan ? { plans: [plan] } : null;
+): TransportSearchResult | null => {
+  const route = buildMetroRoute(shop, block, fare);
+  return route ? { routes: [route] } : null;
 };
 
 // ── Live fare enrichment (§3.5) ─────────────────────────────────────────────

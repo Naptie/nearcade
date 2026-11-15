@@ -1,16 +1,22 @@
 import { implement } from '@orpc/server';
-import { geoContract, type MapLibreStyleDocument } from '../contracts/geo';
+import { error } from '@sveltejs/kit';
+import { geoContract, type RouteResultPayload } from '../contracts/geo';
 import type { ApiContext } from '../context';
 import { apiError } from '../errors';
+import { attributionUrlTemplate } from '../mount';
 import mongo from '$lib/db/index.server';
+import redis from '$lib/db/redis.server';
 import { lookupIpRegion } from '$lib/endpoints/ip-lookup.server';
 import type { Region } from '$lib/regions/types';
 import { isAllowedCorsOrigin } from '$lib/utils/cors.server';
-import { convertToMapProfile } from '$lib/utils/geo.server';
+import { convertToMapProfile, resolveTerritoryDatum } from '$lib/utils/geo.server';
 import { getClientIp } from '$lib/utils/ip.server';
 import {
+  fetchUnifiedGeoStyle,
   requestUnifiedGeo,
-  requestUnifiedGeoStyle,
+  requestUnifiedGeoAttribution,
+  requestUnifiedGeoGet,
+  requestUnifiedGeoProfile,
   type UnifiedGeoCoordinate,
   type UnifiedGeoPlace
 } from '$lib/utils/unified-geo.server';
@@ -57,11 +63,6 @@ const findCoordinateRegion = async (
   };
 };
 
-interface MapProfileResponse {
-  success: true;
-  coordinateSystem: UnifiedGeoCoordinate['coordinateSystem'];
-}
-
 interface PlaceSearchResponse {
   success: true;
   results: UnifiedGeoPlace[];
@@ -78,6 +79,69 @@ interface GeocodeResponse {
     placeId?: string;
   }>;
 }
+
+interface MapLinksResponse {
+  success: true;
+  universal: string;
+  android?: string;
+  ios?: string;
+  web?: string;
+}
+
+interface DirectionsResponse {
+  success: true;
+  routes: RouteResultPayload[];
+}
+
+const DIRECTIONS_CACHE_TTL_SECONDS = 30 * 60;
+// Bound upstream fan-out: discover computes travel times for every rendered
+// shop across four modes; without a limiter a cold viewport would hit the
+// location service with dozens of simultaneous requests.
+const MAX_CONCURRENT_REQUESTS = 4;
+const MAX_QUEUED_REQUESTS = 64;
+
+let activeRequests = 0;
+const waitQueue: (() => void)[] = [];
+
+async function withRequestSlot<T>(run: () => Promise<T>): Promise<T> {
+  while (activeRequests >= MAX_CONCURRENT_REQUESTS) {
+    if (waitQueue.length >= MAX_QUEUED_REQUESTS) {
+      error(429, 'Too many routing requests; try again shortly.');
+    }
+    await new Promise<void>((resolve) => waitQueue.push(resolve));
+  }
+  activeRequests++;
+  try {
+    return await run();
+  } finally {
+    activeRequests--;
+    waitQueue.shift()?.();
+  }
+}
+
+/**
+ * The cache key of a route: ~11 m rounding keeps identical doors on the same
+ * entry while bounding key cardinality.
+ */
+const directionsCacheKey = (
+  origin: UnifiedGeoCoordinate,
+  destination: UnifiedGeoCoordinate,
+  mode: string,
+  language: string | undefined
+): string => {
+  const round = (value: number) => value.toFixed(4);
+  return [
+    'ug:directions',
+    mode,
+    round(origin.longitude),
+    round(origin.latitude),
+    origin.coordinateSystem,
+    round(destination.longitude),
+    round(destination.latitude),
+    destination.coordinateSystem,
+    language ?? 'default'
+  ].join(':');
+};
 
 /**
  * SvelteKit's `error()` throws an `HttpError`, which the oRPC layer would
@@ -137,27 +201,6 @@ export const geoImplementation = {
     };
   }),
 
-  style: impl.style.handler(async ({ input }) => {
-    const { body, cacheControl } = await requestUnifiedGeoStyle(input);
-
-    let style: MapLibreStyleDocument | string;
-    try {
-      style = JSON.parse(body) as MapLibreStyleDocument;
-    } catch {
-      // A provider that answers with something else is forwarded untouched.
-      style = body;
-    }
-
-    return {
-      status: 200 as const,
-      headers: {
-        'content-type': 'application/json' as const,
-        ...(cacheControl ? { 'cache-control': cacheControl } : {})
-      },
-      body: style
-    };
-  }),
-
   pickerSearch: impl.pickerSearch.handler(async ({ input, context }) => {
     const { request, url } = context.event;
     if (!isAllowedCorsOrigin(request.headers.get('origin'), url.origin)) {
@@ -165,23 +208,21 @@ export const geoImplementation = {
     }
 
     const { query, longitude, latitude, language } = input;
-    // The search center arrives in the map surface's space (Bing CN is GCJ02 on
-    // the mainland, WGS84 in Taiwan and overseas). Resolve the zone datum once
-    // and search in it: result pins then align with the basemap and match the
-    // stored shop datum without further conversion.
-    const profile = await requestUnifiedGeo<MapProfileResponse>('/maps/profile', {
-      coordinate: { longitude, latitude, coordinateSystem: 'WGS84' }
-    });
+    // The search center arrives in the map surface's space (GCJ02 on the
+    // mainland and in the SARs, WGS84 in Taiwan and overseas). Resolve the
+    // zone datum once and search in it: result pins then align with the
+    // basemap and match the stored shop datum without further conversion.
+    const coordinateSystem = await resolveTerritoryDatum(longitude, latitude);
     const response = await requestUnifiedGeo<PlaceSearchResponse>('/geo/search', {
       query,
-      near: { longitude, latitude, coordinateSystem: profile.coordinateSystem },
-      outputCoordinateSystem: profile.coordinateSystem,
+      near: { longitude, latitude, coordinateSystem },
+      outputCoordinateSystem: coordinateSystem,
       language,
       limit: 8,
       radiusMeters: 50_000
     });
 
-    return { places: response.results, coordinateSystem: profile.coordinateSystem };
+    return { places: response.results, coordinateSystem };
   }),
 
   geocode: impl.geocode.handler(async ({ input, context }) => {
@@ -240,13 +281,11 @@ export const geoImplementation = {
         // A derived centre only needs its datum named: territory
         // classification is insensitive to the datum offset at
         // administrative-centre scale, exactly like pickerSearch's centre.
-        const profile = await requestUnifiedGeo<MapProfileResponse>('/maps/profile', {
-          coordinate: { ...bias, coordinateSystem: 'WGS84' }
-        });
+        const datum = await resolveTerritoryDatum(bias.longitude, bias.latitude);
         bias = {
           longitude: bias.longitude,
           latitude: bias.latitude,
-          coordinateSystem: profile.coordinateSystem
+          coordinateSystem: datum
         };
       }
       coordinateSystem = bias.coordinateSystem;
@@ -272,5 +311,133 @@ export const geoImplementation = {
         ...(result.placeId ? { placeId: result.placeId } : {})
       }))
     };
+  }),
+
+  mapStyle: impl.mapStyle.handler(async ({ input, context }) => {
+    const { longitude, latitude, theme, locale, scope } = input;
+    const profile = await requestUnifiedGeoProfile({
+      coordinate: { longitude, latitude, coordinateSystem: 'WGS84' },
+      ...(scope ? { scope } : {}),
+      ...(theme ? { style: theme } : {}),
+      ...(locale ? { locale } : {})
+    });
+
+    const styleUrl = profile['styleUrl'];
+    if (typeof styleUrl !== 'string') {
+      error(503, 'The location service has no map source configured for this point.');
+    }
+
+    const { body, cacheControl } = await fetchUnifiedGeoStyle(styleUrl);
+    let style: Record<string, unknown>;
+    try {
+      style = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      error(502, 'The location service returned an invalid style document.');
+    }
+
+    // The attribution refresh happens in the browser, so the URL it is handed
+    // has to be this app's own route: never a provider's, and never the
+    // location service's internal one. Only a relative template is rewritten —
+    // the Bing CN flavor's, whose upstream authorizes only Bing's own page
+    // origin. The Google flavor points at Google's public viewport endpoint,
+    // the same host and session the style's tile templates already carry, so
+    // it passes through untouched and keeps answering Google's own copyright.
+    // A profile without a template (AMap) has nothing to rewrite.
+    const template = profile['attributionUrlTemplate'];
+    if (typeof template === 'string') {
+      let isAbsolute = false;
+      try {
+        new URL(template);
+        isAbsolute = true;
+      } catch {
+        // Relative is exactly the case this rewrite exists for.
+      }
+      if (!isAbsolute) {
+        profile['attributionUrlTemplate'] = attributionUrlTemplate();
+      }
+    }
+
+    context.resHeaders?.set('Cache-Control', cacheControl ?? 'private, max-age=300');
+    return { profile, style };
+  }),
+
+  attribution: impl.attribution.handler(async ({ input, context }) => {
+    const { copyright } = await requestUnifiedGeoAttribution(input);
+    context.resHeaders?.set('Cache-Control', 'private, max-age=300');
+    return { copyright };
+  }),
+
+  links: impl.links.handler(async ({ input, context }) => {
+    const { request, url } = context.event;
+    if (!isAllowedCorsOrigin(request.headers.get('origin'), url.origin)) {
+      apiError('FORBIDDEN', 'Cross-origin map link requests are not allowed.');
+    }
+
+    const { longitude, latitude, name, mode, travelMode, coordinateSystem } = input;
+    const response = await requestUnifiedGeo<MapLinksResponse>('/maps/links', {
+      coordinate: { longitude, latitude, coordinateSystem: coordinateSystem ?? 'WGS84' },
+      ...(name ? { name } : {}),
+      ...(mode ? { mode } : {}),
+      ...(travelMode ? { travelMode } : {})
+    });
+
+    context.resHeaders?.set('Cache-Control', 'public, max-age=300');
+    return {
+      success: true as const,
+      universal: response.universal,
+      ...(response.android ? { android: response.android } : {}),
+      ...(response.ios ? { ios: response.ios } : {}),
+      ...(response.web ? { web: response.web } : {})
+    };
+  }),
+
+  capabilities: impl.capabilities.handler(async ({ context }) => {
+    const response = await requestUnifiedGeoGet<{ success: true } & Record<string, unknown>>(
+      '/capabilities'
+    );
+    context.resHeaders?.set('Cache-Control', 'public, max-age=600');
+    return response;
+  }),
+
+  directions: impl.directions.handler(async ({ input, context }) => {
+    const { request, url } = context.event;
+    if (!isAllowedCorsOrigin(request.headers.get('origin'), url.origin)) {
+      apiError('FORBIDDEN', 'Cross-origin routing requests are not allowed.');
+    }
+
+    const { origin, destination, mode, language } = input;
+    const key = directionsCacheKey(origin, destination, mode, language);
+
+    try {
+      const cached = await redis.get(key);
+      if (cached) {
+        const hit = JSON.parse(cached) as DirectionsResponse;
+        // Entries cached before the leg model (flat steps) are treated as misses.
+        if (hit.routes?.every((route) => Array.isArray(route.legs))) return hit;
+      }
+    } catch {
+      // Cache failures degrade to direct requests.
+    }
+
+    const response = await withRequestSlot(() =>
+      requestUnifiedGeo<DirectionsResponse>('/geo/directions', {
+        origin,
+        destination,
+        mode,
+        outputCoordinateSystem: origin.coordinateSystem,
+        ...(language ? { language } : {})
+      })
+    );
+
+    // The upstream envelope carries internal routing metadata; forward only what
+    // the client renders.
+    const payload: DirectionsResponse = { success: true, routes: response.routes };
+    try {
+      await redis.setEx(key, DIRECTIONS_CACHE_TTL_SECONDS, JSON.stringify(payload));
+    } catch {
+      // Cache write failures are non-fatal.
+    }
+
+    return payload;
   })
 };

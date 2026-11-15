@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { definePublic } from '../contract';
-import { bilingual, locationSchema } from '$lib/schemas/common';
+import { bilingual } from '$lib/schemas/common';
 import { convertFromSchema } from '$lib/schemas/discover';
-import { shopApiRegionEntrySchema } from '$lib/schemas/shops';
+import { shopApiRegionEntrySchema, shopLocationSchema } from '$lib/schemas/shops';
 
 /**
  * Stored opening hours, forwarded as they are stored.
@@ -44,7 +44,7 @@ const globeShopSchema = z.object({
       .describe(bilingual('地区 ID 层级及本地化名。', 'Region hierarchy with localized names.'))
   }),
   openingHours: globeOpeningHoursSchema,
-  location: locationSchema,
+  location: shopLocationSchema,
   aggregatedGames: z
     .array(globeShopGameSummarySchema)
     .describe(bilingual('按系列聚合的机台。', 'Machines aggregated per game title.')),

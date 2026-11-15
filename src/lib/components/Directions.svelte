@@ -1,40 +1,15 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import type { TransportSearchResult, TransportMethod, ShopApi } from '$lib/types';
-  import type {
-    TransitPlan,
-    WalkingRoute,
-    RidingRoute,
-    DrivingRoute,
-    Segment,
-    WalkingStep,
-    Ride,
-    DrivingStep,
-    TransitStep
-  } from '$lib/types/amap';
+  import * as maplibregl from 'maplibre-gl';
+  import type { ShopApi } from '$lib/types';
+  import type { LegKind, RouteLeg, RouteResult, TransportSearchResult } from '$lib/types/routing';
   import { m } from '$lib/paraglide/messages';
-  import { convertPath, formatDistance, formatDuration, removeRecursiveBrackets } from '$lib/utils';
+  import { formatDistance, formatDuration, removeRecursiveBrackets } from '$lib/utils';
   import { formatCurrencyAmount } from '$lib/utils';
   import { getLocale } from '$lib/paraglide/runtime';
-  import { SELECTED_ROUTE_INDEX } from '$lib/constants';
+  import { LEG_STYLES, legColor } from '$lib/utils/route-style';
   import FancyButton from './FancyButton.svelte';
   import Drawer from './Drawer.svelte';
-
-  type ProcessedStep = (WalkingStep | Ride | DrivingStep) & {
-    isSignificant?: boolean;
-  };
-
-  interface ProcessedSegment {
-    name: string;
-    distance: number;
-    time: number;
-    prominentRoad: string;
-    steps: ProcessedStep[];
-  }
-
-  type ProcessedRoute = (WalkingRoute | RidingRoute | DrivingRoute) & {
-    segments: ProcessedSegment[];
-  };
 
   interface Props {
     isOpen?: boolean;
@@ -42,11 +17,15 @@
     isLoading?: boolean;
     selectedRouteIndex?: number;
     routeData: TransportSearchResult | null;
-    map?: AMap.Map;
-    amap?: typeof AMap;
-    amapLink?: string;
+    /** The discover map, for drawing the selected itinerary. */
+    map?: maplibregl.Map | null;
     /**
-     * True when `routeData` is a synthetic openmetro itinerary. Its fare is
+     * Best "open in maps app" link for the destination, resolved per platform
+     * by the caller. Absent → the external button is hidden.
+     */
+    mapLink?: string | null;
+    /**
+     * True when `routeData` is a reconstructed openmetro itinerary. Its fare is
      * then fetched live, so the cost column shows a skeleton until it arrives.
      */
     isMetro?: boolean;
@@ -54,7 +33,7 @@
     fareLoading?: boolean;
     /**
      * Live fare for a metro itinerary. Overrides the route's own `cost`, which
-     * is 0 for synthetic plans (openmetro publishes fares separately).
+     * is absent for reconstructed plans (openmetro publishes fares separately).
      */
     fare?: number | null;
     /** ISO currency code reported by Open Metro for a metro fare. */
@@ -70,8 +49,7 @@
     selectedRouteIndex = 0,
     routeData = undefined,
     map = undefined,
-    amap = undefined,
-    amapLink = '',
+    mapLink = null,
     isMetro = false,
     fareLoading = false,
     fare = null,
@@ -80,400 +58,448 @@
     onRouteSelected = () => {}
   }: Props = $props();
 
-  let routes: (TransitPlan | WalkingRoute | RidingRoute | DrivingRoute)[] = $state([]);
-  let stepPolylines: AMap.Polyline[] = $state([]);
-
-  const preprocessRoute = (route: WalkingRoute | RidingRoute | DrivingRoute): ProcessedRoute => {
-    const steps: ProcessedStep[] =
-      'steps' in route ? route.steps : 'rides' in route ? route.rides : [];
-    if (steps.length === 0) {
-      return { ...route, segments: [] };
-    }
-
-    // Pass 1: Create initial segments based on road name changes.
-    const initialSegments: { steps: ProcessedStep[]; distance: number; time: number }[] = [];
-    if (steps.length > 0) {
-      initialSegments.push({ steps: [steps[0]], distance: steps[0].distance, time: steps[0].time });
-      for (let i = 1; i < steps.length; i++) {
-        const currentStep = steps[i];
-        const lastSegment = initialSegments[initialSegments.length - 1];
-        const lastStepInSegment = lastSegment.steps[lastSegment.steps.length - 1];
-
-        // Group steps with the same road name. Empty roads create new segments.
-        if (
-          currentStep.road &&
-          (currentStep.road === lastStepInSegment.road ||
-            currentStep.instruction.includes(lastStepInSegment.road))
-        ) {
-          lastSegment.steps.push(currentStep);
-          lastSegment.distance += currentStep.distance;
-          lastSegment.time += currentStep.time;
-        } else {
-          initialSegments.push({
-            steps: [currentStep],
-            distance: currentStep.distance,
-            time: currentStep.time
-          });
-        }
-      }
-    }
-
-    // Pass 2: Merge small, insignificant segments.
-    const finalSegments: ProcessedSegment[] = [];
-    initialSegments.forEach((segment) => {
-      const isSmallSegment = segment.steps.every((step) => !step.road) && segment.time < 90;
-      const lastFinalSegment =
-        finalSegments.length > 0 ? finalSegments[finalSegments.length - 1] : null;
-
-      // Merge small segments into the previous one.
-      if (isSmallSegment && lastFinalSegment) {
-        lastFinalSegment.steps.push(...segment.steps);
-        lastFinalSegment.distance += segment.distance;
-        lastFinalSegment.time += segment.time;
-      } else {
-        // Otherwise, create a new final segment.
-        finalSegments.push({
-          name: '',
-          steps: segment.steps,
-          distance: segment.distance,
-          time: segment.time,
-          prominentRoad: ''
-        });
-      }
-    });
-
-    // Pass 3: Calculate prominent road for each segment before assigning names.
-    finalSegments.forEach((segment) => {
-      // Find the most prominent road name in the segment for naming.
-      const roadTime: { [key: string]: number } = {};
-      let prominentRoad = '';
-      let maxTime = 0;
-
-      segment.steps.forEach((step) => {
-        if (step.road) {
-          roadTime[step.road] = (roadTime[step.road] || 0) + step.time;
-          if (roadTime[step.road] > maxTime) {
-            maxTime = roadTime[step.road];
-            prominentRoad = step.road;
-          }
-        }
-      });
-
-      segment.prominentRoad = prominentRoad;
-    });
-
-    // Pass 4: Assign names for the final segments.
-    finalSegments.forEach((segment) => {
-      if (segment.steps.length === 1) {
-        segment.name = segment.steps[0].instruction;
-      } else {
-        segment.name = segment.prominentRoad;
-      }
-    });
-
-    // Pass 5: Combine adjacent segments with the same prominent road name.
-    if (finalSegments.length > 1) {
-      const mergedSegments: ProcessedSegment[] = [];
-      let prev: ProcessedSegment | null = null;
-
-      for (const seg of finalSegments) {
-        if (
-          prev &&
-          prev.name &&
-          seg.name &&
-          (prev.name === seg.name ||
-            seg.name.includes(prev.name) ||
-            prev.name.includes(seg.name)) &&
-          prev.name !== ''
-        ) {
-          // Merge seg into prev
-          prev.steps.push(...seg.steps);
-          prev.distance += seg.distance;
-          prev.time += seg.time;
-        } else {
-          mergedSegments.push(seg);
-          prev = seg;
-        }
-      }
-      // Replace finalSegments with mergedSegments
-      finalSegments.length = 0;
-      finalSegments.push(...mergedSegments);
-    }
-
-    // Pass 6: Mark significant steps for the merged segments.
-    finalSegments.forEach((segment) => {
-      // Create deep copies of steps to avoid modifying original state
-      segment.steps = segment.steps.map((step) => ({ ...step }));
-
-      // Mark the step with the longest time as significant.
-      if (segment.steps.length > 0) {
-        const maxTimeIndex = segment.steps.reduce(
-          (maxIndex, step, index) => (step.time > segment.steps[maxIndex].time ? index : maxIndex),
-          0
-        );
-        segment.steps[maxTimeIndex].isSignificant = true;
-      }
-    });
-
-    return { ...route, segments: finalSegments };
-  };
-
-  const cleanupPolylines = (polylines: AMap.Polyline[]): void => {
-    polylines.forEach((polyline) => {
-      polyline.setMap(null);
-      polyline.destroy();
-    });
-    polylines.length = 0;
-  };
-
   // Extract routes from the response
-  $effect(() => {
-    if (routeData && typeof routeData === 'object') {
-      if ('plans' in routeData) {
-        routes = routeData.plans;
-      } else if ('routes' in routeData) {
-        routes = routeData.routes;
-      } else {
-        routes = [];
-      }
-    } else {
-      routes = [];
-    }
-  });
-
-  // Preprocess routes into a derived state
-  const processedRoutes = $derived(
-    routes.map((route) => {
-      if (!('segments' in route) && ('steps' in route || 'rides' in route)) {
-        return preprocessRoute(route as WalkingRoute | RidingRoute | DrivingRoute);
-      }
-      return route as TransitPlan;
-    })
+  const routes: RouteResult[] = $derived(
+    routeData && typeof routeData === 'object' ? (routeData.routes ?? []) : []
   );
 
-  const transportMethod: TransportMethod = $derived.by(() => {
-    if (processedRoutes.length > 0) {
-      const firstRoute = processedRoutes[0];
-      if ('nightLine' in firstRoute) return 'transit';
-      if ('rides' in firstRoute) return 'riding';
-      if ('tolls' in firstRoute) return 'driving';
-      return 'walking';
-    }
-    return undefined;
-  });
-
   /**
-   * Metro fares arrive separately: synthetic `cost: 0` is not a reported fare.
-   * Real AMap routes report their own cost. Explicit zero fares are valid.
+   * Metro fares arrive separately: a reconstructed plan has no `cost`. Real
+   * routes report their own cost. Explicit zero fares are valid.
    */
   const routeCost = $derived.by(() => {
-    const route = processedRoutes[selectedRouteIndex];
-    const cost = isMetro ? fare : route && 'cost' in route ? route.cost : null;
+    const route = routes[selectedRouteIndex];
+    const cost = isMetro ? fare : route?.cost;
     return typeof cost === 'number' && Number.isFinite(cost) && cost >= 0 ? cost : null;
   });
 
   /** Missing or failed fares must not leave an empty third grid column. */
   const showFareStat = $derived(fareLoading || routeCost !== null);
 
-  // Clean up polylines when component is destroyed or route changes
-  $effect(() => {
-    return () => {
-      cleanupPolylines(stepPolylines);
-    };
+  // ── Leg presentation ──────────────────────────────────────────────────────
+  // Providers hand back legs at their own granularity — AMap splits every
+  // transit segment into walks + rides, Baidu emits per-road fragments — and
+  // both sprinkle near-zero fragments (a crossing mis-attributed to a road
+  // 9 m away) that read as noise. The panel renders a derived list that folds
+  // the noise away, so the itinerary reads like the SDK's: one instruction
+  // per action, distance and time attached, stations underneath.
+
+  const MICRO_LEG_METERS = 25;
+  /** Walk legs up to this combined length read as a single instruction. */
+  const MERGEABLE_WALK_METERS = 500;
+
+  const mergeLegPair = (a: RouteLeg, b: RouteLeg): RouteLeg => ({
+    ...a,
+    ...(!a.name && b.name ? { name: b.name } : {}),
+    distanceMeters: a.distanceMeters + b.distanceMeters,
+    durationSeconds: a.durationSeconds + b.durationSeconds,
+    geometry: [...a.geometry, ...b.geometry],
+    steps: [...a.steps, ...b.steps],
+    ...((a.stations ?? b.stations) ? { stations: a.stations ?? b.stations } : {})
   });
 
-  // Clean up polylines when dialog closes
-  $effect(() => {
-    if (!isOpen) {
-      untrack(() => {
-        cleanupPolylines(stepPolylines);
-      });
-    }
-  });
-
-  $effect(() => {
-    if (map && amap && processedRoutes[selectedRouteIndex] && isOpen) {
-      untrack(() => {
-        cleanupPolylines(stepPolylines);
-        const route = processedRoutes[selectedRouteIndex];
-        createStepPolylines(route);
-      });
-    }
-  });
-
-  const createStepPolylines = (route: TransitPlan | ProcessedRoute) => {
-    if (!amap || !map) return;
-
-    const newPolylines: AMap.Polyline[] = [];
-
-    if ('segments' in route) {
-      if (transportMethod === 'transit') {
-        // Transit plan - create polylines for each segment
-        (route.segments as Segment[]).forEach((segment, segmentIndex) => {
-          if (segment.transit?.path) {
-            const polyline = createSegmentPolyline(segment, segmentIndex);
-            if (polyline) {
-              newPolylines.push(polyline);
-            }
-          }
-        });
-      } else {
-        // Processed route - create polylines for each step within segments
-        (route.segments as ProcessedSegment[]).forEach((segment) => {
-          segment.steps.forEach((step, stepIndex) => {
-            if (step.path) {
-              const polyline = createGenericStepPolyline(step, stepIndex);
-              if (polyline) {
-                newPolylines.push(polyline);
-              }
-            }
-          });
-        });
+  const buildPresentationLegs = (legs: RouteLeg[]): RouteLeg[] => {
+    const merged: RouteLeg[] = [];
+    for (const leg of legs) {
+      const previous = merged[merged.length - 1];
+      // A fragment too short to walk deliberately is presentation noise.
+      if (previous && leg.distanceMeters < MICRO_LEG_METERS) {
+        merged[merged.length - 1] = mergeLegPair(previous, leg);
+        continue;
       }
+      // Consecutive short walks read as one "walk to the platform" instead of
+      // three fragment cards; longer walks keep their road identity.
+      if (
+        previous &&
+        leg.kind === 'walk' &&
+        previous.kind === 'walk' &&
+        previous.distanceMeters + leg.distanceMeters <= MERGEABLE_WALK_METERS
+      ) {
+        merged[merged.length - 1] = mergeLegPair(previous, leg);
+        continue;
+      }
+      merged.push(leg);
     }
+    return merged;
+  };
 
-    stepPolylines = newPolylines;
-    if (newPolylines.length > 0) {
-      map.setFitView(newPolylines);
+  const isTransitKind = (kind: LegKind): boolean =>
+    kind === 'bus' || kind === 'subway' || kind === 'rail' || kind === 'ferry';
+
+  /**
+   * The instruction a leg renders as, action-first — the SDK's "walk 176 m to
+   * Zhenbei Road" / "take metro line 13" rather than a bare distance.
+   */
+  const legTitle = (
+    leg: RouteLeg,
+    next: RouteLeg | undefined,
+    mode: RouteResult['mode']
+  ): string => {
+    const clean = (value: string) => removeRecursiveBrackets(value);
+    if (leg.kind === 'walk') {
+      // Metro reconstruction bakes complete phrases (walk to station,
+      // transfer at station, walk to the shop); walking-mode legs carry the
+      // road. Both are ready-made titles.
+      if (leg.name) {
+        return mode === 'transit' ? clean(leg.name) : m.walk_along_road({ road: clean(leg.name) });
+      }
+      const boarding = isTransitKind(next?.kind ?? 'walk') ? next?.stations?.on : undefined;
+      if (boarding) return m.walk_to_station({ station: clean(boarding) });
+      if (!next && mode === 'transit') return m.walk_to_shop();
+      return m.walking();
+    }
+    if (isTransitKind(leg.kind)) {
+      return leg.name ? m.ride_line({ line: clean(leg.name) }) : m.public_transport();
+    }
+    if (leg.name) return clean(leg.name);
+    return leg.kind === 'ride' ? m.riding() : m.driving();
+  };
+
+  // ── Map itinerary drawing ────────────────────────────────────────────────
+  // The focused route is painted the way OpenMetro paints a selected line:
+  // a white casing under the colored line with animated white dashes flowing
+  // along it. Every kind of leg joins in with its own adaptation — vehicles
+  // get the full casing + line + dash treatment, walks get the same casing
+  // under a dashed line of their own whose dashes march at foot pace. The
+  // movement itself is the direction cue, so there are no arrow overlays.
+
+  const ROUTE_SOURCE_ID = 'directions-route';
+  const ROUTE_CASING_LAYER_ID = 'directions-route-casing';
+  const ROUTE_LAYER_ID = 'directions-route';
+  const ROUTE_FLOW_LAYER_ID = 'directions-route-flow';
+  const ROUTE_WALK_CASING_LAYER_ID = 'directions-route-walk-casing';
+  const ROUTE_WALK_LAYER_ID = 'directions-route-walk';
+
+  /** The walk leg's casing and its dashes, in map pixels. */
+  const ROUTE_WALK_CASING_WIDTH = 9;
+  const ROUTE_WALK_WIDTH = 6;
+
+  /**
+   * The casing under the walk dashes carries the same dash pattern as the
+   * dashes themselves, so the white edges each dash instead of filling the
+   * gaps between them — the leg stays the colour of the mode, with the map
+   * showing through, and still reads as the cased line the vehicle legs use.
+   *
+   * MapLibre measures a dash pattern in line-widths, so the wider casing
+   * needs its pattern scaled down by the same ratio or the two march out of
+   * step with each other.
+   */
+  const walkCasingDash = (values: number[]): number[] =>
+    values.map((value) => (value * ROUTE_WALK_WIDTH) / ROUTE_WALK_CASING_WIDTH);
+
+  /** Every layer the itinerary can put on the map, drawn back to front. */
+  const ROUTE_LAYER_IDS = [
+    ROUTE_CASING_LAYER_ID,
+    ROUTE_WALK_CASING_LAYER_ID,
+    ROUTE_LAYER_ID,
+    ROUTE_FLOW_LAYER_ID,
+    ROUTE_WALK_LAYER_ID
+  ];
+
+  /**
+   * The marching-dash phases: every entry totals 7 units and advances the
+   * pattern by one, so stepping through them per frame slides the dashes
+   * forward along the line — OpenMetro's own sequence for its selected
+   * routes, whose direction read was verified against their live frontend.
+   */
+  const DASH_SEQUENCE: number[][] = [
+    [0, 4, 3],
+    [0.5, 4, 2.5],
+    [1, 4, 2],
+    [1.5, 4, 1.5],
+    [2, 4, 1],
+    [2.5, 4, 0.5],
+    [3, 4, 0],
+    [0, 0.5, 3, 3.5],
+    [0, 1, 3, 3],
+    [0, 1.5, 3, 2.5],
+    [0, 2, 3, 2],
+    [0, 2.5, 3, 1.5],
+    [0, 3, 3, 1],
+    [0, 3.5, 3, 0.5]
+  ];
+
+  /**
+   * One animation loop drives every animated layer. The phases live outside
+   * the loop so a redraw (another route, another tab) picks the motion up
+   * where it left off instead of snapping back to the pattern's start.
+   * Vehicles step each frame; walks step every fourth frame — foot pace
+   * against vehicle speed.
+   */
+  let routeAnimFrame = 0;
+  let vehicleDashPhase = 0;
+  let walkDashPhase = 0;
+  let animationTick = 0;
+
+  const stopRouteAnimation = () => {
+    if (routeAnimFrame !== 0) {
+      cancelAnimationFrame(routeAnimFrame);
+      routeAnimFrame = 0;
     }
   };
 
-  const createGenericStepPolyline = (
-    step: ProcessedStep,
-    stepIndex: number
-  ): AMap.Polyline | null => {
-    if (!amap || !map || !step.path) return null;
-
-    const path = Array.isArray(step.path[0])
-      ? (step.path as number[][]).map((p) => new amap.LngLat(p[0], p[1]))
-      : convertPath(step.path as { lat: number; lng: number }[]);
-
-    let options: Partial<AMap.PolylineOptions>;
-    switch (transportMethod) {
-      case 'walking':
-        options = getWalkingStepPolylineOptions(0, stepIndex);
-        break;
-      case 'driving':
-        options = getDrivingStepPolylineOptions(stepIndex);
-        break;
-      case 'riding':
-        options = getRidingStepPolylineOptions(stepIndex);
-        break;
-      default:
-        options = getBasePolylineOptions(stepIndex);
-    }
-
-    const polyline = new amap.Polyline({ path, ...options });
-    polyline.setMap(map);
-    return polyline;
+  const startRouteAnimation = (instance: maplibregl.Map) => {
+    stopRouteAnimation();
+    // Paint the current phase right away: waiting for the first frame would
+    // leave the dashes standing still for a beat after the line appears.
+    const applyStep = () => {
+      let alive = false;
+      animationTick += 1;
+      if (instance.getLayer(ROUTE_FLOW_LAYER_ID)) {
+        instance.setPaintProperty(
+          ROUTE_FLOW_LAYER_ID,
+          'line-dasharray',
+          DASH_SEQUENCE[vehicleDashPhase % DASH_SEQUENCE.length] as unknown as number[]
+        );
+        vehicleDashPhase += 1;
+        alive = true;
+      }
+      if (instance.getLayer(ROUTE_WALK_LAYER_ID)) {
+        if (animationTick % 4 === 0) {
+          walkDashPhase += 1;
+          const pattern = DASH_SEQUENCE[walkDashPhase % DASH_SEQUENCE.length];
+          instance.setPaintProperty(
+            ROUTE_WALK_LAYER_ID,
+            'line-dasharray',
+            pattern as unknown as number[]
+          );
+          // The casing marches with the dashes it edges — same pattern, scaled
+          // to its own width.
+          if (instance.getLayer(ROUTE_WALK_CASING_LAYER_ID)) {
+            instance.setPaintProperty(
+              ROUTE_WALK_CASING_LAYER_ID,
+              'line-dasharray',
+              walkCasingDash(pattern) as unknown as number[]
+            );
+          }
+        }
+        alive = true;
+      }
+      return alive;
+    };
+    if (!applyStep()) return;
+    const frame = () => {
+      // The layers vanish with the style (a theme swap) or the panel closing;
+      // then the loop stops instead of spinning on a dead map.
+      if (!applyStep()) {
+        routeAnimFrame = 0;
+        return;
+      }
+      routeAnimFrame = requestAnimationFrame(frame);
+    };
+    routeAnimFrame = requestAnimationFrame(frame);
   };
 
-  const createSegmentPolyline = (segment: Segment, segmentIndex: number): AMap.Polyline | null => {
-    if (!amap || !map || !segment.transit?.path) return null;
+  const clearItinerary = (instance?: maplibregl.Map | null) => {
+    stopRouteAnimation();
+    if (!instance) return;
+    try {
+      for (const id of ROUTE_LAYER_IDS) {
+        if (instance.getLayer(id)) instance.removeLayer(id);
+      }
+      if (instance.getSource(ROUTE_SOURCE_ID)) instance.removeSource(ROUTE_SOURCE_ID);
+    } catch {
+      // Map may already be destroyed during navigation.
+    }
+  };
 
-    const path = convertPath(segment.transit.path);
-    const options = getSegmentPolylineOptions(segment, segmentIndex);
+  const drawItinerary = (instance: maplibregl.Map, route: RouteResult) => {
+    clearItinerary(instance);
+    // Providers trim their step polylines at junctions — a leg can end tens of
+    // metres before the next one starts (measured: up to 42 m across a cross),
+    // and the legs draw as separate features, so the missing connector reads
+    // as a broken route. Each feature extends to the next leg's first point,
+    // which closes the gap with a straight crossing segment.
+    const legs = buildPresentationLegs(route.legs).filter((leg) => leg.geometry.length >= 2);
+    const features = legs.map((leg, index) => {
+      const next = legs[index + 1];
+      return {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: next ? [...leg.geometry, next.geometry[0]] : leg.geometry
+        },
+        properties: {
+          index,
+          color: legColor(leg),
+          // Boolean on purpose: the layer filters read this with `!`/identity,
+          // which are boolean-typed expressions — a 0/1 number fails them and
+          // MapLibre silently drops every feature from the layer.
+          dashed: LEG_STYLES[leg.kind].dashed
+        }
+      };
+    });
+    if (features.length === 0) return;
 
-    const polyline = new amap.Polyline({
-      path,
-      ...options
+    instance.addSource(ROUTE_SOURCE_ID, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features }
     });
 
-    polyline.setMap(map);
-    return polyline;
-  };
+    const hasVehicleLegs = features.some((feature) => !feature.properties.dashed);
+    const hasWalkLegs = features.some((feature) => feature.properties.dashed);
 
-  const getBasePolylineOptions = (index: number): Partial<AMap.PolylineOptions> => {
-    return {
-      strokeOpacity: 1,
-      zIndex: SELECTED_ROUTE_INDEX + index,
-      lineJoin: 'round' as const,
-      lineCap: 'round' as const,
-      showDir: true
-    };
-  };
-
-  const getWalkingStepPolylineOptions = (
-    segmentIndex: number,
-    stepIndex: number
-  ): Partial<AMap.PolylineOptions> => {
-    return {
-      ...getBasePolylineOptions(segmentIndex * 100 + stepIndex),
-      strokeColor: '#f43f5e',
-      strokeWeight: 8
-    };
-  };
-
-  const getSegmentPolylineOptions = (
-    segment: Segment,
-    segmentIndex: number
-  ): Partial<AMap.PolylineOptions> => {
-    const baseOptions = getBasePolylineOptions(segmentIndex);
-
-    // Official line color wins when the segment carries one. Real AMap
-    // responses omit `color`, so their fixed palette is unchanged; nearcade's
-    // synthetic openmetro plans set it so drawn lines match the operator's
-    // colors (and the matching colored chips in the panel).
-    const officialColor = segment.transit?.lines?.[0]?.color;
-
-    switch (segment.transit_mode) {
-      case 'SUBWAY':
-        return {
-          ...baseOptions,
-          strokeColor: officialColor || '#8b5cf6',
-          strokeWeight: 8
-        };
-      case 'BUS':
-        return {
-          ...baseOptions,
-          strokeColor: officialColor || '#3b82f6',
-          strokeWeight: 8
-        };
-      case 'WALK':
-        return {
-          ...baseOptions,
-          strokeColor: '#f43f5e',
-          strokeWeight: 6,
-          strokeOpacity: 1,
-          strokeStyle: 'dashed' as const,
-          strokeDasharray: [6, 3],
-          showDir: false
-        };
-      default:
-        return {
-          ...baseOptions,
-          strokeColor: '#6B7280'
-        };
+    // Vehicles: white casing under the colored line, OpenMetro's proportions.
+    if (hasVehicleLegs) {
+      instance.addLayer({
+        id: ROUTE_CASING_LAYER_ID,
+        type: 'line',
+        source: ROUTE_SOURCE_ID,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': 11,
+          'line-opacity': 0.95
+        },
+        filter: ['!', ['get', 'dashed']]
+      });
+      instance.addLayer({
+        id: ROUTE_LAYER_ID,
+        type: 'line',
+        source: ROUTE_SOURCE_ID,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': ['get', 'color'],
+          'line-width': 7
+        },
+        filter: ['!', ['get', 'dashed']]
+      });
     }
+
+    // Both kinds animate: the vehicle dash overlay flows over the colored
+    // line, the walk IS the dashed line and flows at foot pace. The motion
+    // itself is the direction cue — no arrow overlays.
+    if (hasVehicleLegs) {
+      instance.addLayer({
+        id: ROUTE_FLOW_LAYER_ID,
+        type: 'line',
+        source: ROUTE_SOURCE_ID,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': 2.5,
+          'line-dasharray': [0, 4, 3]
+        },
+        filter: ['!', ['get', 'dashed']]
+      });
+    }
+
+    if (hasWalkLegs) {
+      // The same casing treatment the vehicle legs get — a white line under
+      // the colour — so the footpath belongs to the same family. The earlier
+      // halo was white at 35% over the dark map, which read as a faint grey
+      // band behind the dashes rather than a casing; it is now opaque, and it
+      // dashes along with the line so the colour leads and the map shows
+      // through the gaps.
+      instance.addLayer({
+        id: ROUTE_WALK_CASING_LAYER_ID,
+        type: 'line',
+        source: ROUTE_SOURCE_ID,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': ROUTE_WALK_CASING_WIDTH,
+          'line-opacity': 0.95,
+          'line-dasharray': walkCasingDash([0, 4, 3])
+        },
+        filter: ['get', 'dashed']
+      });
+      instance.addLayer({
+        id: ROUTE_WALK_LAYER_ID,
+        type: 'line',
+        source: ROUTE_SOURCE_ID,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': ['get', 'color'],
+          'line-width': ROUTE_WALK_WIDTH,
+          'line-dasharray': [0, 4, 3]
+        },
+        filter: ['get', 'dashed']
+      });
+    }
+
+    const bounds = new maplibregl.LngLatBounds();
+    for (const [lng, lat] of route.geometry) bounds.extend([lng, lat]);
+    if (!bounds.isEmpty()) {
+      instance.fitBounds(bounds, { padding: 72, duration: 600, maxZoom: 16 });
+    }
+    startRouteAnimation(instance);
   };
 
-  const getRidingStepPolylineOptions = (rideIndex: number): Partial<AMap.PolylineOptions> => {
-    return {
-      ...getBasePolylineOptions(rideIndex),
-      strokeColor: '#f59e0b',
-      strokeWeight: 8
-    };
+  /**
+   * Bumped every time the map finishes loading a style — once at map init and
+   * again after each theme swap. From the first bump on, `addSource` is safe
+   * even while style changes are pending (a freshly added layer keeps
+   * `isStyleLoaded()` false until the next render frame, which would
+   * otherwise drop redraws that come quicker than the frames); the bump after
+   * a swap is what repaints the open route, whose layers `setStyle` dropped.
+   */
+  let itineraryStyleEpoch = $state(0);
+
+  $effect(() => {
+    const instance = map;
+    if (!instance) return;
+    untrack(() => {
+      instance.on('style.load', () => {
+        itineraryStyleEpoch += 1;
+      });
+      // A component that mounts after the style has already settled (a hot
+      // reload, a remount) never sees `style.load`; take the epoch now.
+      if (instance.isStyleLoaded()) itineraryStyleEpoch += 1;
+    });
+  });
+
+  /** The itinerary waits for the style instead of throwing mid-load. */
+  let itineraryRedrawArmed = false;
+  const armItineraryRedraw = (instance: maplibregl.Map, route: RouteResult) => {
+    if (itineraryRedrawArmed) return;
+    itineraryRedrawArmed = true;
+    instance.once('style.load', () => {
+      itineraryRedrawArmed = false;
+      try {
+        drawItinerary(instance, route);
+      } catch {
+        // The style was replaced again mid-draw; the next `style.load` wins.
+      }
+    });
   };
 
-  const getDrivingStepPolylineOptions = (stepIndex: number): Partial<AMap.PolylineOptions> => {
-    return {
-      ...getBasePolylineOptions(stepIndex),
-      strokeColor: '#6366f1',
-      strokeWeight: 8
-    };
-  };
+  $effect(() => {
+    const instance = map;
+    const route = routes[selectedRouteIndex];
+    // Tracked so a theme swap — which dropped the layers from under the open
+    // panel — repaints the route onto the new style.
+    const epoch = itineraryStyleEpoch;
+    // The drawing follows the selected shop's route, not the panel: closing
+    // the panel keeps the itinerary on the map while the shop stays selected.
+    if (!instance || !route) {
+      clearItinerary(instance);
+      return;
+    }
+    untrack(() => {
+      // Before the first style load `addSource` throws; wait for `style.load`.
+      if (epoch === 0) {
+        armItineraryRedraw(instance, route);
+        return;
+      }
+      try {
+        drawItinerary(instance, route);
+      } catch {
+        armItineraryRedraw(instance, route);
+      }
+    });
+  });
 
   const closeDialog = () => {
     isOpen = false;
   };
 
-  // Cleanup when drawer/panel closes (handles both button close and drag-to-close)
+  // Notify the parent when the drawer/panel closes (button close and
+  // drag-to-close both land here). The itinerary deliberately stays: the
+  // selection, not the panel, decides what the map draws.
   let wasOpen = false;
   $effect(() => {
-    if (wasOpen && !isOpen) {
-      cleanupPolylines(stepPolylines);
-      onClose();
-    }
+    if (wasOpen && !isOpen) onClose();
     wasOpen = isOpen;
   });
 
@@ -482,94 +508,22 @@
     onRouteSelected(index);
   };
 
-  const getRouteSummary = (route: TransitPlan | ProcessedRoute): string => {
-    if (transportMethod === 'transit' && 'segments' in route) {
-      const transitSegments = (route.segments as Segment[]).filter(
-        (s) => s.transit_mode === 'SUBWAY' || s.transit_mode === 'BUS'
-      );
-      if (transitSegments.length > 0) {
-        const lines = transitSegments
-          .map((s) => {
-            const name = s.transit?.lines?.[0]?.name?.trim();
-            if (!name) return '';
-            return removeRecursiveBrackets(name);
-          })
-          .filter(Boolean)
-          .join(' → ');
-        return lines || m.public_transport();
-      }
-      return m.public_transport();
-    }
-    switch (transportMethod) {
+  const getRouteSummary = (route: RouteResult): string => {
+    const names = (route.lines ?? [])
+      .map((line) => line.name.trim())
+      .filter(Boolean)
+      .map((name) => removeRecursiveBrackets(name));
+    if (names.length > 0) return names.join(' → ');
+    switch (route.mode) {
       case 'walking':
         return m.walking();
-      case 'riding':
+      case 'cycling':
         return m.riding();
       case 'driving':
         return m.driving();
       default:
-        return '';
+        return m.public_transport();
     }
-  };
-
-  const formatStepInstruction = (
-    step: Segment | WalkingStep | Ride | DrivingStep | TransitStep
-  ): string => {
-    if ('transit_mode' in step) {
-      if (step.transit_mode === 'SUBWAY' || step.transit_mode === 'BUS') {
-        const lineName = step.transit?.lines?.[0]?.name || '';
-        if (lineName) {
-          return m.take_line({ line: formatTransitLineName(lineName) });
-        }
-      }
-      return step.instruction;
-    }
-
-    return step.instruction || '';
-  };
-
-  const renderTransitSegmentDetails = (segment: Segment) => {
-    if (segment.transit_mode === 'SUBWAY' || segment.transit_mode === 'BUS') {
-      const transit = segment.transit;
-      const line = transit?.lines?.[0];
-      const stationCount = transit?.via_num || 0;
-
-      return {
-        lineName: line?.name || '',
-        lineType: segment.transit_mode,
-        onStation: transit?.on_station,
-        offStation: transit?.off_station,
-        viaStops: transit?.via_stops || [],
-        stationCount,
-        entrance: transit?.entrance,
-        exit: transit?.exit
-      };
-    }
-    return null;
-  };
-
-  const renderWalkingStepDetails = (segment: Segment) => {
-    if (segment.transit_mode === 'WALK' && segment.transit?.steps) {
-      return segment.transit.steps;
-    }
-    return [];
-  };
-
-  const formatTransitLineName = (name: string, preserveDirection: boolean = false) => {
-    if (!preserveDirection) {
-      return removeRecursiveBrackets(name);
-    }
-    const match = name.match(/^([^（(]*)[（(](.+)[）)](.*)$/);
-    if (!match) return name;
-    const [, prefix, content, suffix] = match;
-    const directionParts = content
-      .split(/--+|→|↔/)
-      .map((part: string) => part.trim())
-      .filter((part) => part.length > 0);
-    if (directionParts.length >= 2) {
-      return `${prefix.trim()} (${directionParts.join(' → ')})${suffix}`;
-    }
-    return `${prefix.trim()} (${content})${suffix}`;
   };
 </script>
 
@@ -581,13 +535,15 @@
       <p class="text-base-content/70 text-sm not-md:hidden">{m.directions()}</p>
     </div>
     <div class="flex items-center gap-0.5">
-      <FancyButton
-        href={amapLink}
-        target="_blank"
-        class="fa-solid fa-arrow-up-right-from-square fa-md"
-        btnCls="btn-ghost btn-sm"
-        text={m.view_in_amap()}
-      />
+      {#if mapLink}
+        <FancyButton
+          href={mapLink}
+          target="_blank"
+          class="fa-solid fa-arrow-up-right-from-square fa-md"
+          btnCls="btn-ghost btn-sm"
+          text={m.open_in_maps_app()}
+        />
+      {/if}
       <button class="btn btn-ghost btn-sm btn-circle" onclick={closeDialog} aria-label={m.close()}>
         <i class="fa-solid fa-xmark fa-lg"></i>
       </button>
@@ -601,10 +557,10 @@
         <div class="loading loading-spinner loading-lg"></div>
       </div>
     {:else}
-      {#if processedRoutes.length > 1}
+      {#if routes.length > 1}
         <!-- Route Tabs -->
         <div class="tabs tabs-border px-4 pt-4">
-          {#each processedRoutes as route, index (index)}
+          {#each routes as route, index (index)}
             <button
               class="tab tab-sm text-nowrap transition {selectedRouteIndex === index
                 ? 'tab-active'
@@ -613,10 +569,7 @@
             >
               <div class="tooltip tooltip-bottom" data-tip={getRouteSummary(route)}>
                 <div class="inline-flex items-center gap-2 text-sm font-medium">
-                  {#if 'nightLine' in route && route.nightLine}
-                    <i class="fa-solid fa-moon"></i>
-                  {/if}
-                  {formatDuration(route.time)}
+                  {formatDuration(route.durationSeconds)}
                 </div>
               </div>
             </button>
@@ -624,21 +577,22 @@
         </div>
       {/if}
 
-      {#if processedRoutes[selectedRouteIndex]}
-        {@const selectedRoute = processedRoutes[selectedRouteIndex]}
+      {#if routes[selectedRouteIndex]}
+        {@const selected = routes[selectedRouteIndex]}
+        {@const presentedLegs = buildPresentationLegs(selected.legs)}
         <div class="p-4 md:w-[30vw] md:max-w-lg md:min-w-full">
           <!-- Route Summary -->
           <div class="mb-4 grid gap-4 {showFareStat ? 'grid-cols-3' : 'grid-cols-2'}">
             <div class="stat bg-base-200/50 rounded-lg p-3">
               <div class="stat-title text-xs">{m.travel_time()}</div>
               <div class="stat-value text-lg text-wrap">
-                {formatDuration(selectedRoute.time)}
+                {formatDuration(selected.durationSeconds)}
               </div>
             </div>
             <div class="stat bg-base-200/50 rounded-lg p-3">
               <div class="stat-title text-xs">{m.total_distance()}</div>
               <div class="stat-value text-lg text-wrap">
-                {formatDistance(selectedRoute.distance / 1000, 2)}
+                {formatDistance(selected.distanceMeters / 1000, 2)}
               </div>
             </div>
             {#if showFareStat}
@@ -669,285 +623,107 @@
           <!-- Route Steps -->
           <div class="space-y-3">
             <h4 class="text-sm font-medium">{m.details()}</h4>
-            {#if selectedRoute.segments && selectedRoute.segments.length > 0}
-              {#if transportMethod === 'transit'}
-                {#each selectedRoute.segments as s, segmentIndex (segmentIndex)}
-                  {@const segment = s as Segment}
-                  {@const transitDetails = renderTransitSegmentDetails(segment)}
-                  {@const walkingSteps = renderWalkingStepDetails(segment)}
-                  <div class="bg-base-200/30 space-y-2 rounded-lg p-3">
-                    <!-- Main step header -->
-                    <div class="flex items-center gap-3">
-                      <div class="shrink-0">
-                        {#if segment.transit_mode === 'SUBWAY'}
-                          <div
-                            class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-sm font-bold text-white shadow-lg"
-                          >
-                            <i class="fas fa-subway text-xs"></i>
-                          </div>
-                        {:else if segment.transit_mode === 'BUS'}
-                          <div
-                            class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white shadow-lg"
-                          >
-                            <i class="fas fa-bus text-xs"></i>
-                          </div>
-                        {:else if segment.transit_mode === 'WALK'}
-                          <div
-                            class="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-sm font-bold text-white shadow-lg"
-                          >
-                            <i class="fas fa-walking text-xs"></i>
-                          </div>
-                        {/if}
-                      </div>
-                      <div class="min-w-0 flex-1">
-                        <div class="text-sm font-medium sm:text-base">
-                          {formatStepInstruction(segment)}
-                        </div>
-                        <div class="text-base-content/60 text-xs sm:text-sm">
-                          <span>{formatDistance(segment.distance / 1000, 2)}</span>
-                          {#if segment.time}
-                            <span> · {formatDuration(segment.time)}</span>
-                          {/if}
-                        </div>
-                      </div>
+            {#each presentedLegs as leg, legIndex (legIndex)}
+              {@const stations = leg.stations}
+              {@const nextLeg = presentedLegs[legIndex + 1]}
+              <div class="bg-base-200/30 space-y-2 rounded-lg p-3">
+                <div class="flex items-center gap-3">
+                  <div class="shrink-0">
+                    <div
+                      class="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white shadow-lg {LEG_STYLES[
+                        leg.kind
+                      ].badge}"
+                      style:background-color={leg.color ?? undefined}
+                    >
+                      <i class="fas {LEG_STYLES[leg.kind].icon} text-xs"></i>
                     </div>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <!-- Action-first instruction; the figures follow underneath. -->
+                    <div class="text-sm font-medium sm:text-base">
+                      {legTitle(leg, nextLeg, selected.mode)}
+                    </div>
+                    <div class="text-base-content/60 text-xs sm:text-sm">
+                      <span>{formatDistance(leg.distanceMeters / 1000, 2)}</span>
+                      {#if leg.durationSeconds}
+                        <span> · {formatDuration(leg.durationSeconds)}</span>
+                      {/if}
+                    </div>
+                  </div>
+                </div>
 
-                    {#if transitDetails}
-                      <div class="ml-9 space-y-2">
-                        <div class="flex items-center gap-2 text-sm">
-                          <i class="fas fa-route text-xs"></i>
-                          <div class="text-base-content/80">
-                            {#if transitDetails.lineName}
-                              <span class="font-medium"
-                                >{formatTransitLineName(transitDetails.lineName, true)} ·
-                              </span>
-                            {/if}
-                            <span
-                              >{transitDetails.lineType === 'SUBWAY'
-                                ? m.stations({ count: transitDetails.stationCount + 1 })
-                                : m.stops({ count: transitDetails.stationCount + 1 })}</span
-                            >
-                          </div>
-                        </div>
-                        <div class="space-y-1 text-sm">
-                          {#if transitDetails.onStation}
-                            <div class="flex items-center gap-2">
-                              <i class="fas fa-circle-up text-xs text-green-500"></i>
-                              <span class="font-medium">{m.board_at()}:</span>
-                              <span class="text-base-content/80"
-                                >{transitDetails.onStation.name}</span
-                              >
-                            </div>
-                            {#if transitDetails.entrance}
-                              <div class="text-base-content/60 ml-5 text-xs">
-                                {m.entrance()}: {transitDetails.entrance.name}
-                              </div>
-                            {/if}
-                          {/if}
-                          {#if transitDetails.viaStops.length > 0}
-                            <details class="group ml-5">
-                              <summary
-                                class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
-                              >
-                                <i
-                                  class="fas fa-chevron-right mr-1 transition-transform group-open:rotate-90"
-                                ></i>
-                                {m.via_stops({ count: transitDetails.viaStops.length })}
-                              </summary>
-                              <div class="mt-2 ml-4 space-y-1">
-                                {#each transitDetails.viaStops as stop (stop.id)}
-                                  <div class="text-base-content/60 flex items-center gap-2 text-xs">
-                                    <i class="fas fa-circle text-xs opacity-30"></i>
-                                    {stop.name}
-                                  </div>
-                                {/each}
-                              </div>
-                            </details>
-                          {/if}
-                          {#if transitDetails.offStation}
-                            <div class="flex items-center gap-2">
-                              <i class="fas fa-circle-down text-xs text-red-500"></i>
-                              <span class="font-medium">{m.alight_at()}:</span>
-                              <span class="text-base-content/80"
-                                >{transitDetails.offStation.name}</span
-                              >
-                            </div>
-                            {#if transitDetails.exit}
-                              <div class="text-base-content/60 ml-5 text-xs">
-                                {m.exit()}: {transitDetails.exit.name}
-                              </div>
-                            {/if}
-                          {/if}
-                        </div>
+                {#if stations}
+                  <div class="ml-9 space-y-1 text-sm">
+                    <div class="flex items-center gap-2">
+                      <i class="fas fa-route text-xs"></i>
+                      <span class="text-base-content/80">
+                        {m.stations({
+                          count: stations.stopCount ?? (stations.via?.length ?? 0) + 1
+                        })}
+                      </span>
+                    </div>
+                    {#if stations.on}
+                      <div class="flex items-center gap-2">
+                        <i class="fas fa-circle-up text-xs text-green-500"></i>
+                        <span class="font-medium">{m.board_at()}:</span>
+                        <span class="text-base-content/80">{stations.on}</span>
                       </div>
                     {/if}
-
-                    {#if walkingSteps.length > 0}
-                      <div class="ml-9">
-                        <details class="group">
-                          <summary
-                            class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
-                          >
-                            <i
-                              class="fas fa-chevron-down mr-1 transition-transform group-open:rotate-180"
-                            ></i>
-                            <span class="group-open:hidden"
-                              >{m.expand_details()} ({walkingSteps.length})</span
-                            >
-                            <span class="hidden group-open:inline">{m.collapse_details()}</span>
-                          </summary>
-                          <div class="mt-2 space-y-1">
-                            {#each walkingSteps as walkStep, walkStepIndex (walkStepIndex)}
-                              <div class="text-base-content/60 flex items-center gap-2 text-xs">
-                                <div
-                                  class="bg-base-300 text-base-content/80 flex h-4 w-4 items-center justify-center rounded-full text-xs"
-                                >
-                                  {walkStepIndex + 1}
-                                </div>
-                                <span>{formatStepInstruction(walkStep)}</span>
-                              </div>
-                            {/each}
-                          </div>
-                        </details>
+                    {#if stations.via && stations.via.length > 0}
+                      <details class="group ml-5">
+                        <summary
+                          class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
+                        >
+                          <i
+                            class="fas fa-chevron-right mr-1 transition-transform group-open:rotate-90"
+                          ></i>
+                          {m.via_stops({ count: stations.via.length })}
+                        </summary>
+                        <div class="mt-2 ml-4 space-y-1">
+                          {#each stations.via as stop, stopIndex (stopIndex)}
+                            <div class="text-base-content/60 flex items-center gap-2 text-xs">
+                              <i class="fas fa-circle text-xs opacity-30"></i>
+                              {stop}
+                            </div>
+                          {/each}
+                        </div>
+                      </details>
+                    {/if}
+                    {#if stations.off}
+                      <div class="flex items-center gap-2">
+                        <i class="fas fa-circle-down text-xs text-red-500"></i>
+                        <span class="font-medium">{m.alight_at()}:</span>
+                        <span class="text-base-content/80">{stations.off}</span>
                       </div>
                     {/if}
                   </div>
-                {/each}
-              {:else}
-                {#each selectedRoute.segments as s, segmentIndex (segmentIndex)}
-                  {@const segment = s as ProcessedSegment}
-                  <div class="bg-base-200/30 space-y-2 rounded-lg p-3">
-                    <div class="flex items-center gap-3">
-                      <div class="shrink-0">
-                        {#if transportMethod === 'walking'}
-                          <div
-                            class="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-sm font-bold text-white shadow-lg"
-                          >
-                            <i class="fas fa-walking text-xs"></i>
-                          </div>
-                        {:else if transportMethod === 'driving'}
-                          <div
-                            class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500 text-sm font-bold text-white shadow-lg"
-                          >
-                            <i class="fas fa-car text-xs"></i>
-                          </div>
-                        {:else if transportMethod === 'riding'}
-                          <div
-                            class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white shadow-lg"
-                          >
-                            <i class="fas fa-bicycle text-xs"></i>
-                          </div>
-                        {/if}
-                      </div>
-                      <div class="min-w-0 flex-1">
-                        {#if segment.name}
-                          <div class="text-sm font-medium sm:text-base">{segment.name}</div>
-                          <div class="text-base-content/60 text-xs sm:text-sm">
-                            <span>{formatDistance(segment.distance / 1000, 2)}</span>
-                            {#if segment.time}
-                              <span> · {formatDuration(segment.time)}</span>
-                            {/if}
-                          </div>
-                        {:else}
-                          <div class="text-sm font-medium sm:text-base">
-                            <span>{formatDistance(segment.distance / 1000, 2)}</span>
-                            {#if segment.time}
-                              <span> · {formatDuration(segment.time)}</span>
-                            {/if}
-                          </div>
-                        {/if}
-                      </div>
-                    </div>
+                {/if}
 
-                    {#if segment.steps.length > 1}
-                      <div class="ml-9">
-                        <details class="group">
-                          <summary
-                            class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
-                          >
-                            <i
-                              class="fas fa-chevron-down mr-1 transition-transform group-open:rotate-180"
-                            ></i>
-                            <span class="group-open:hidden"
-                              >{m.expand_details()} ({segment.steps.length})</span
-                            >
-                            <span class="hidden group-open:inline">{m.collapse_details()}</span>
-                          </summary>
-                          <div class="mt-2 space-y-1 md:space-y-2">
-                            {#each segment.steps as step, stepIndex (stepIndex)}
-                              <div class="flex items-center gap-2 text-xs sm:text-sm">
-                                <div
-                                  class="flex h-6 w-6 shrink-0 items-center justify-center {step.isSignificant
-                                    ? 'text-base-content'
-                                    : 'text-base-content/80'}"
-                                >
-                                  {#if step.orientation}
-                                    <span title={step.orientation}>
-                                      {#if step.orientation === '东'}
-                                        <i class="fa-solid fa-circle-arrow-right"></i>
-                                      {:else if step.orientation === '西'}
-                                        <i class="fa-solid fa-circle-arrow-left"></i>
-                                      {:else if step.orientation === '南'}
-                                        <i class="fa-solid fa-circle-arrow-down"></i>
-                                      {:else if step.orientation === '北'}
-                                        <i class="fa-solid fa-circle-arrow-up"></i>
-                                      {:else if step.orientation === '东北'}
-                                        <i
-                                          class="fa-solid fa-circle-arrow-up"
-                                          style="transform: rotate(45deg);"
-                                        ></i>
-                                      {:else if step.orientation === '东南'}
-                                        <i
-                                          class="fa-solid fa-circle-arrow-right"
-                                          style="transform: rotate(45deg);"
-                                        ></i>
-                                      {:else if step.orientation === '西南'}
-                                        <i
-                                          class="fa-solid fa-circle-arrow-down"
-                                          style="transform: rotate(45deg);"
-                                        ></i>
-                                      {:else if step.orientation === '西北'}
-                                        <i
-                                          class="fa-solid fa-circle-arrow-left"
-                                          style="transform: rotate(45deg);"
-                                        ></i>
-                                      {:else}
-                                        {step.orientation}
-                                      {/if}
-                                    </span>
-                                  {:else}
-                                    <span><i class="fa-solid fa-circle"></i></span>
-                                  {/if}
-                                </div>
-                                <div class="flex-1">
-                                  <span
-                                    class={step.isSignificant
-                                      ? 'text-base-content font-semibold'
-                                      : 'text-base-content/80'}>{step.instruction}</span
-                                  >
-                                  {#if step.isSignificant || step.time > 90}
-                                    <div
-                                      class="text-xs {step.isSignificant
-                                        ? 'text-base-content/80'
-                                        : 'text-base-content/60 font-normal'}"
-                                    >
-                                      <span>{formatDistance(step.distance / 1000, 2)}</span>
-                                      {#if step.time}
-                                        <span> · {formatDuration(step.time)}</span>
-                                      {/if}
-                                    </div>
-                                  {/if}
-                                </div>
-                              </div>
-                            {/each}
-                          </div>
-                        </details>
-                      </div>
-                    {/if}
-                  </div>
-                {/each}
-              {/if}
-            {/if}
+                {#if leg.steps.length > 1}
+                  <details class="group ml-9">
+                    <summary
+                      class="text-base-content/60 hover:text-base-content/80 cursor-pointer text-xs transition-colors"
+                    >
+                      <i class="fas fa-chevron-right mr-1 transition-transform group-open:rotate-90"
+                      ></i>
+                      {m.details()} ({leg.steps.length})
+                    </summary>
+                    <ol class="mt-2 space-y-1.5">
+                      {#each leg.steps as step, stepIndex (stepIndex)}
+                        <li class="text-base-content/70 text-xs">
+                          <span>{step.instruction}</span>
+                          {#if step.distanceMeters}
+                            <span class="text-base-content/50">
+                              · {formatDistance(step.distanceMeters / 1000, 2)}
+                            </span>
+                          {/if}
+                        </li>
+                      {/each}
+                    </ol>
+                  </details>
+                {/if}
+              </div>
+            {/each}
           </div>
         </div>
       {/if}

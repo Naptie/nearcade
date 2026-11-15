@@ -1,6 +1,7 @@
 <script lang="ts">
   /* eslint svelte/no-at-html-tags: "off" */
   import { m } from '$lib/paraglide/messages';
+  import { fetchMapLink } from '$lib/utils/map-links.client';
   import type { PageData } from './$types';
   import {
     adaptiveNewTab,
@@ -18,7 +19,6 @@
     getShopTimezone,
     getShopOpeningHours,
     isShopCurrentlyOpen,
-    isShopChinaBased,
     pageTitle,
     sanitizeHTML
   } from '$lib/utils';
@@ -801,19 +801,14 @@
         </InlineAlert>
       {/snippet}
       {#snippet header(isMain = true)}
-        {@const [link, label] = !isShopChinaBased(shop)
-          ? [
-              `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                `${shop.name} ${formatShopAddress(shop)}`
-              )}`,
-              m.view_in_google_maps()
-            ]
-          : [
-              `https://uri.amap.com/marker?position=${shop.location.coordinates[0]},${
-                shop.location.coordinates[1]
-              }&name=${encodeURIComponent(shop.name)}&src=nearcade&callnative=1`,
-              m.view_in_amap()
-            ]}
+        {@const openMapLink = async () => {
+          const link = await fetchMapLink({
+            longitude: shop.location.coordinates[0],
+            latitude: shop.location.coordinates[1],
+            name: shop.name
+          });
+          if (browser && link) window.open(link, '_blank', 'noopener,noreferrer');
+        }}
         <!-- Shop Header -->
         <div class="mb-8 {isMain ? 'not-md:hidden' : 'md:hidden'}">
           <div class="mb-4 flex min-w-0 items-center justify-between gap-2">
@@ -942,15 +937,14 @@
                   onRequestDelete={() => (showDeleteRequestModal = true)}
                 />
               {/if}
-              <a
-                href={link}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
                 class="btn btn-primary btn-soft"
+                onclick={() => void openMapLink()}
               >
                 <i class="fa-solid fa-external-link-alt"></i>
-                {label}
-              </a>
+                {m.open_in_maps_app()}
+              </button>
             </div>
           </div>
         </div>

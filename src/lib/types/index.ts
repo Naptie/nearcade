@@ -4,7 +4,7 @@ import type {
   RANKING_RADIUS_OPTIONS,
   METRO_RANKING_RADIUS_OPTIONS
 } from '../constants';
-import type { TransportSearchResult } from './amap';
+export type { TransportSearchResult, CachedRouteData, DirectionsState } from './routing';
 import type { PublicUser } from '$lib/auth/types';
 import { z } from 'zod';
 import { activitySchema } from '$lib/schemas/users';
@@ -150,15 +150,15 @@ export type SortCriteria =
   'shops' | 'machines' | 'density' | 'per_capita' | (typeof GAME_TITLES)[number]['key'];
 
 /**
- * Travel method driving the discover view. These select an *AMap* network
- * lookup for the table's travel column; the server-computed openmetro
- * itineraries (walk / ride / metro) are always shown in the panel regardless
- * of this choice, so there is no separate "metro" method.
+ * Travel method driving the discover view. These select the routing lookup
+ * for the table's travel column; the server-computed openmetro itineraries
+ * (walk / ride / metro) are always shown in the panel regardless of this
+ * choice, so there is no separate "metro" method.
  */
 export type TransportMethod = undefined | 'transit' | 'walking' | 'riding' | 'driving';
 
-/** Methods computed by the AMap plugins (all of them — `undefined` means none). */
-export type AMapTransportMethod = Exclude<TransportMethod, undefined>;
+/** A concrete transport method (`undefined` means none selected). */
+export type ConcreteTransportMethod = Exclude<TransportMethod, undefined>;
 
 export type RankingRadiusFilter = (typeof RANKING_RADIUS_OPTIONS)[number];
 
@@ -400,18 +400,6 @@ export type AttendanceReport = Array<{
   comment: string | null;
 }>;
 
-// Extended types for directions
-export interface CachedRouteData {
-  routeData: TransportSearchResult;
-  selectedRouteIndex: number;
-}
-
-export interface DirectionsState {
-  isOpen: boolean;
-  shopId: string | null;
-  selectedRouteIndex: number;
-}
-
 export interface WindowMessage {
   type: 'NAVIGATE' | 'INVALIDATE';
   payload?: string;
@@ -473,5 +461,3 @@ export interface ShopWithExtras extends Shop {
   currentAttendance: number;
   density: number;
 }
-
-export * from './amap';

@@ -14,7 +14,9 @@
  * Kept free of SvelteKit imports (`$env`, `$lib/db`) so it is usable from the
  * server endpoints, the graph/routing modules, and the browser client alike.
  */
-import type { TransportMethod, TransportSearchResult } from '$lib/types';
+import type { TransportMethod } from '$lib/types';
+import type { TransportSearchResult } from '$lib/types/routing';
+import { LEG_STYLES } from '$lib/utils/route-style';
 import {
   METRO_ENTRY_OVERHEAD_SECONDS,
   METRO_EXIT_OVERHEAD_SECONDS,
@@ -133,19 +135,12 @@ export const getTravelIcon = (
   if (method === 'driving') return 'fa-car';
   if (method !== 'transit') return 'fa-person-walking';
 
-  if (result && typeof result === 'object' && 'plans' in result) {
-    const segments = result.plans[selectedRouteIndex]?.segments;
-    if (segments?.length) {
-      const modes = new Set(segments.map((segment) => segment.transit_mode));
-      modes.delete('WALK');
-      if (modes.size === 0) return 'fa-person-walking';
-      if (modes.size === 1) {
-        if (modes.has('SUBWAY')) return 'fa-train-subway';
-        if (modes.has('BUS')) return 'fa-bus';
-        if (modes.has('METRO_RAIL')) return 'fa-train-tram';
-        if (modes.has('RAILWAY')) return 'fa-train';
-        if (modes.has('TAXI')) return 'fa-taxi';
-      }
+  if (result && typeof result === 'object' && 'routes' in result) {
+    const legs = result.routes[selectedRouteIndex]?.legs;
+    if (legs?.length) {
+      // The route's headline vehicle is its first non-walking leg.
+      const vehicle = legs.find((leg) => leg.kind !== 'walk');
+      return vehicle ? LEG_STYLES[vehicle.kind].icon : 'fa-person-walking';
     }
   }
 

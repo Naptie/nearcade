@@ -176,7 +176,8 @@ suite('hours/matchers', async () => {
 suite('hours/open-now', async () => {
   const tokyoLocation = {
     type: 'Point' as const,
-    coordinates: [139.69, 35.68] as [number, number]
+    coordinates: [139.69, 35.68] as [number, number],
+    coordinateSystem: 'WGS84' as const
   };
   const tokyoShop = {
     location: tokyoLocation,
@@ -266,7 +267,11 @@ suite('hours/dst-offset-follows-instant', async () => {
   // End-to-end through the open/closed decision, which is what users see:
   // a 09:00–17:00 shop must read as open at 09:30 local in BOTH seasons.
   const nyShop = {
-    location: { type: 'Point' as const, coordinates: [-74.006, 40.71] as [number, number] },
+    location: {
+      type: 'Point' as const,
+      coordinates: [-74.006, 40.71] as [number, number],
+      coordinateSystem: 'WGS84' as const
+    },
     timezone: { name: 'America/New_York' },
     openingHours: [pair(9, 17)]
   };
