@@ -44,7 +44,7 @@
     "@fortawesome/fontawesome-free": "^7.3.0",
     "@inlang/paraglide-js": "^2.19.0",
     "@sveltejs/adapter-auto": "^7.0.1",
-    "@sveltejs/adapter-cloudflare": "^7.2.9",
+    "@sveltejs/adapter-cloudflare": "^7.2.10",
     "@sveltejs/adapter-node": "^5.5.7",
     "@sveltejs/adapter-vercel": "^6.3.4",
     "@sveltejs/kit": "^2.70.2",
