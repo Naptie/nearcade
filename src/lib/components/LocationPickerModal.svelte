@@ -45,6 +45,8 @@
     types: string[];
     distanceMeters?: number;
   };
+  /** The `regions.resolve` answer, derived so it cannot drift from the contract. */
+  type RegionResolveResult = Awaited<ReturnType<typeof orpc.regions.resolve>>;
 
   const DEFAULT_CENTER: [number, number] = [116.4074, 39.9042];
   // Budget for resolving the initial view (cached fix → IP origin). Past it
@@ -75,6 +77,11 @@
   let mapInstance = $state.raw<maplibregl.Map | null>(null);
   let selectedLocation = $state<MapSelection | null>(null);
   let selectedPlace = $state<Place | null>(null);
+  // The reverse-geocode answer for the current selection. It lands as soon as
+  // a point is picked — the row shows the address while the map is open — and
+  // saving reuses it instead of paying for the lookup twice.
+  let resolvedPoint = $state<RegionResolveResult | null>(null);
+  let resolveFailed = $state(false);
   let placeQuery = $state('');
   let places = $state<Place[]>([]);
   let isSearchingPlaces = $state(false);
@@ -86,12 +93,20 @@
   let placeSearchTimeout: ReturnType<typeof setTimeout> | undefined;
   let searchRequestId = 0;
   let pickerSession = 0;
+  /** Lets a newer pick supersede an older answer. */
+  let resolveRequestId = 0;
+  /** The current selection's resolve, for saving before the answer landed. */
+  let resolvePromise: Promise<RegionResolveResult> | null = null;
   let selectionMarker: maplibregl.Marker | null = null;
 
   const resetPickerState = () => {
     clearTimeout(placeSearchTimeout);
     searchRequestId++;
     pickerSession++;
+    resolveRequestId++;
+    resolvePromise = null;
+    resolvedPoint = null;
+    resolveFailed = false;
     placeQuery = '';
     places = [];
     isSearchingPlaces = false;
@@ -103,9 +118,48 @@
     selectedPlace = null;
   };
 
+  /**
+   * Reverse-geocode the picked point.
+   *
+   * The resolution runs the moment a point is picked — not on save — so the
+   * selected row shows the address while the map is still open, and saving a
+   * point whose answer is already in reuses it instead of paying twice. The
+   * request id lets a newer pick supersede an older one, in both directions:
+   * a late answer never fills the row, and a late failure never flags it.
+   */
+  const resolveSelection = (selection: MapSelection): Promise<RegionResolveResult> => {
+    const requestId = ++resolveRequestId;
+    const promise = orpc.regions.resolve({
+      longitude: selection.longitude,
+      latitude: selection.latitude,
+      ...(selection.coordinateSystem ? { coordinateSystem: selection.coordinateSystem } : {}),
+      ...(selection.address ? { address: selection.address } : {}),
+      language: getLocale()
+    });
+    resolvePromise = promise;
+    promise.then(
+      (result) => {
+        if (requestId !== resolveRequestId) return;
+        resolvedPoint = result;
+        resolveFailed = false;
+      },
+      (error) => {
+        console.error('Failed to resolve the selected location:', error);
+        if (requestId !== resolveRequestId) return;
+        resolveFailed = true;
+      }
+    );
+    return promise;
+  };
+
   const setSelection = (selection: MapSelection) => {
     selectedLocation = selection;
     if (!selection.name) selectedPlace = null;
+    // A newer pick invalidates the previous point's answer up front, so the
+    // row waits for this point's own address instead of flashing the old one.
+    resolvedPoint = null;
+    resolveFailed = false;
+    void resolveSelection(selection);
     const map = mapInstance;
     if (!map) return;
     if (!selectionMarker) {
@@ -285,15 +339,12 @@
     pickerError = '';
 
     try {
-      // The resolution is the one operation that answers "where is this
-      // point, and which region is it in" — the same one the shop form uses.
-      const result = await orpc.regions.resolve({
-        longitude: selection.longitude,
-        latitude: selection.latitude,
-        ...(selection.coordinateSystem ? { coordinateSystem: selection.coordinateSystem } : {}),
-        ...(selection.address ? { address: selection.address } : {}),
-        language: getLocale()
-      });
+      // The point's address resolved when it was picked — that is what the
+      // selected row shows — so saving reuses that answer and only pays for
+      // a lookup the row never got. A failed one is retried here.
+      const result =
+        resolvedPoint ??
+        (await (resolveFailed || !resolvePromise ? resolveSelection(selection) : resolvePromise));
       if (session !== pickerSession) return;
 
       onLocationSelected({
@@ -531,11 +582,31 @@
     {#if selectedLocation}
       <div class="bg-base-200 mb-4 flex items-center gap-2 rounded-lg p-3">
         <i class="fa-solid fa-map-marker-alt text-primary"></i>
-        <div>
-          <p class="font-medium">{selectedLocation.name || m.selected_location()}</p>
-          <p class="text-base-content/60 text-xs">
-            {selectedLocation.longitude.toFixed(6)}, {selectedLocation.latitude.toFixed(6)}
-          </p>
+        <div class="min-w-0 flex-1">
+          {#if resolvedPoint}
+            <!-- The provider answers with an address, not with the name of a
+                 place: the name is the one the search returned, so a picked
+                 place keeps it above the resolved address, and a bare map
+                 click shows the address alone. -->
+            <p class="truncate font-medium">
+              {selectedLocation.name || resolvedPoint.place.address || m.selected_location()}
+            </p>
+            {#if selectedLocation.name && resolvedPoint.place.address}
+              <p class="text-base-content/60 truncate text-xs">{resolvedPoint.place.address}</p>
+            {/if}
+          {:else if resolveFailed}
+            <!-- Nothing parsed for this point — keep the coordinates visible
+                 as the fallback until save retries the resolution. -->
+            <p class="text-error text-sm">{m.address_unresolved()}</p>
+            <p class="text-base-content/60 text-xs">
+              {selectedLocation.longitude.toFixed(6)}, {selectedLocation.latitude.toFixed(6)}
+            </p>
+          {:else}
+            <p class="text-base-content/60 flex items-center gap-2 text-sm">
+              <span class="loading loading-spinner loading-xs"></span>
+              {m.resolving_address()}
+            </p>
+          {/if}
         </div>
       </div>
     {/if}
