@@ -736,9 +736,7 @@
                             />
                           </div>
                           {#if membership.verifiedAt}
-                            <div
-                              class="text-base-content/60 order-1 text-xs sm:order-0 sm:w-full"
-                            >
+                            <div class="text-base-content/60 order-1 text-xs sm:order-0 sm:w-full">
                               {m.admin_verified_at({
                                 date: formatDateTime(membership.verifiedAt)
                               })}

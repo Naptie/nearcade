@@ -35,6 +35,7 @@
     type MetroFare
   } from '$lib/utils/metro.client';
   import { fetchMapLink } from '$lib/utils/map-links.client';
+  import { useCopyFeedback } from '$lib/utils/clipboard.svelte';
   import { getTravelIcon, inferTravelSeconds } from '$lib/utils/travel';
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
@@ -80,6 +81,7 @@
   let selectedShopId: string | null = $state(null);
   let highlightedShopId: string | null = $state(null);
   let highlightedShopIdTimeout: ReturnType<typeof setTimeout> | null = $state(null);
+  const copyFeedback = useCopyFeedback();
   let darkMode = $derived(browser ? isDarkMode() : undefined);
   let transportMethod = $state<TransportMethod>(undefined); // 'transit', 'walking', 'riding', 'driving'
   let discoverRadius = $derived(data.radius ?? 10);
@@ -2526,6 +2528,7 @@
         </thead>
         {#snippet discoverShopRow(shop: DiscoverShop)}
           {@const isShopOpen = isShopCurrentlyOpen(shop, now)}
+          {@const nameCopied = copyFeedback.copiedKey === `${shop.id}`}
           {#snippet attendance(klass = 'text-sm')}
             {#if shop.isClosed}
               <div class="text-error {klass}">{m.shop_mark_as_closed()}</div>
@@ -2593,7 +2596,23 @@
             <td class="discover-cell discover-sticky discover-sticky-shop">
               <div class="flex items-center space-x-3">
                 <div>
-                  <div class="text-lg font-bold">{shop.name}</div>
+                  <div class="flex items-center gap-1.5">
+                    <div class="text-lg font-bold">{shop.name}</div>
+                    <!-- Copy shop name. `type="button"` + the row's own
+                         `closest('button, a')` guard keep this from selecting
+                         the shop or scrolling the map. -->
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-xs btn-circle shrink-0 transition-opacity {nameCopied
+                        ? 'text-success opacity-100'
+                        : 'opacity-40 hover:opacity-100'}"
+                      onclick={() => copyFeedback.copy(shop.name, `${shop.id}`)}
+                      title={m.copy()}
+                      aria-label={m.copy()}
+                    >
+                      <i class="fa-solid {nameCopied ? 'fa-check' : 'fa-copy'} text-xs"></i>
+                    </button>
+                  </div>
                   {#if metroEnabled && shop.transit?.metro}
                     {@const metroLines = getMetroShopLines(shop, data.metro)}
                     {@const stationLabel = getMetroLocalizedName(
