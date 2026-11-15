@@ -375,5 +375,9 @@ export function socialPlatformMessageKey<S extends SocialPlatform>(platform: S):
  *
  * Translation infrastructure (cache, queues, SSE, admin UI) is fully
  * preserved — flip this to `true` to re-enable the whole pipeline.
+ *
+ * Since re-enablement, /v1/translate is served by Index-Translate-9B (free
+ * bilibili API for short items, self-hosted 9B on the home Mac for long
+ * ones — both free), so translations no longer spend the Neuron budget.
  */
-export const UGC_TRANSLATION_ENABLED = false;
+export const UGC_TRANSLATION_ENABLED = true;

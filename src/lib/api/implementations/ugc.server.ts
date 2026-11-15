@@ -103,8 +103,6 @@ export const ugcImplementation = {
       // negatively cached), enqueue translation work if the client provided
       // the source text. Fire-and-forget (never blocks the response); the
       // SSE stream / polling delivers the result.
-      // Feature temporarily disabled — cache is still served above (see
-      // switch.ts).
       if (sources && UGC_TRANSLATION_ENABLED) {
         const missing = hashes.filter(
           (hash) => !translations[hash] && found.get(hash) !== '' && sources[hash]
