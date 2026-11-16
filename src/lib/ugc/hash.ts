@@ -31,22 +31,3 @@ export const ugcTextHash = async (text: string): Promise<string> =>
 
 export const translationCacheKey = (hash: string, lang: string): string => `${hash}:${lang}`;
 
-/**
- * Derive the content hashes for a set of auditable fields. The single
- * derivation point used by registration, backfill, and job dispatch —
- * hashes are never stored, always computed from the normalized source text.
- * Fields that are empty or over the audit cap are skipped entirely.
- */
-export const ugcFieldHashes = async (
-  fields: Record<string, string | undefined | null>,
-  maxTextLength: number
-): Promise<Map<string, string>> => {
-  const byHash = new Map<string, string>();
-  for (const raw of Object.values(fields)) {
-    const normalized = raw ? normalizeUgcText(raw) : '';
-    if (!normalized || normalized.length > maxTextLength) continue;
-    const hash = await ugcTextHash(normalized);
-    if (!byHash.has(hash)) byHash.set(hash, normalized);
-  }
-  return byHash;
-};

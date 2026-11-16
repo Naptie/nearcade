@@ -6,6 +6,7 @@ import mongo from '$lib/db/index.server';
 import { m } from '$lib/paraglide/messages';
 import { toPlainObject } from '$lib/utils';
 import { normalizeUgcTranslationFields } from '$lib/ugc/types';
+import { ugcTextHash } from '$lib/ugc/hash';
 import { lookupUgcTranslations } from '$lib/ugc/translate.server';
 import { enqueueUgcTranslations } from '$lib/ugc/jobs.server';
 import { UGC_TRANSLATION_ENABLED } from '$lib/constants';
@@ -101,20 +102,29 @@ export const ugcImplementation = {
 
       // On-demand backfill: for hashes we couldn't serve (and that are not
       // negatively cached), enqueue translation work if the client provided
-      // the source text. Fire-and-forget (never blocks the response); the
-      // SSE stream / polling delivers the result.
+      // the source text. Fire-and-forget (never blocks the response); polling
+      // delivers the result.
+      //
+      // The endpoint is unauthenticated and hashes are public (clients send
+      // them on every lookup), so `sources` is client-controlled input: a
+      // (hash, text) pair whose text does not hash to `hash` would poison the
+      // shared cache with a translation of the wrong source text. Verify
+      // server-side before anything is enqueued.
       if (sources && UGC_TRANSLATION_ENABLED) {
         const missing = hashes.filter(
           (hash) => !translations[hash] && found.get(hash) !== '' && sources[hash]
         );
-        if (missing.length > 0) {
-          void enqueueUgcTranslations(
-            missing.map((hash) => ({
-              hash,
-              text: sources[hash],
-              target: lang as UgcLocale
-            }))
-          );
+        const verified: { hash: string; text: string; target: UgcLocale }[] = [];
+        for (const hash of missing) {
+          // Size is already enforced by the request schema (`sources` values
+          // are capped like MAX_TEXT_LENGTH) — only hash honesty is checked here.
+          const text = sources[hash];
+          if (!text) continue;
+          if ((await ugcTextHash(text)) !== hash) continue;
+          verified.push({ hash, text, target: lang as UgcLocale });
+        }
+        if (verified.length > 0) {
+          void enqueueUgcTranslations(verified);
         }
       }
 

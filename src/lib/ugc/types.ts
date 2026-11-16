@@ -197,6 +197,20 @@ export type WithUgcTranslations = {
   _t?: UgcTranslationMap;
 };
 
+/**
+ * Typed reader for the `_t` attachments `withUgcTranslations` merges onto
+ * documents. Lives here (dependency-free) so universal components can read
+ * attachments without touching server-only modules.
+ */
+export const getUgcTranslation = <T extends WithUgcTranslations>(
+  item: T,
+  field: string,
+  lang: string
+): string | undefined => {
+  if (!(UGC_LOCALES as readonly string[]).includes(lang)) return undefined;
+  return item._t?.[field]?.[lang as UgcLocale];
+};
+
 export interface UgcTranslationRecord {
   /** `${sourceHash}:${targetLang}` */
   _id: string;

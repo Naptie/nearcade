@@ -5,6 +5,7 @@
   import { formatDistanceToNow } from 'date-fns';
   import { onMount } from 'svelte';
   import UserAvatar from './UserAvatar.svelte';
+  import T from '$lib/ugc/components/T.svelte';
   import type { GAME_TITLES } from '$lib/constants';
   import { orpc } from '$lib/api/client';
   import type { attendanceHistoryEntrySchema } from '$lib/schemas/shops';
@@ -123,7 +124,7 @@
             {#if report.comment}
               <div class="border-base-content/10 mt-2 border-t pt-2">
                 <p class="text-base-content/60 text-xs">
-                  {report.comment}
+                  <T text={report.comment} field="attendance_report" />
                 </p>
               </div>
             {/if}

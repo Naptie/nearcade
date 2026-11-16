@@ -115,7 +115,7 @@ const persistPromptDismissal = async (): Promise<void> => {
  * translatable UGC.
  */
 const maybeShowTranslationPrompt = async (): Promise<void> => {
-  // Feature temporarily disabled — no invitation while off (see switch.ts).
+  // Site-wide switch — no invitation while off (see constants.ts).
   if (!UGC_TRANSLATION_ENABLED) return;
   if (promptShown) return;
   const prefs = await ensureUgcPreferences();
@@ -201,14 +201,18 @@ const settleHash = (hash: string, locale: UgcLocale, text?: string): void => {
   }
 };
 
-/** Consecutive poll rounds a key may miss before being given up on. */
-const POLL_GIVE_UP_ROUNDS = 12;
+/**
+ * Consecutive poll rounds a key may miss before being given up on. Generous
+ * by design: a cold self-host backend adds a wake + load minute before its
+ * first translation lands, and 5s rounds must not abandon real work.
+ */
+const POLL_GIVE_UP_ROUNDS = 60;
 const pollMisses = new Map<string, number>();
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Re-query the server for any still-pending hashes. Keys that miss every
- * round for ~1 minute are abandoned so the pending toast can't stick
+ * round for ~5 minutes are abandoned so the pending toast can't stick
  * forever — either the job was lost or the text is untranslatable and no
  * cache entry will ever appear.
  */
@@ -346,8 +350,8 @@ export const resolveUgcTextState = async (
 ): Promise<UgcTranslationStatus> => {
   if (!(UGC_LOCALES as readonly string[]).includes(locale)) return { state: 'none' };
 
-  // Feature temporarily disabled — always render the original text and
-  // skip every fetch/prompt/toast (see switch.ts).
+  // Site-wide switch — render the original text and skip every
+  // fetch/prompt/toast while off (see constants.ts).
   if (!UGC_TRANSLATION_ENABLED) return { state: 'none' };
 
   const normalized = normalizeUgcText(text);

@@ -10,6 +10,7 @@
   import { buildImageUploadUrl } from '$lib/utils/image';
   import { goto, invalidateAll } from '$app/navigation';
   import Comment from '$lib/components/Comment.svelte';
+  import T from '$lib/ugc/components/T.svelte';
   import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
   import PhotoCarousel from '$lib/components/PhotoCarousel.svelte';
   import type { ImageAsset, ShopDeleteRequestVoteType } from '$lib/types';
@@ -327,7 +328,9 @@
       <h2 class="mb-2 text-sm font-semibold tracking-wide uppercase opacity-60">
         {m.shop_delete_request_reason()}
       </h2>
-      <p class="bg-base-200 rounded-xl p-4 text-sm">{req.reason}</p>
+      <p class="bg-base-200 rounded-xl p-4 text-sm">
+        <T text={req.reason} field="delete_request" />
+      </p>
     </div>
 
     {#if (req.resolvedImages?.length ?? 0) > 0}

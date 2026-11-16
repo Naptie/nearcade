@@ -1,5 +1,6 @@
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
+  import T from '$lib/ugc/components/T.svelte';
   import {
     aggregateGames,
     formatHourLiteral,
@@ -89,10 +90,12 @@
   <!-- Shop Header -->
   <div class="mb-2 flex flex-col">
     {#if interactive}
-      <span class="truncate text-lg font-semibold" title={shop.name}>{shop.name}</span>
+      <span class="truncate text-lg font-semibold" title={shop.name}>
+        <T text={shop.name} field="shop_name" />
+      </span>
     {:else}
       <h3 class="truncate text-lg font-semibold" title={shop.name}>
-        {shop.name}
+        <T text={shop.name} field="shop_name" />
       </h3>
     {/if}
 

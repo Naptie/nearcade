@@ -130,6 +130,7 @@ export const load: PageServerLoad = async ({ params, url, parent }) => {
   const gameFields = ugcFieldsForUser(session?.user, [
     'game_name',
     'game_version',
+    'game_cost',
     'game_description'
   ]);
   await Promise.all([

@@ -35,6 +35,19 @@ const WINDOW_SECONDS = 60;
 const RATE_LIMIT_TABLE = [
   {
     /** Contract-path prefix the rule covers. */
+    prefix: '/ugc/translations',
+    /**
+     * The endpoint is unauthenticated and (with `sources`) doubles as the
+     * enqueue path for background translation, so it needs a real ceiling:
+     * opted-in clients poll it every ~5s while work is pending, which is
+     * well under the authenticated limit even on hash-heavy pages; the
+     * anonymous limit exists purely to blunt abuse of the free queue.
+     */
+    anonymous: 30,
+    authenticated: 300
+  },
+  {
+    /** Contract-path prefix the rule covers. */
     prefix: '/geo/directions',
     /**
      * The discover map routes every rendered shop, one request each, and the

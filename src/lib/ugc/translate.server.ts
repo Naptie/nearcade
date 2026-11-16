@@ -117,22 +117,22 @@ export const lookupUgcTranslations = async (
       for (const doc of stored) {
         // Empty text = negative cache (identity/untranslatable); keep it in
         // the map so callers can distinguish "definitely none" from
-        // "not attempted".
+        // "not attempted". Promote BOTH polarities to Redis — an
+        // untranslatable text absent from the hot layer would otherwise hit
+        // Mongo on every single miss forever.
         found.set(doc.hash, doc.text);
-        if (doc.text) {
-          void (async () => {
-            try {
-              await ensureConnected();
-              await redis.setEx(
-                redisTranslationKey(translationCacheKey(doc.hash, doc.lang)),
-                REDIS_TTL_SECONDS,
-                doc.text
-              );
-            } catch (err) {
-              console.error('[UGCTranslate] Redis promote failed:', err);
-            }
-          })();
-        }
+        void (async () => {
+          try {
+            await ensureConnected();
+            await redis.setEx(
+              redisTranslationKey(translationCacheKey(doc.hash, doc.lang)),
+              REDIS_TTL_SECONDS,
+              doc.text
+            );
+          } catch (err) {
+            console.error('[UGCTranslate] Redis promote failed:', err);
+          }
+        })();
       }
     } catch (err) {
       console.error('[UGCTranslate] Mongo read failed:', err);
@@ -192,8 +192,8 @@ export const withUgcTranslations = async <T extends object>(
   fields: readonly string[],
   lang: string
 ): Promise<(T & WithUgcTranslations)[]> => {
-  // Feature temporarily disabled — skip hash computation + cache reads on
-  // SSR hot paths (see switch.ts).
+  // Site-wide switch — skip hash computation + cache reads on SSR hot
+  // paths while off (see constants.ts).
   if (!UGC_TRANSLATION_ENABLED) return items as (T & WithUgcTranslations)[];
   if (!(UGC_LOCALES as readonly string[]).includes(lang)) {
     return items as (T & WithUgcTranslations)[];
@@ -202,17 +202,22 @@ export const withUgcTranslations = async <T extends object>(
   const hashes = await Promise.all(
     items.map(async (item) => {
       const perField: Record<string, string | null> = {};
+      const texts: Record<string, string> = {};
       for (const field of fields) {
         const raw = SOURCE_TEXT_BY_FIELD[field]?.(item as Record<string, unknown>);
-        perField[field] =
-          typeof raw === 'string' && normalizeUgcText(raw) ? await ugcTextHash(raw) : null;
+        if (typeof raw === 'string' && normalizeUgcText(raw)) {
+          perField[field] = await ugcTextHash(raw);
+          texts[field] = raw;
+        } else {
+          perField[field] = null;
+        }
       }
-      return perField;
+      return { perField, texts };
     })
   );
 
   const wanted = new Set<string>();
-  for (const perField of hashes) {
+  for (const { perField } of hashes) {
     for (const hash of Object.values(perField)) {
       if (hash) wanted.add(hash);
     }
@@ -222,21 +227,37 @@ export const withUgcTranslations = async <T extends object>(
 
   const locale = lang as UgcLocale;
   for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
-    for (const [field, hash] of Object.entries(hashes[itemIndex])) {
+    for (const [field, hash] of Object.entries(hashes[itemIndex].perField)) {
       const text = hash ? found.get(hash) : undefined;
       // Empty string = negative cache entry: nothing to merge.
       if (text) mergeAttachment(items[itemIndex], field, locale, text);
     }
   }
+
+  // Self-healing backfill: a miss means no cached translation exists yet, and
+  // some resolved fields (descriptions, addresses, prices) have no client-side
+  // T component that would otherwise request one. Enqueue the source text so
+  // the next visit renders translated. Opt-in filtering already happened
+  // upstream (`ugcFieldsForUser`), the site switch is checked above, and
+  // enqueue dedupes against the cache and the queue.
+  const missing: { hash: string; text: string; target: UgcLocale }[] = [];
+  const seen = new Set<string>();
+  for (const { perField, texts } of hashes) {
+    for (const [field, hash] of Object.entries(perField)) {
+      if (!hash || found.has(hash) || seen.has(hash)) continue;
+      const raw = texts[field];
+      if (!raw) continue;
+      seen.add(hash);
+      missing.push({ hash, text: raw, target: locale });
+    }
+  }
+  if (missing.length > 0) {
+    // Dynamic import: jobs.server imports this module back (lookup/persist),
+    // so a static edge would create a top-level cycle.
+    void import('./jobs.server').then(({ enqueueUgcTranslations }) =>
+      enqueueUgcTranslations(missing)
+    );
+  }
   return items as (T & WithUgcTranslations)[];
 };
 
-/** Typed reader for `_t` attachments produced by withUgcTranslations. */
-export const getUgcTranslation = <T extends WithUgcTranslations>(
-  item: T,
-  field: string,
-  lang: string
-): string | undefined => {
-  if (!(UGC_LOCALES as readonly string[]).includes(lang)) return undefined;
-  return item._t?.[field]?.[lang as UgcLocale];
-};

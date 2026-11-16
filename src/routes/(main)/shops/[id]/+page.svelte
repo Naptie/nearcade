@@ -27,6 +27,7 @@
   import { browser } from '$app/environment';
   import type { AttendanceData, AttendanceReport } from '$lib/types';
   import { orpc } from '$lib/api/client';
+  import { getUgcTranslation } from '$lib/ugc/types';
   import { removeComment, updateComment, voteComment } from '$lib/comments/client';
   import { isApiError } from '$lib/utils/api-error';
   import { convertCoordinates } from '$lib/utils/index.client';
@@ -275,9 +276,12 @@
 
       Promise.all(
         shop.games.map(async (game) => {
-          const translatedComment = game._t?.game_description?.[pageLocale] ?? game.comment;
+          const translatedComment =
+            getUgcTranslation(game, 'game_description', pageLocale) ?? game.comment;
           gameComments[game.gameId] = await render(translatedComment);
-          costs[game.gameId] = await sanitizeHTML(game.cost);
+          costs[game.gameId] = await sanitizeHTML(
+            getUgcTranslation(game, 'game_cost', pageLocale) ?? game.cost
+          );
         })
       );
     }

@@ -45,7 +45,7 @@
   };
 
   $effect(() => {
-    // Feature temporarily disabled — never fetch/fade (see switch.ts).
+    // Site-wide switch — never fetch/fade while off (see constants.ts).
     if (!UGC_TRANSLATION_ENABLED || !normalized || translation || requested === normalized) return;
     requested = normalized;
     let unsubscribe: (() => void) | null = null;

@@ -63,10 +63,10 @@ export const callUgcAi = async <T>(
 };
 
 /**
- * Free-tier Workers AI allocation is 10k Neurons/day. A Redis counter shared
- * by translations and audits acts as a circuit breaker so a burst can never
- * drain the whole day's quota — once exhausted, generation degrades to
- * original-only until tomorrow (UTC).
+ * Free-tier Workers AI allocation is 10k Neurons/day. A Redis counter acts
+ * as a circuit breaker for the AUDIT path (the only Neuron spender since
+ * translation moved to the free Index-Translate-9B backends) — once
+ * exhausted, moderation degrades to review-only until tomorrow (UTC).
  */
 const NEURON_BUDGET_KEY_PREFIX = 'nearcade:ugc:neurons:';
 const DEFAULT_DAILY_NEURON_BUDGET = 8_000;

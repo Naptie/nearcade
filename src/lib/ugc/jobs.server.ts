@@ -52,36 +52,64 @@ const jobKey = (job: TranslationJob): string => `${job.hash}:${[...job.targets].
 /**
  * Enqueue translation work for a set of (hash, normalized text) pairs the
  * reader's locale has no cached translation for. Dedupes against the cache
- * and existing queued/in-flight entries; respects the daily neuron budget.
+ * and existing queued/in-flight entries. The queue length is capped: the
+ * enqueue path is reachable from an unauthenticated endpoint, and a flood
+ * must never turn into unbounded backend work.
  *
  * Fire-and-forget: never blocks the read path.
  */
+const TRANSLATION_QUEUE_MAX_LENGTH = 200;
+
 export const enqueueUgcTranslations = async (
   requests: { hash: string; text: string; target: UgcLocale }[]
 ): Promise<void> => {
-  // Feature temporarily disabled — infra preserved (see switch.ts).
+  // Site-wide switch — see UGC_TRANSLATION_ENABLED in constants.ts.
   if (!UGC_TRANSLATION_ENABLED) return;
   if (!isUgcAiConfigured() || requests.length === 0) return;
 
   try {
     await ensureConnected();
 
-    // Dedupe against the durable cache first (cheapest check).
-    const pending: TranslationJob[] = [];
+    const depth = await redis.lLen(TRANSLATION_JOB_LIST_KEY);
+    if (depth >= TRANSLATION_QUEUE_MAX_LENGTH) {
+      console.warn(
+        `[UGCTranslate] Queue at capacity (${depth} >= ${TRANSLATION_QUEUE_MAX_LENGTH}); dropping ${requests.length} request(s)`
+      );
+      return;
+    }
+
+    // Dedupe against the durable cache first — one batched read per target
+    // locale (callers may pass the same hash for several locales).
+    const byTarget = new Map<UgcLocale, Set<string>>();
+    const textByHash = new Map<string, string>();
     for (const { hash, text, target } of requests) {
-      const cached = await lookupUgcTranslations([hash], target);
-      if (cached.has(hash)) continue;
-      const existing = pending.find((job) => job.hash === hash);
-      if (existing) {
-        if (!existing.targets.includes(target)) existing.targets.push(target);
-      } else {
-        pending.push({ hash, text, targets: [target] });
+      textByHash.set(hash, text);
+      const hashes = byTarget.get(target) ?? new Set<string>();
+      hashes.add(hash);
+      byTarget.set(target, hashes);
+    }
+    const pending: TranslationJob[] = [];
+    const pendingKeys = new Set<string>();
+    for (const [target, hashes] of byTarget) {
+      const cached = await lookupUgcTranslations([...hashes], target);
+      for (const hash of hashes) {
+        if (cached.has(hash)) continue;
+        const key = `${hash}:${target}`;
+        if (pendingKeys.has(key)) continue;
+        pendingKeys.add(key);
+        const existing = pending.find((job) => job.hash === hash);
+        if (existing) {
+          if (!existing.targets.includes(target)) existing.targets.push(target);
+        } else {
+          pending.push({ hash, text: textByHash.get(hash) ?? '', targets: [target] });
+        }
       }
     }
     if (pending.length === 0) return;
 
-    // Skip jobs we already queued (in-flight or waiting) — the job loop will
-    // merge target locales on the consumer side.
+    // Skip jobs we already queued (in-flight or waiting); distinct hashes
+    // enqueue distinct jobs — the per-target cache re-check at completion
+    // time keeps duplicate locales from double-spending.
     const queued = new Set<string>();
     try {
       const entries = await redis.lRange(TRANSLATION_JOB_LIST_KEY, 0, -1);
@@ -149,8 +177,10 @@ const runUgcTranslationJob = async (job: TranslationJob): Promise<void> => {
   await addUgcNeuronUsage(response?.neurons);
 
   const results = response?.results;
-  if (!results || !response?.model) {
-    throw new Error('translate worker returned no results');
+  // The Worker is length-preserving by contract; a short response would
+  // silently negative-cache locales the Worker never answered.
+  if (!results || !response?.model || results.length !== targets.length) {
+    throw new Error('translate worker returned no/incomplete results');
   }
   const model = response.model;
 
@@ -170,8 +200,10 @@ const runUgcTranslationJob = async (job: TranslationJob): Promise<void> => {
  * finishes and every target translation has been written to the cache — while
  * the (per-locale, multi-phase) Worker round-trips are running the job stays
  * tracked at the head of the queue. A failing head is rotated to the tail and
- * retried on a later tick, up to TRANSLATION_JOB_MAX_ATTEMPTS — after that it
- * is dropped WITHOUT a negative cache entry, so a later reader miss naturally
+ * retried on a later tick, up to TRANSLATION_JOB_MAX_ATTEMPTS (reached on the
+ * 20th failure — retries happen once per visit to the head, so wall-clock
+ * time to exhaust them grows with queue depth) — after that it is dropped
+ * WITHOUT a negative cache entry, so a later reader miss naturally
  * re-enqueues it (in-flight dedupe keeps the outage window bounded). Returns
  * the number of jobs fully completed.
  *
@@ -209,7 +241,7 @@ export const processUgcTranslationJobs = async (limit = 10): Promise<number> => 
         await runUgcTranslationJob(job);
       } catch (err) {
         const attempts = (job.attempts ?? 0) + 1;
-        if (attempts > TRANSLATION_JOB_MAX_ATTEMPTS) {
+        if (attempts >= TRANSLATION_JOB_MAX_ATTEMPTS) {
           console.error(
             `[UGCTranslate] Dropping job ${job.hash} after ${attempts} failed ticks (backend likely down)`
           );
@@ -402,31 +434,45 @@ export const reconcileStuckAuditJobs = async (limit = 200): Promise<number> => {
  * Single entry point for the background UGC job loop — the translation
  * queue plus the durable Tier-1 moderation queue. Call ONCE from the app's
  * ServerInit (`hooks.server.ts`); the interval is unref'd so it never keeps
- * the process alive on its own. Budget exhaustion leaves jobs queued; they
- * resume after the daily Neuron reset.
+ * the process alive on its own.
+ *
+ * Ticks are guarded against reentrancy: a single translate call can now span
+ * minutes (long items on the self-host backend), far longer than the 15s
+ * interval, and the queue's peek/pop protocol is NOT safe to run
+ * concurrently — overlapping ticks would double-call the head job and pop a
+ * job they never ran. A skipped interval is harmless; an overlapping tick is
+ * not. Audit jobs run FIRST so moderation latency never waits behind a long
+ * translation call.
  */
 export const startUgcBackgroundJobs = (): void => {
   let ticks = 0;
+  let running = false;
   const tick = async (): Promise<void> => {
-    // Every ~2 minutes, repair Mongo `queued` rows whose Redis jobs were lost.
-    if (ticks % 8 === 0) {
-      try {
-        await reconcileStuckAuditJobs();
-      } catch (err) {
-        console.error('[UGCAudit] Reconcile loop error:', err);
+    if (running) return;
+    running = true;
+    try {
+      // Every ~2 minutes, repair Mongo `queued` rows whose Redis jobs were lost.
+      if (ticks % 8 === 0) {
+        try {
+          await reconcileStuckAuditJobs();
+        } catch (err) {
+          console.error('[UGCAudit] Reconcile loop error:', err);
+        }
       }
-    }
-    ticks++;
-    try {
-      await processUgcTranslationJobs(5);
-    } catch (err) {
-      // Never let the job loop take down the process.
-      console.error('[UGCTranslate] Background loop error:', err);
-    }
-    try {
-      await processUgcAuditJobs();
-    } catch (err) {
-      console.error('[UGCAudit] Background loop error:', err);
+      ticks++;
+      try {
+        await processUgcAuditJobs();
+      } catch (err) {
+        console.error('[UGCAudit] Background loop error:', err);
+      }
+      try {
+        await processUgcTranslationJobs(5);
+      } catch (err) {
+        // Never let the job loop take down the process.
+        console.error('[UGCTranslate] Background loop error:', err);
+      }
+    } finally {
+      running = false;
     }
   };
   void tick();

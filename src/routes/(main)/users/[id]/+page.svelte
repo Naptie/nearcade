@@ -4,6 +4,7 @@
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
   import { orpc } from '$lib/api/client';
+  import T from '$lib/ugc/components/T.svelte';
   import {
     adaptiveNewTab,
     formatDate,
@@ -233,7 +234,7 @@
           <!-- Bio -->
           {#if data.user.bio}
             <p class="text-base-content/80 mb-3 max-w-2xl">
-              {data.user.bio}
+              <T text={data.user.bio} field="bio" />
             </p>
           {/if}
 
