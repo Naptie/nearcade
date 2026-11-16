@@ -42,6 +42,8 @@ interface TranslationJob {
   text: string;
   /** Locales requested by readers. */
   targets: UgcLocale[];
+  /** Failed-tick counter, bumped on each rotation (retry cap below). */
+  attempts?: number;
 }
 
 /** Redis JSON envelope: jobs are stored as JSON strings in a list. */
@@ -168,15 +170,22 @@ const runUgcTranslationJob = async (job: TranslationJob): Promise<void> => {
  * finishes and every target translation has been written to the cache — while
  * the (per-locale, multi-phase) Worker round-trips are running the job stays
  * tracked at the head of the queue. A failing head is rotated to the tail and
- * retried on a later tick. Returns the number of jobs fully completed (0 when
- * nothing to do / budget exhausted — jobs stay queued and resume after the
- * daily Neuron reset).
+ * retried on a later tick, up to TRANSLATION_JOB_MAX_ATTEMPTS — after that it
+ * is dropped WITHOUT a negative cache entry, so a later reader miss naturally
+ * re-enqueues it (in-flight dedupe keeps the outage window bounded). Returns
+ * the number of jobs fully completed.
+ *
+ * The Neuron budget deliberately does NOT gate this queue: both translation
+ * backends are free (Index-Translate-9B via the official API / self-host), so
+ * a heavy audit day must not stall translations. The budget still gates the
+ * audit loop below.
  *
  * The caller (hooks init loop) invokes this in a setInterval.
  */
+const TRANSLATION_JOB_MAX_ATTEMPTS = 20;
+
 export const processUgcTranslationJobs = async (limit = 10): Promise<number> => {
   if (!isUgcAiConfigured()) return 0;
-  if (await isUgcNeuronBudgetExhausted()) return 0;
 
   let processed = 0;
   try {
@@ -199,10 +208,21 @@ export const processUgcTranslationJobs = async (limit = 10): Promise<number> => 
       try {
         await runUgcTranslationJob(job);
       } catch (err) {
-        console.error('[UGCTranslate] Job failed:', err);
+        const attempts = (job.attempts ?? 0) + 1;
+        if (attempts > TRANSLATION_JOB_MAX_ATTEMPTS) {
+          console.error(
+            `[UGCTranslate] Dropping job ${job.hash} after ${attempts} failed ticks (backend likely down)`
+          );
+          await redis.lPop(TRANSLATION_JOB_LIST_KEY);
+          continue;
+        }
+        console.error(`[UGCTranslate] Job failed (attempt ${attempts}):`, err);
         // Rotate the failing head to the tail so later jobs can proceed.
         await redis.lPop(TRANSLATION_JOB_LIST_KEY);
-        await redis.rPush(TRANSLATION_JOB_LIST_KEY, head);
+        await redis.rPush(
+          TRANSLATION_JOB_LIST_KEY,
+          JSON.stringify({ ...job, attempts } satisfies TranslationJob)
+        );
         continue;
       }
       // Success — only now does the job leave the queue.

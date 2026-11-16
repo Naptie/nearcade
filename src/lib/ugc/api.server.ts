@@ -13,6 +13,18 @@ import redis, { ensureConnected } from '$lib/db/redis.server';
 
 const WORKER_TIMEOUT_MS = 30_000;
 
+/**
+ * /v1/translate fans out per-chunk calls to Index-Translate-9B (~15 tok/s on
+ * the self-host) or bilibili's free API, so a 12-chunk worst case needs
+ * minutes, not seconds. Translation runs strictly in the background job
+ * queue, so a generous timeout never blocks a user. Audit/prefilter keep the
+ * snappy limit (they gate synchronous submit paths).
+ */
+const TRANSLATE_TIMEOUT_MS = 300_000;
+
+const ugcAiTimeoutMs = (path: string): number =>
+  path === '/v1/translate' ? TRANSLATE_TIMEOUT_MS : WORKER_TIMEOUT_MS;
+
 export const isUgcAiConfigured = (): boolean =>
   Boolean(env.UGC_AI_URL?.trim() && env.UGC_AI_SECRET?.trim());
 
@@ -36,7 +48,7 @@ export const callUgcAi = async <T>(
         Authorization: `Bearer ${env.UGC_AI_SECRET}`
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(WORKER_TIMEOUT_MS)
+      signal: AbortSignal.timeout(ugcAiTimeoutMs(path))
     });
 
     if (!response.ok) {
